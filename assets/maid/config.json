@@ -1,0 +1,74 @@
+{
+  "title": "沙发少女",
+  "source": {
+    "file": "../../examples/anime-maid.mp4",
+    "width": 1920,
+    "height": 1080,
+    "fps": 24.0,
+    "frames": 239,
+    "durationSec": 9.963,
+    "codec": "h264",
+    "bitRate": 4950149,
+    "loopSimilarity": 0.769,
+    "sampledEveryNthFrame": 2,
+    "audio": "aac 48kHz stereo"
+  },
+  "video": {
+    "width": 800,
+    "height": 450,
+    "displayScale": 1,
+    "portraitScale": 1.25,
+    "fit": "contain"
+  },
+  "orbit": {
+    "spanDeg": 360,
+    "direction": "cw"
+  },
+  "frames": {
+    "count": 120,
+    "desktop": {
+      "type": "sequence",
+      "dir": "frames/",
+      "pattern": "f%03d.jpg",
+      "start": 1
+    },
+    "mobile": {
+      "type": "atlas",
+      "dir": "frames-small/",
+      "pattern": "f%03d.jpg",
+      "start": 1,
+      "atlasDir": "atlas/",
+      "atlasPattern": "sheet%02d.jpg",
+      "atlasCount": 2,
+      "cols": 6,
+      "rows": 10,
+      "frameW": 512,
+      "frameH": 288
+    },
+    "mobileMaxScreenPx": 1100
+  },
+  "drag": {
+    "degPerPx": 0.42,
+    "invert": false,
+    "inertiaMs": 110,
+    "inertia": true
+  },
+  "motion": {
+    "smoothMs": 45
+  },
+  "auto": {
+    "enabled": false,
+    "degPerSec": 14,
+    "idleDelayMs": 2200
+  },
+  "gyro": {
+    "gain": 1.0,
+    "invert": false,
+    "smooth": true,
+    "smoothMs": 80
+  },
+  "mouseFollow": {
+    "enabled": true,
+    "degPerPx": 0.3
+  }
+}

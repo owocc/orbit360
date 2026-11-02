@@ -1,7 +1,7 @@
 {
   "title": "环绕视角",
   "source": {
-    "file": "examples/orbit-sample.mp4",
+    "file": "../../examples/orbit-sample.mp4",
     "width": 1280,
     "height": 720,
     "fps": 24.0,

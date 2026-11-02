@@ -1,0 +1,17 @@
+{
+  "default": "orbit",
+  "items": [
+    {
+      "id": "maid",
+      "title": "沙发少女",
+      "dir": "assets/maid/",
+      "frames": 120
+    },
+    {
+      "id": "orbit",
+      "title": "环绕视角",
+      "dir": "assets/orbit/",
+      "frames": 120
+    }
+  ]
+}

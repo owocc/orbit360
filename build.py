@@ -175,6 +175,35 @@ def make_atlas(frame_dir, atlas_dir, cols, rows, frame_w, frame_h, count, qualit
     return sheets, sheet_w, sheet_h
 
 
+def write_catalog(root, path, default_id=None):
+    """扫描 root 下的 <id>/config.json，生成页面用的示例清单。"""
+    base = os.path.dirname(os.path.abspath(path))
+    items = []
+    for name in sorted(os.listdir(root)):
+        cfg_path = os.path.join(root, name, "config.json")
+        if not os.path.isfile(cfg_path):
+            continue
+        try:
+            cfg = json.load(open(cfg_path, encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        items.append({
+            "id": name,
+            "title": cfg.get("title", name),
+            "dir": os.path.relpath(os.path.join(root, name), base).replace(os.sep, "/") + "/",
+            "frames": cfg.get("frames", {}).get("count"),
+        })
+    if not items:
+        die(f"{root} 下没有可用的示例配置")
+    ids = [i["id"] for i in items]
+    doc = {"default": default_id if default_id in ids else ids[0], "items": items}
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(doc, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    print(f"清单: {path}（{len(items)} 个示例: {', '.join(ids)}）")
+    return doc
+
+
 def main():
     ap = argparse.ArgumentParser(description="环绕视频 → orbit360 资产")
     ap.add_argument("video", help="源视频路径")
@@ -184,6 +213,10 @@ def main():
     ap.add_argument("--desktop", type=int, default=800, help="桌面帧长边（默认 800）")
     ap.add_argument("--mobile", type=int, default=512, help="移动帧长边（默认 512）")
     ap.add_argument("--quality", type=int, default=6, help="JPEG 质量 2-31，越小越清晰（默认 6）")
+    ap.add_argument("--title", help="示例标题，写入 config.title")
+    ap.add_argument("--catalog", help="构建后生成示例清单，例如 catalog.json")
+    ap.add_argument("--assets-root", default=None,
+                    help="示例资产根目录（默认取 --out 的父目录）")
     args = ap.parse_args()
 
     if not os.path.exists(args.video):
@@ -219,6 +252,8 @@ def main():
 
     cfg_path = os.path.join(out, "config.json")
     ui = load_ui_defaults(cfg_path)
+    if args.title:
+        ui["title"] = args.title
     cfg = {
         "title": ui["title"],
         "source": {
@@ -283,6 +318,9 @@ def main():
     print(f"雪碧图: {sheets} 张 {sw}x{sh}（atlas/）")
     print(f"角度: {360 / max(1, n_desktop):.2f}°/帧   spanDeg={cfg['orbit']['spanDeg']}")
     print(f"配置: {cfg_path}")
+    if args.catalog:
+        root = args.assets_root or os.path.dirname(out.rstrip(os.sep))
+        write_catalog(root, args.catalog, os.path.basename(out.rstrip(os.sep)))
     print("启动: python3 serve.py 8787    或    python3 serve_tls.py 8443（手机陀螺仪）")
 
 

@@ -170,6 +170,7 @@
     <button id="invBtn">反向</button>
     <button id="mouseBtn">鼠标跟随</button>
     <button id="autoBtn">自动环绕</button>
+    <button id="exampleBtn">示例</button>
   </div>
 
   <div class="p-toggles">
@@ -190,6 +191,7 @@
 'use strict';
 
 const CFG_URL = 'config.json';
+const CATALOG_URL = 'catalog.json';
 
 const el = {
   stage: document.getElementById('stage'),
@@ -212,6 +214,7 @@ const el = {
   gainVal: document.getElementById('gainVal'),
   invBtn: document.getElementById('invBtn'),
   autoBtn: document.getElementById('autoBtn'),
+  exampleBtn: document.getElementById('exampleBtn'),
   arc: document.getElementById('arc'),
   needle: document.getElementById('needle'),
   ticks: document.getElementById('ticks'),
@@ -223,6 +226,9 @@ const shortDelta = (from, to) => mod(to - from + 180, 360) - 180;
 
 const S = {
   cfg: null,
+  catalog: null,
+  exampleId: null,
+  base: '',
   frames: [],
   frameSet: null,
   count: 0,
@@ -263,7 +269,23 @@ const S = {
 /* ---------- 加载 ---------- */
 
 async function boot() {
-  const cfg = await fetch(CFG_URL, { cache: 'no-cache' }).then(r => {
+  const catalog = await fetch(CATALOG_URL, { cache: 'no-cache' })
+    .then(r => (r.ok ? r.json() : null))
+    .catch(() => null);
+
+  let entry = null;
+  if (catalog && Array.isArray(catalog.items) && catalog.items.length) {
+    const want = new URLSearchParams(location.search).get('e');
+    entry = catalog.items.find(i => i.id === want)
+      || catalog.items.find(i => i.id === catalog.default)
+      || catalog.items[0];
+  }
+  S.catalog = catalog;
+  S.exampleId = entry ? entry.id : null;
+  S.base = entry ? entry.dir : '';       // 没有 catalog 时退回同目录，单示例部署仍可用
+  if (!catalog || !Array.isArray(catalog.items) || catalog.items.length < 2) el.exampleBtn.hidden = true;
+
+  const cfg = await fetch(S.base + CFG_URL, { cache: 'no-cache' }).then(r => {
     if (!r.ok) throw new Error('config.json ' + r.status);
     return r.json();
   });
@@ -300,7 +322,7 @@ async function boot() {
   layout();
   const missing = S.frames.filter(f => !f || !f.img).length;
   if (missing) {
-    el.hint.textContent = `${missing} 帧加载失败，请检查 ${S.frameSet.dir}`;
+    el.hint.textContent = `${missing} 帧加载失败，请检查 ${S.base}${S.frameSet.dir}`;
     el.hint.classList.remove('hide');
   }
   el.loader.classList.add('done');
@@ -315,7 +337,7 @@ async function boot() {
 function frameURL(i) {
   const f = S.frameSet;
   const n = (f.start ?? 0) + i;
-  return f.dir + f.pattern.replace('%03d', String(n).padStart(3, '0'));
+  return S.base + f.dir + f.pattern.replace('%03d', String(n).padStart(3, '0'));
 }
 
 // 用 <img> 而不是 ImageBitmap：iOS 上 ImageBitmap 的纹理经常被逐出/重传，
@@ -368,7 +390,7 @@ async function preloadAtlas(fs) {
   const per = cols * rows;
   const sheets = [];
   for (let s = 0; s < fs.atlasCount; s++) {
-    const url = fs.atlasDir + fs.atlasPattern.replace('%02d', String(s + 1).padStart(2, '0'));
+    const url = S.base + fs.atlasDir + fs.atlasPattern.replace('%02d', String(s + 1).padStart(2, '0'));
     sheets.push(await loadImage(url));
     el.prog.style.width = (((s + 1) / fs.atlasCount) * 100).toFixed(1) + '%';
     S.loaded = Math.min(S.count, (s + 1) * per);
@@ -892,6 +914,16 @@ el.autoBtn.addEventListener('click', () => {
   S.auto = !S.auto;
   el.autoBtn.classList.toggle('on', S.auto);
   touchActivity();
+});
+
+el.exampleBtn.addEventListener('click', () => {
+  const items = S.catalog?.items ?? [];
+  if (items.length < 2) return;
+  const i = items.findIndex(x => x.id === S.exampleId);
+  const next = items[(i + 1) % items.length];
+  const url = new URL(location.href);
+  url.searchParams.set('e', next.id);
+  location.href = url.toString();
 });
 
 /* ---------- 键盘 ---------- */

@@ -1,22 +1,41 @@
 # orbit360
 
 把一段 360° 环绕拍摄的视频变成「可以转的 3D 模型」：手机陀螺仪控制视角，左右拖拽当作转动，
-画面按角度切换帧（不是播放视频）。全部预解码成 `ImageBitmap`，用 Canvas 单帧硬切渲染。
+画面按角度切换帧（不是播放视频），Canvas 单帧硬切渲染；移动端用雪碧图避免逐帧换纹理的闪动。
 
-示例素材：`examples/orbit-sample.mp4`（1280×720 / 24fps / 10s / 240 帧，首尾闭环相似度 0.952）。
+示例素材：
+- `examples/orbit-sample.mp4`（1280×720 / 24fps / 10s / 240 帧，首尾闭环 0.952）
+- `examples/anime-maid.mp4`（1920×1080 / 24fps / 10s / 239 帧，首尾闭环 0.769，环回有一次可见跳变）
 
 ## 快速开始
 
 ```bash
-# 1. 从源视频生成帧集与 config.json
-python3 build.py examples/orbit-sample.mp4
-
-# 2. 起服务
+# 起服务
 python3 serve.py 8787            # 桌面 http://127.0.0.1:8787/
 python3 serve_tls.py 8443        # 手机 https://<本机IP>:8443/（自签证书，需 HTTPS 才能用陀螺仪）
 ```
 
-仓库里已经带了示例的 `frames/`、`frames-small/`、`atlas/`，换素材时跑一次 `build.py` 即可重新生成。
+仓库里已经带了两个示例（`assets/orbit/`、`assets/maid/`），开箱即用。
+
+## 示例切换
+
+`catalog.json` 列出所有示例，页面默认加载 `default`，面板右下角的 **示例** 按钮循环切换；
+也可以直接用 URL 指定：
+
+```
+http://127.0.0.1:8787/?e=orbit
+http://127.0.0.1:8787/?e=maid
+```
+
+切换会整页重载并释放上一套帧的内存，不会两套叠在一起。
+
+新增一个示例：
+
+```bash
+python3 build.py my-video.mp4 --out assets/myid --title "我的示例" --catalog catalog.json
+```
+
+`--catalog` 会扫描 `--out` 的父目录（默认 `assets/`），把所有 `<id>/config.json` 收进清单。
 
 ## 交互
 
@@ -76,7 +95,8 @@ UI 集中在左下角面板，进入 3.2 秒后自动隐藏，画面全屏沉浸
 ## 重新生成资产
 
 ```bash
-python3 build.py <video> [--fps 12] [--desktop 800] [--mobile 512] [--quality 6]
+python3 build.py <video> --out assets/<id> [--title 标题] [--catalog catalog.json]
+                  [--fps 12] [--desktop 800] [--mobile 512] [--quality 6]
 ```
 
 - 用 `ffprobe` 读源 meta，用 32×18 灰度缩略图算首尾 ZNCC 闭环相似度（过差会警告）
@@ -105,10 +125,15 @@ build.py          视频 → 帧集 + config.json
 serve.py          多线程静态服务
 serve_tls.py      HTTPS 服务（手机陀螺仪必需，自动生成自签证书）
 config.json       示例 meta（由 build.py 生成）
+catalog.json      示例清单（default + items）
 examples/         示例源视频
-atlas/            移动端雪碧图（2 张 3072×2880）
-frames/           桌面序列帧 800×450
-frames-small/     移动端单帧 512×288（雪碧图的来源）
+  orbit-sample.mp4   1280×720 / 10s
+  anime-maid.mp4     1920×1080 / 10s
+assets/<id>/      每个示例一套资产
+  config.json       该示例的 meta 与手感配置
+  atlas/            移动端雪碧图（2 张 3072×2880）
+  frames/           桌面序列帧 800×450
+  frames-small/     移动端单帧 512×288（雪碧图的来源）
 ```
 
 ## 兼容性
