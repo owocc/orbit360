@@ -34,67 +34,65 @@
     width: 100%; height: 100%; min-width: 0; min-height: 0;
   }
 
-  .hud { position: fixed; z-index: 3; pointer-events: none; }
-
-  /* UI 默认隐藏，长按（触屏）/双击（鼠标）切换 */
-  .hud, #controls, #hint, #ring { transition: opacity .26s ease, transform .26s ease; }
-  body.ui-hidden .hud,
-  body.ui-hidden #controls,
-  body.ui-hidden #hint,
-  body.ui-hidden #ring { opacity: 0; pointer-events: none; }
-  body.ui-hidden #controls { transform: translate(-50%, 10px); }
-  body.ui-hidden #ring { transform: translateX(-50%) scale(.94); }
-
-  #topbar {
-    top: 0; left: 0; right: 0;
-    padding: max(14px, env(safe-area-inset-top)) 18px 0;
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  /* ---------- 左下角控制面板 ---------- */
+  #panel {
+    position: fixed; z-index: 4;
+    left: max(14px, env(safe-area-inset-left));
+    bottom: max(14px, env(safe-area-inset-bottom));
+    width: min(300px, calc(100vw - 28px));
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(13, 15, 19, .74);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 14px 44px rgba(0, 0, 0, .5);
+    display: grid; grid-template-columns: 1fr auto; gap: 10px 12px;
+    align-items: center;
+    transition: opacity .26s ease, transform .26s ease;
   }
-  .brand { letter-spacing: .08em; text-transform: uppercase; font-size: 10.5px; color: var(--muted); }
-  .brand b { display: block; font-size: 15px; letter-spacing: 0; color: var(--fg); margin-top: 2px; font-weight: 600; }
+  body.ui-hidden #panel { opacity: 0; pointer-events: none; transform: translateY(12px) scale(.98); }
 
-  #readout { text-align: right; font-variant-numeric: tabular-nums; }
-  #deg { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
-  #deg small { font-size: 11px; color: var(--muted); margin-left: 2px; font-weight: 500; }
-  #meta { font-size: 10.5px; color: var(--muted); margin-top: 2px; letter-spacing: .04em; }
-
-  #ring {
-    position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom));
-    transform: translateX(-50%); width: 132px; height: 132px; z-index: 2;
-    pointer-events: none; opacity: .9;
+  .p-brand { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+  .p-sub {
+    font-size: 10.5px; color: var(--muted); margin-top: 3px;
+    letter-spacing: .04em; font-variant-numeric: tabular-nums;
   }
-  #ring .track { stroke: rgba(255,255,255,.08); }
-  #ring .tick { stroke: rgba(255,255,255,.16); }
+  .p-deg {
+    font-size: 24px; font-weight: 600; letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums; text-align: right;
+  }
+  .p-deg small { font-size: 11px; color: var(--muted); margin-left: 2px; }
+
+  #ring { width: 92px; height: 92px; margin: 0 auto; grid-column: 1 / -1; }
+  #ring .track { stroke: rgba(255,255,255,.09); }
+  #ring .tick { stroke: rgba(255,255,255,.18); }
   #ring .arc { stroke: var(--accent); stroke-linecap: round; }
   #ring .needle { stroke: var(--accent); }
   #ring text { fill: var(--muted); font-size: 9px; letter-spacing: .1em; }
 
-  #controls {
-    position: fixed; z-index: 4; left: 50%; transform: translateX(-50%);
-    bottom: calc(max(18px, env(safe-area-inset-bottom)) + 148px);
-    display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
-    padding: 0 12px; width: min(560px, 100%);
-  }
+  .p-btns { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   button {
     font: inherit; font-size: 11.5px; color: var(--fg);
     background: rgba(255,255,255,.06); border: 1px solid var(--line);
-    border-radius: 999px; padding: 7px 13px; cursor: pointer;
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-radius: 10px; padding: 8px 6px; cursor: pointer;
     transition: background .15s, color .15s, border-color .15s;
-    white-space: nowrap;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  button:hover { background: rgba(255,255,255,.11); }
+  button:hover { background: rgba(255,255,255,.12); }
   button.on { color: #06281e; background: var(--accent); border-color: var(--accent); }
   button:disabled { opacity: .38; cursor: default; }
+  button[hidden] { display: none; }
 
   #hint {
     position: fixed; z-index: 3; left: 50%; transform: translateX(-50%);
-    top: calc(max(14px, env(safe-area-inset-top)) + 58px);
+    top: max(16px, env(safe-area-inset-top));
     color: var(--muted); font-size: 11.5px; letter-spacing: .02em;
     text-align: center; width: 100%; padding: 0 20px; pointer-events: none;
-    transition: opacity .6s;
+    transition: opacity .45s;
   }
   #hint.hide { opacity: 0; }
+  body.ui-hidden #hint { opacity: 0; }
 
   #loader {
     position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
@@ -111,32 +109,34 @@
 
 <div id="stage"><canvas id="view"></canvas></div>
 
-<div class="hud" id="topbar">
-  <div class="brand">Orbit Scrub<b id="title">环绕视角</b></div>
-  <div id="readout">
-    <div id="deg">0<small>°</small></div>
-    <div id="meta">— / —</div>
-  </div>
-</div>
-
 <div id="hint">左右拖拽旋转 · 倾斜手机环视</div>
 
-<div id="controls">
-  <button id="gyroBtn">开启陀螺仪</button>
-  <button id="calBtn" disabled>校准</button>
-  <button id="invBtn">反向</button>
-  <button id="autoBtn">自动环绕</button>
-</div>
+<div id="panel">
+  <div>
+    <div class="p-brand" id="title">环绕视角</div>
+    <div class="p-sub" id="meta">— / —</div>
+  </div>
+  <div class="p-deg"><span id="deg">0</span><small>°</small></div>
 
-<svg id="ring" viewBox="0 0 132 132" aria-hidden="true">
-  <circle class="track" cx="66" cy="66" r="52" fill="none" stroke-width="1.5"/>
-  <g id="ticks"></g>
-  <circle class="arc" id="arc" cx="66" cy="66" r="52" fill="none" stroke-width="2.5"
-          stroke-dasharray="0 327" transform="rotate(-90 66 66)"/>
-  <line class="needle" id="needle" x1="66" y1="66" x2="66" y2="24" stroke-width="2"/>
-  <circle cx="66" cy="66" r="3.2" fill="currentColor" style="color:var(--accent)"/>
-  <text x="66" y="124" text-anchor="middle">BEARING</text>
-</svg>
+  <svg id="ring" viewBox="0 0 132 132" aria-hidden="true">
+    <circle class="track" cx="66" cy="66" r="52" fill="none" stroke-width="1.5"/>
+    <g id="ticks"></g>
+    <circle class="arc" id="arc" cx="66" cy="66" r="52" fill="none" stroke-width="2.5"
+            stroke-dasharray="0 327" transform="rotate(-90 66 66)"/>
+    <line class="needle" id="needle" x1="66" y1="66" x2="66" y2="24" stroke-width="2"/>
+    <circle cx="66" cy="66" r="3.2" fill="currentColor" style="color:var(--accent)"/>
+    <text x="66" y="124" text-anchor="middle">BEARING</text>
+  </svg>
+
+  <div class="p-btns">
+    <button id="fsBtn">全屏</button>
+    <button id="gyroBtn">陀螺仪</button>
+    <button id="resetBtn">重置</button>
+    <button id="calBtn" disabled>校准</button>
+    <button id="invBtn">反向</button>
+    <button id="autoBtn">自动环绕</button>
+  </div>
+</div>
 
 <div id="loader">
   <div class="loadwrap">
@@ -161,6 +161,8 @@ const el = {
   prog: document.getElementById('prog'),
   gyroBtn: document.getElementById('gyroBtn'),
   calBtn: document.getElementById('calBtn'),
+  resetBtn: document.getElementById('resetBtn'),
+  fsBtn: document.getElementById('fsBtn'),
   invBtn: document.getElementById('invBtn'),
   autoBtn: document.getElementById('autoBtn'),
   arc: document.getElementById('arc'),
@@ -194,6 +196,7 @@ const S = {
   lastPointerType: '',
   gyro: false,
   gyroSeen: false,
+  pendingGyro: false,
   hasAbsolute: false,
   gyroRef: null,
   gyroBase: 0,
@@ -228,6 +231,7 @@ async function boot() {
   el.title.textContent = cfg.title || '环绕视角';
   document.title = cfg.title || '环绕视角';
   buildRing();
+  initAutoGyro();
 
   S.frames = await preload();
   layout();
@@ -252,7 +256,7 @@ function frameURL(i) {
 }
 
 // 优先解码成 ImageBitmap：GPU 常驻，drawImage 无解码抖动
-async function decodeFrame(i) {
+async function decodeFrame(i, attempt = 0) {
   const url = frameURL(i);
   if (typeof createImageBitmap === 'function') {
     try {
@@ -264,7 +268,12 @@ async function decodeFrame(i) {
         colorSpaceConversion: 'none',
         imageOrientation: 'none',
       });
-    } catch (e) { /* 回退到 <img> */ }
+    } catch (e) {
+      if (attempt < 2) {           // 连接被重置时重试，移动网络很常见
+        await new Promise(r => setTimeout(r, 90 * (attempt + 1)));
+        return decodeFrame(i, attempt + 1);
+      }
+    }
   }
   const img = new Image();
   img.decoding = 'async';
@@ -395,7 +404,7 @@ function updateHUD() {
   const deg = Math.round(mod(S.angle, 360));
   if (deg === S.hudDeg) return;
   S.hudDeg = deg;
-  el.deg.firstChild.nodeValue = deg.toString();
+  el.deg.textContent = deg.toString();
   el.needle.setAttribute('transform', `rotate(${mod(S.angle, 360).toFixed(1)} 66 66)`);
   const r = 52, c = 2 * Math.PI * r;
   el.arc.setAttribute('stroke-dasharray', `${(c * deg / 360).toFixed(2)} ${c.toFixed(2)}`);
@@ -438,6 +447,10 @@ function toggleUI() {
 el.stage.addEventListener('pointerdown', e => {
   if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
   S.lastPointerType = e.pointerType;
+  if (S.pendingGyro) {          // iOS：首次手势内申请权限并自动开启
+    S.pendingGyro = false;
+    enableGyro();
+  }
   S.dragging = true;
   S.vel = 0;
   S.lastPointerX = e.clientX;
@@ -553,6 +566,24 @@ function onRelative(e) {
   onOrient(e);
 }
 
+function isTouchDevice() {
+  return matchMedia('(pointer: coarse)').matches
+    || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+// 移动端默认申请并开启陀螺仪；iOS 需要首次手势，此时先挂起
+function initAutoGyro() {
+  if (!isTouchDevice()) return;
+  if (typeof DeviceOrientationEvent === 'undefined') return;
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    S.pendingGyro = true;
+    el.gyroBtn.textContent = '待授权';
+  } else {
+    enableGyro();
+  }
+}
+
 async function enableGyro() {
   if (S.gyro) return;
   try {
@@ -594,6 +625,61 @@ async function enableGyro() {
     el.hint.classList.remove('hide');
   }
 }
+
+/* ---------- 全屏 ---------- */
+
+const fsRoot = document.documentElement;
+const fsSupported = !!(fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen);
+
+function fsElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function syncFsBtn() {
+  const on = !!fsElement();
+  el.fsBtn.classList.toggle('on', on);
+  el.fsBtn.textContent = on ? '退出全屏' : '全屏';
+}
+
+async function toggleFullscreen() {
+  try {
+    if (fsElement()) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) await exit.call(document);
+    } else {
+      const req = fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen;
+      if (req) await req.call(fsRoot);
+    }
+  } catch (err) {
+    flashHint('全屏被浏览器拒绝');
+  }
+  syncFsBtn();
+  queueResize();
+}
+
+function flashHint(text, ms = 2200) {
+  el.hint.textContent = text;
+  el.hint.classList.remove('hide');
+  setTimeout(() => el.hint.classList.add('hide'), ms);
+}
+
+document.addEventListener('fullscreenchange', () => { syncFsBtn(); queueResize(); });
+document.addEventListener('webkitfullscreenchange', () => { syncFsBtn(); queueResize(); });
+el.fsBtn.addEventListener('click', toggleFullscreen);
+if (!fsSupported) el.fsBtn.hidden = true;
+
+/* ---------- 重置 ---------- */
+
+el.resetBtn.addEventListener('click', () => {
+  S.target = 0;
+  S.vel = 0;
+  if (S.gyro) {
+    S.gyroRef = null;      // 重新取基准，当前朝向即 0°
+    S.gyroBase = 0;
+  }
+  touchActivity();
+  flashHint('已重置到 0°', 1400);
+});
 
 el.gyroBtn.addEventListener('click', enableGyro);
 

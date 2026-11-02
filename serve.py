@@ -19,6 +19,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 class Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
     allow_reuse_address = True
+    request_queue_size = 128
 
 
 with Server(("0.0.0.0", PORT), Handler) as httpd:
