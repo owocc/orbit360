@@ -3,9 +3,10 @@
 把一段 360° 环绕拍摄的视频变成「可以转的 3D 模型」：手机陀螺仪控制视角，左右拖拽当作转动，
 画面按角度切换帧（不是播放视频），Canvas 单帧硬切渲染；移动端用雪碧图避免逐帧换纹理的闪动。
 
-示例素材：
+默认演示素材是 `沙发少女`（`?e=maid`），另一段是 `环绕视角`（`?e=orbit`）。
+
+- `examples/anime-maid.mp4`（**3840×2160** / 24fps / 10s / 239 帧，首尾闭环 0.768，环回有一次可见跳变）
 - `examples/orbit-sample.mp4`（1280×720 / 24fps / 10s / 240 帧，首尾闭环 0.952）
-- `examples/anime-maid.mp4`（1920×1080 / 24fps / 10s / 239 帧，首尾闭环 0.769，环回有一次可见跳变）
 
 ## 快速开始
 
@@ -19,7 +20,7 @@ python3 serve_tls.py 8443        # 手机 https://<本机IP>:8443/（自签证�
 
 ## 示例切换
 
-`catalog.json` 列出所有示例，页面默认加载 `default`，面板右下角的 **示例** 按钮循环切换；
+`catalog.json` 列出所有示例，页面默认加载 `default`（当前是 `maid` 沙发少女），面板右下角的 **示例** 按钮循环切换；
 也可以直接用 URL 指定：
 
 ```
@@ -160,7 +161,7 @@ config.json       示例 meta（由 build.py 生成）
 catalog.json      示例清单（default + items）
 examples/         示例源视频
   orbit-sample.mp4   1280×720 / 10s
-  anime-maid.mp4     1920×1080 / 10s
+  anime-maid.mp4     3840×2160 / 10s
 assets/<id>/      每个示例一套资产
   config.json       该示例的 meta 与手感配置
   atlas/            移动端标准档雪碧图（2 张 3072×2880，512×288）

@@ -2,14 +2,14 @@
   "title": "沙发少女",
   "source": {
     "file": "../../examples/anime-maid.mp4",
-    "width": 1920,
-    "height": 1080,
+    "width": 3840,
+    "height": 2160,
     "fps": 24.0,
     "frames": 239,
     "durationSec": 9.963,
     "codec": "h264",
-    "bitRate": 4950149,
-    "loopSimilarity": 0.769,
+    "bitRate": 21007050,
+    "loopSimilarity": 0.768,
     "sampledEveryNthFrame": 2,
     "audio": "aac 48kHz stereo"
   },
