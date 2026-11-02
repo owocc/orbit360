@@ -16,7 +16,7 @@ python3 serve.py 8787            # 桌面 http://127.0.0.1:8787/
 python3 serve_tls.py 8443        # 手机 https://<本机IP>:8443/（自签证书，需 HTTPS 才能用陀螺仪）
 ```
 
-构建产物 `frames/`、`frames-small/` 不入库，跑一次 `build.py` 即可生成。
+仓库里已经带了示例的 `frames/`、`frames-small/`、`atlas/`，换素材时跑一次 `build.py` 即可重新生成。
 
 ## 交互
 
@@ -83,6 +83,20 @@ python3 build.py <video> [--fps 12] [--desktop 800] [--mobile 512] [--quality 6]
 - 抽两套帧：桌面长边 800、移动长边 512，移动端由 `frames.mobileMaxScreenPx` 自动选用
 - 帧数按 `--fps` 采样，默认 12fps → 10 秒视频 120 帧（3°/帧）
 
+## 移动端为什么不闪
+
+iOS Safari 上逐帧切换 `ImageBitmap` 会不停上传/驱逐 GPU 纹理，画面出现闪动
+（[WebKit #229825](https://bugs.webkit.org/show_bug.cgi?id=229825)、
+[#234920](https://bugs.webkit.org/show_bug.cgi?id=234920)）。现在的做法：
+
+- 移动端把 120 帧拼成 **2 张雪碧图**（3072×2880，各约 800 KB），整段只占 1~2 块纹理，绘制时按 `sx/sy` 裁剪
+- 用 `<img>` 而非 `createImageBitmap`，走浏览器的图像缓存
+- Canvas 上下文 `alpha: false`，绘制前**不再 `clearRect`**，直接覆盖——不会出现「已清空、尚未绘制」的空窗
+- `layout()`（resize / 切画幅）之后同步补画当前帧，避免清屏到下一帧 rAF 之间的空白
+- UI 面板隐藏后 `visibility: hidden`，不再参与合成
+
+桌面仍用 `frames/` 序列帧；判断阈值 `frames.mobileMaxScreenPx`（默认 1100，覆盖 iPad）。
+
 ## 目录
 
 ```
@@ -92,8 +106,9 @@ serve.py          多线程静态服务
 serve_tls.py      HTTPS 服务（手机陀螺仪必需，自动生成自签证书）
 config.json       示例 meta（由 build.py 生成）
 examples/         示例源视频
-frames/           桌面帧集（生成物，未入库）
-frames-small/     移动帧集（生成物，未入库）
+atlas/            移动端雪碧图（2 张 3072×2880）
+frames/           桌面序列帧 800×450
+frames-small/     移动端单帧 512×288（雪碧图的来源）
 ```
 
 ## 兼容性

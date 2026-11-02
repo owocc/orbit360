@@ -25,12 +25,27 @@
     "direction": "cw"
   },
   "frames": {
-    "dir": "frames/",
-    "mobileDir": "frames-small/",
-    "mobileMaxScreenPx": 900,
-    "pattern": "f%03d.jpg",
-    "start": 1,
-    "count": 120
+    "count": 120,
+    "desktop": {
+      "type": "sequence",
+      "dir": "frames/",
+      "pattern": "f%03d.jpg",
+      "start": 1
+    },
+    "mobile": {
+      "type": "atlas",
+      "dir": "frames-small/",
+      "pattern": "f%03d.jpg",
+      "start": 1,
+      "atlasDir": "atlas/",
+      "atlasPattern": "sheet%02d.jpg",
+      "atlasCount": 2,
+      "cols": 6,
+      "rows": 10,
+      "frameW": 512,
+      "frameH": 288
+    },
+    "mobileMaxScreenPx": 1100
   },
   "drag": {
     "degPerPx": 0.42,

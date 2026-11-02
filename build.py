@@ -150,6 +150,31 @@ def load_ui_defaults(path):
     return defaults
 
 
+def make_atlas(frame_dir, atlas_dir, cols, rows, frame_w, frame_h, count, quality):
+    """把序列帧拼成若干张雪碧图：移动端只用少数几块 GPU 纹理，避免逐帧换纹理造成闪动。"""
+    os.makedirs(atlas_dir, exist_ok=True)
+    for name in os.listdir(atlas_dir):
+        if name.lower().endswith(".jpg"):
+            os.remove(os.path.join(atlas_dir, name))
+    per = cols * rows
+    sheets = 0
+    for start in range(0, count, per):
+        sheets += 1
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y",
+             "-start_number", str(start + 1),
+             "-i", os.path.join(frame_dir, "f%03d.jpg"),
+             "-vf", f"tile={cols}x{rows}:padding=0:margin=0",
+             "-frames:v", "1", "-q:v", str(quality),
+             os.path.join(atlas_dir, f"sheet{sheets:02d}.jpg")],
+            check=True,
+        )
+    sheet_w, sheet_h = cols * frame_w, rows * frame_h
+    if sheet_w > 4096 or sheet_h > 4096:
+        print(f"警告: 雪碧图 {sheet_w}x{sheet_h} 超过 iOS 纹理上限 4096", file=sys.stderr)
+    return sheets, sheet_w, sheet_h
+
+
 def main():
     ap = argparse.ArgumentParser(description="环绕视频 → orbit360 资产")
     ap.add_argument("video", help="源视频路径")
@@ -187,6 +212,10 @@ def main():
     n_desktop = extract(src, os.path.join(out, "frames"), dw, dh, fps, args.quality, count)
     n_mobile = extract(src, os.path.join(out, "frames-small"), mw, mh, fps,
                        min(31, args.quality + 1), count)
+    # 移动端雪碧图：6 列 × 10 行，512×288 时单张 3072×2880，正好在 iOS 纹理上限内
+    cols, rows = 6, 10
+    sheets, sw, sh = make_atlas(os.path.join(out, "frames-small"), os.path.join(out, "atlas"),
+                                cols, rows, mw, mh, n_mobile, min(31, args.quality + 1))
 
     cfg_path = os.path.join(out, "config.json")
     ui = load_ui_defaults(cfg_path)
@@ -214,12 +243,27 @@ def main():
             "spanDeg": ui["orbit"].get("spanDeg", 360),
         },
         "frames": {
-            "dir": "frames/",
-            "mobileDir": "frames-small/",
-            "mobileMaxScreenPx": 900,
-            "pattern": "f%03d.jpg",
-            "start": 1,
             "count": n_desktop,
+            "desktop": {
+                "type": "sequence",
+                "dir": "frames/",
+                "pattern": "f%03d.jpg",
+                "start": 1,
+            },
+            "mobile": {
+                "type": "atlas",
+                "dir": "frames-small/",
+                "pattern": "f%03d.jpg",
+                "start": 1,
+                "atlasDir": "atlas/",
+                "atlasPattern": "sheet%02d.jpg",
+                "atlasCount": sheets,
+                "cols": cols,
+                "rows": rows,
+                "frameW": mw,
+                "frameH": mh,
+            },
+            "mobileMaxScreenPx": 1100,
         },
         "drag": ui["drag"],
         "motion": ui["motion"],
@@ -236,6 +280,7 @@ def main():
 
     print(f"帧集: 桌面 {dw}x{dh} × {n_desktop}  (frames/)   "
           f"移动 {mw}x{mh} × {n_mobile}  (frames-small/)")
+    print(f"雪碧图: {sheets} 张 {sw}x{sh}（atlas/）")
     print(f"角度: {360 / max(1, n_desktop):.2f}°/帧   spanDeg={cfg['orbit']['spanDeg']}")
     print(f"配置: {cfg_path}")
     print("启动: python3 serve.py 8787    或    python3 serve_tls.py 8443（手机陀螺仪）")
