@@ -18,6 +18,8 @@ import shutil
 import statistics
 import subprocess
 import sys
+import tempfile
+import zipfile
 
 THUMB_W, THUMB_H = 32, 18
 THUMB_SIZE = THUMB_W * THUMB_H
@@ -135,14 +137,19 @@ def load_ui_defaults(path):
         "gyro": {"gain": 1.0, "invert": False, "smooth": True, "smoothMs": 80},
         "mouseFollow": {"enabled": True, "degPerPx": 0.3},
         "video": {"displayScale": 1, "portraitScale": 1.25, "fit": "contain"},
+        "defaults": {},
     }
+    if not os.path.exists(path):
+        alt = os.path.join(os.path.dirname(os.path.abspath(path)), "config.json")
+        if os.path.exists(alt):
+            path = alt
     if not os.path.exists(path):
         return defaults
     try:
         old = json.load(open(path, encoding="utf-8"))
     except (OSError, ValueError):
         return defaults
-    for key in ("title", "orbit", "drag", "motion", "auto", "gyro", "mouseFollow", "video"):
+    for key in ("title", "orbit", "drag", "motion", "auto", "gyro", "mouseFollow", "video", "defaults"):
         if key in old:
             if isinstance(defaults.get(key), dict) and isinstance(old[key], dict):
                 defaults.setdefault(key, {}).update(old[key])
@@ -176,26 +183,88 @@ def make_atlas(frame_dir, atlas_dir, cols, rows, frame_w, frame_h, count, qualit
     return sheets, sheet_w, sheet_h
 
 
+def write_pack(path, meta, entries):
+    """写一个 ZIP_STORED 包：meta.json + 图片。不压缩，浏览器端无需 inflate。"""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as zf:
+        zf.writestr("meta.json", json.dumps(meta, ensure_ascii=False, indent=2).encode("utf-8"))
+        for arc, fp in entries:
+            zf.write(fp, arc)
+    return os.path.getsize(path)
+
+
+def build_atlas_pack(src, out_zip, quality_tag, long_edge, fps, jpeg_q, count, base_meta,
+                     cols=6, rows=10):
+    tmp = tempfile.mkdtemp(prefix="orbit-atlas-")
+    try:
+        fw, fh = fit(base_meta["source"]["width"], base_meta["source"]["height"], long_edge)
+        n = extract(src, os.path.join(tmp, "frames"), fw, fh, fps, jpeg_q, count)
+        sheets, sw, sh = make_atlas(os.path.join(tmp, "frames"), os.path.join(tmp, "atlas"),
+                                    cols, rows, fw, fh, n, jpeg_q)
+        entries = [(f"sheet{i:02d}.jpg", os.path.join(tmp, "atlas", f"sheet{i:02d}.jpg"))
+                   for i in range(1, sheets + 1)]
+        meta = dict(base_meta)
+        meta["quality"] = quality_tag
+        meta["pack"] = {
+            "type": "atlas", "count": n, "cols": cols, "rows": rows,
+            "frameW": fw, "frameH": fh, "pattern": "sheet%02d.jpg", "start": 1,
+            "files": [e[0] for e in entries],
+        }
+        size = write_pack(out_zip, meta, entries)
+        return meta["pack"], size, (sw, sh)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def build_sequence_pack(src, out_zip, quality_tag, long_edge, fps, jpeg_q, count, base_meta):
+    tmp = tempfile.mkdtemp(prefix="orbit-seq-")
+    try:
+        fw, fh = fit(base_meta["source"]["width"], base_meta["source"]["height"], long_edge)
+        frames_dir = os.path.join(tmp, "frames")
+        n = extract(src, frames_dir, fw, fh, fps, jpeg_q, count)
+        names = sorted(x for x in os.listdir(frames_dir) if x.endswith(".jpg"))
+        entries = [(name, os.path.join(frames_dir, name)) for name in names]
+        meta = dict(base_meta)
+        meta["quality"] = quality_tag
+        meta["pack"] = {
+            "type": "sequence", "count": n,
+            "frameW": fw, "frameH": fh, "pattern": "f%03d.jpg", "start": 1,
+            "files": [e[0] for e in entries],
+        }
+        size = write_pack(out_zip, meta, entries)
+        return meta["pack"], size, None
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def write_catalog(root, path, default_id=None):
-    """扫描 root 下的 <id>/config.json，生成页面用的示例清单。"""
+    """扫描 root 下的 <id>/meta.json，生成页面用的示例清单（每个示例带各画质的 zip）。"""
     base = os.path.dirname(os.path.abspath(path))
     items = []
     for name in sorted(os.listdir(root)):
-        cfg_path = os.path.join(root, name, "config.json")
-        if not os.path.isfile(cfg_path):
+        meta_path = os.path.join(root, name, "meta.json")
+        if not os.path.isfile(meta_path):
             continue
         try:
-            cfg = json.load(open(cfg_path, encoding="utf-8"))
+            meta = json.load(open(meta_path, encoding="utf-8"))
         except (OSError, ValueError):
+            continue
+        packs = {}
+        for q in ("std", "hd", "uhd"):
+            p = os.path.join(root, name, "packs", f"{q}.zip")
+            if os.path.isfile(p):
+                packs[q] = os.path.relpath(p, base).replace(os.sep, "/")
+        if not packs:
             continue
         items.append({
             "id": name,
-            "title": cfg.get("title", name),
-            "dir": os.path.relpath(os.path.join(root, name), base).replace(os.sep, "/") + "/",
-            "frames": cfg.get("frames", {}).get("count"),
+            "title": meta.get("title", name),
+            "packs": packs,
+            "defaults": meta.get("defaults", {}),
+            "source": {k: meta.get("source", {}).get(k) for k in ("width", "height", "frames", "durationSec")},
         })
     if not items:
-        die(f"{root} 下没有可用的示例配置")
+        die(f"{root} 下没有可用的示例包")
     ids = [i["id"] for i in items]
     doc = {"default": default_id if default_id in ids else ids[0], "items": items}
     with open(path, "w", encoding="utf-8") as fh:
@@ -206,28 +275,31 @@ def write_catalog(root, path, default_id=None):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="环绕视频 → orbit360 资产")
+    ap = argparse.ArgumentParser(description="环绕视频 → orbit360 资源包")
     ap.add_argument("video", help="源视频路径")
     ap.add_argument("--out", default=os.path.dirname(os.path.abspath(__file__)),
                     help="输出目录（默认脚本所在目录）")
-    ap.add_argument("--fps", type=float, default=12.0, help="采样帧率（默认 12）")
-    ap.add_argument("--desktop", type=int, default=1280, help="桌面帧长边（默认 1280）")
-    ap.add_argument("--mobile", type=int, default=512, help="移动帧长边（默认 512）")
-    ap.add_argument("--mobile-hd", type=int, default=640,
-                    help="移动端高清档长边（默认 640，设 0 则不生成）")
-    ap.add_argument("--desktop-hd", type=int, default=1920,
-                    help="桌面超清档长边（默认 1920，帧数减半；设 0 则不生成）")
+    ap.add_argument("--fps", type=float, default=12.0, help="标准/高清档采样帧率（默认 12）")
+    ap.add_argument("--std", type=int, default=512, help="标准档长边（默认 512）")
+    ap.add_argument("--hd", type=int, default=640, help="高清档长边（默认 640）")
+    ap.add_argument("--uhd", type=int, default=1920, help="超清档长边（默认 1920，帧数减半）")
     ap.add_argument("--quality", type=int, default=6, help="JPEG 质量 2-31，越小越清晰（默认 6）")
-    ap.add_argument("--title", help="示例标题，写入 config.title")
+    ap.add_argument("--title", help="示例标题，写入 meta.title")
+    ap.add_argument("--default-quality", default="uhd",
+                    help="meta.defaults.quality，页面默认画质（默认 uhd）")
+    ap.add_argument("--default-auto", choices=["off", "cw", "ccw"], default="cw",
+                    help="meta.defaults.auto.dir，打开后的自动旋转方向（默认 cw）")
     ap.add_argument("--catalog", help="构建后生成示例清单，例如 catalog.json")
     ap.add_argument("--assets-root", default=None,
                     help="示例资产根目录（默认取 --out 的父目录）")
+    ap.add_argument("--keep-raw", action="store_true", help="保留解包出来的原始帧目录")
     args = ap.parse_args()
 
     if not os.path.exists(args.video):
         die(f"找不到文件: {args.video}")
-    if not have("ffmpeg"):
-        die("找不到 ffmpeg，请先安装")
+    for tool in ("ffmpeg", "ffprobe"):
+        if not have(tool):
+            die(f"找不到 {tool}，请先安装 ffmpeg")
 
     src = os.path.abspath(args.video)
     out = os.path.abspath(args.out)
@@ -244,39 +316,12 @@ def main():
           + ("" if seam is not None and adjacent is not None and seam >= adjacent - 0.12
              else "  ⚠ 首尾不闭合，环回会有一次跳变"))
 
-    dw, dh = fit(meta["width"], meta["height"], args.desktop)
-    mw, mh = fit(meta["width"], meta["height"], args.mobile)
-    hw, hh = (fit(meta["width"], meta["height"], args.mobile_hd)
-              if args.mobile_hd else (0, 0))
-    uw, uh = (fit(meta["width"], meta["height"], args.desktop_hd)
-              if args.desktop_hd else (0, 0))
-
-    n_desktop = extract(src, os.path.join(out, "frames"), dw, dh, fps, args.quality, count)
-    # 桌面超清档：分辨率翻倍、帧数减半，解压内存与标准档相近（约 500 MB）
-    n_desktop_hd = 0
-    if uw:
-        n_desktop_hd = extract(src, os.path.join(out, "frames-hd"), uw, uh,
-                               max(fps / 2, 1), args.quality, max(1, count // 2))
-    n_mobile = extract(src, os.path.join(out, "frames-small"), mw, mh, fps,
-                       min(31, args.quality + 1), count)
-    # 移动端雪碧图：6 列 × 10 行，512×288 时单张 3072×2880，正好在 iOS 纹理上限内
-    cols, rows = 6, 10
-    sheets, sw, sh = make_atlas(os.path.join(out, "frames-small"), os.path.join(out, "atlas"),
-                                cols, rows, mw, mh, n_mobile, min(31, args.quality + 1))
-    # 高清档只保留雪碧图（序列帧是中间产物，用完即删，避免仓库翻倍）
-    hd_sheets = 0
-    if hw:
-        tmp = os.path.join(out, ".hd-tmp")
-        n_hd = extract(src, tmp, hw, hh, fps, args.quality, count)
-        hd_sheets, hd_sw, hd_sh = make_atlas(tmp, os.path.join(out, "atlas-hd"),
-                                             cols, rows, hw, hh, n_hd, args.quality)
-        shutil.rmtree(tmp, ignore_errors=True)
-
-    cfg_path = os.path.join(out, "config.json")
-    ui = load_ui_defaults(cfg_path)
+    meta_path = os.path.join(out, "meta.json")
+    ui = load_ui_defaults(meta_path)
     if args.title:
         ui["title"] = args.title
-    cfg = {
+
+    base_meta = {
         "title": ui["title"],
         "source": {
             "file": os.path.relpath(src, out),
@@ -288,87 +333,64 @@ def main():
             "codec": meta["codec"],
             "bitRate": meta["bitRate"],
             "loopSimilarity": seam,
-            "sampledEveryNthFrame": int(round(meta["fps"] / fps)) if fps else 1,
         },
-        "video": {
-            **ui["video"],
-            "width": dw,          # 帧尺寸跟着本次抽帧走，不能沿用旧配置
-            "height": dh,
-        },
-        "orbit": {
-            **ui["orbit"],
-            "spanDeg": ui["orbit"].get("spanDeg", 360),
-        },
-        "frames": {
-            "count": n_desktop,
-            "desktop": {
-                "type": "sequence",
-                "dir": "frames/",
-                "pattern": "f%03d.jpg",
-                "start": 1,
-            },
-            "mobile": {
-                "type": "atlas",
-                "dir": "frames-small/",
-                "pattern": "f%03d.jpg",
-                "start": 1,
-                "atlasDir": "atlas/",
-                "atlasPattern": "sheet%02d.jpg",
-                "atlasCount": sheets,
-                "cols": cols,
-                "rows": rows,
-                "frameW": mw,
-                "frameH": mh,
-            },
-            "mobileMaxScreenPx": 1100,
-            **({
-                "desktopHd": {
-                    "type": "sequence",
-                    "dir": "frames-hd/",
-                    "pattern": "f%03d.jpg",
-                    "start": 1,
-                    "count": n_desktop_hd,
-                }
-            } if n_desktop_hd else {}),
-            **({
-                "mobileHd": {
-                    "type": "atlas",
-                    "dir": "atlas-hd/",
-                    "atlasDir": "atlas-hd/",
-                    "atlasPattern": "sheet%02d.jpg",
-                    "atlasCount": hd_sheets,
-                    "cols": cols,
-                    "rows": rows,
-                    "frameW": hw,
-                    "frameH": hh,
-                }
-            } if hd_sheets else {}),
-        },
+        "orbit": ui["orbit"],
+        "video": ui["video"],
         "drag": ui["drag"],
         "motion": ui["motion"],
         "auto": ui["auto"],
         "gyro": ui["gyro"],
         "mouseFollow": ui["mouseFollow"],
+        "defaults": {
+            "quality": args.default_quality,
+            "auto": {"enabled": args.default_auto != "off", "dir": "ccw" if args.default_auto == "ccw" else "cw"},
+        },
     }
     if meta["audio"]:
-        cfg["source"]["audio"] = meta["audio"]
+        base_meta["source"]["audio"] = meta["audio"]
+    if seam is not None:
+        base_meta["source"]["sampledEveryNthFrame"] = int(round(meta["fps"] / fps)) if fps else 1
 
-    with open(cfg_path, "w", encoding="utf-8") as fh:
-        json.dump(cfg, fh, ensure_ascii=False, indent=2)
+    packs_dir = os.path.join(out, "packs")
+    built = {}
+
+    spec_std, size_std, _ = build_atlas_pack(
+        src, os.path.join(packs_dir, "std.zip"), "std", args.std, fps,
+        min(31, args.quality + 1), count, base_meta)
+    built["std"] = (spec_std, size_std)
+
+    spec_hd, size_hd, _ = build_atlas_pack(
+        src, os.path.join(packs_dir, "hd.zip"), "hd", args.hd, fps,
+        min(31, args.quality + 1), count, base_meta)
+    built["hd"] = (spec_hd, size_hd)
+
+    if args.uhd:
+        spec_uhd, size_uhd, _ = build_sequence_pack(
+            src, os.path.join(packs_dir, "uhd.zip"), "uhd", args.uhd,
+            max(fps / 2, 1), args.quality, max(1, count // 2), base_meta)
+        built["uhd"] = (spec_uhd, size_uhd)
+
+    with open(meta_path, "w", encoding="utf-8") as fh:
+        json.dump(base_meta, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
 
-    print(f"帧集: 桌面 {dw}x{dh} × {n_desktop}  (frames/)   "
-          f"移动 {mw}x{mh} × {n_mobile}  (frames-small/)")
-    print(f"雪碧图: {sheets} 张 {sw}x{sh}（atlas/）")
-    if hd_sheets:
-        print(f"高清雪碧图: {hd_sheets} 张 {hd_sw}x{hd_sh}（atlas-hd/，{hw}x{hh}）")
-    if n_desktop_hd:
-        print(f"桌面超清: {uw}x{uh} × {n_desktop_hd} 帧（frames-hd/，{360/max(1,n_desktop_hd):.1f}°/帧）")
-    print(f"角度: {360 / max(1, n_desktop):.2f}°/帧   spanDeg={cfg['orbit']['spanDeg']}")
-    print(f"配置: {cfg_path}")
+    if not args.keep_raw:
+        for d in ("frames", "frames-small", "frames-hd", "atlas", "atlas-hd", "config.json"):
+            p = os.path.join(out, d)
+            if os.path.isdir(p):
+                shutil.rmtree(p, ignore_errors=True)
+            elif os.path.isfile(p):
+                os.remove(p)
+
     if args.catalog:
         root = args.assets_root or os.path.dirname(out.rstrip(os.sep))
         write_catalog(root, args.catalog, os.path.basename(out.rstrip(os.sep)))
+
+    for q, (spec, size) in built.items():
+        print(f"  {q:>4}: {spec['frameW']}x{spec['frameH']} × {spec['count']} 帧  "
+              f"{spec['type']:8}  {size/1024/1024:.1f} MB  packs/{q}.zip")
+    print(f"meta: {meta_path}")
+    print(f"角度: {360 / max(1, built['std'][0]['count']):.2f}°/帧（标准档）")
     print("启动: python3 serve.py 8787    或    python3 serve_tls.py 8443（手机陀螺仪）")
 
 

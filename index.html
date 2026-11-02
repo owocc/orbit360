@@ -61,6 +61,14 @@
   }
 
   .p-brand { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+  .p-select {
+    font: inherit; font-size: 14px; font-weight: 600; letter-spacing: -.01em;
+    color: var(--fg); background: transparent; border: 0; padding: 0;
+    margin: 0 0 2px -2px; max-width: 190px; cursor: pointer;
+    appearance: none; -webkit-appearance: none; text-overflow: ellipsis;
+  }
+  .p-select:disabled { opacity: 1; cursor: default; }
+  .p-select option { color: #111; background: #fff; }
   .p-sub {
     font-size: 10.5px; color: var(--muted); margin-top: 3px;
     letter-spacing: .04em; font-variant-numeric: tabular-nums;
@@ -153,7 +161,7 @@
 
 <div id="panel">
   <div>
-    <div class="p-brand" id="title">环绕视角</div>
+    <select id="exampleSel" class="p-select" aria-label="示例"></select>
     <div class="p-sub" id="meta">— / —</div>
   </div>
   <div class="p-deg"><span id="deg">0</span><small>°</small></div>
@@ -188,7 +196,7 @@
     <button id="invBtn">反向</button>
     <button id="mouseBtn">鼠标跟随</button>
     <button id="autoBtn">自动环绕</button>
-    <button id="exampleBtn">示例</button>
+    <button id="importBtn">导入</button>
   </div>
 
   <div class="p-toggles">
@@ -198,6 +206,8 @@
     <button id="hdBtn" hidden>标准</button>
   </div>
 </div>
+
+<input id="importFile" type="file" accept=".zip,application/zip" hidden>
 
 <div id="loader">
   <div class="loadwrap">
@@ -236,7 +246,9 @@ const el = {
   autoSpeedVal: document.getElementById('autoSpeedVal'),
   invBtn: document.getElementById('invBtn'),
   autoBtn: document.getElementById('autoBtn'),
-  exampleBtn: document.getElementById('exampleBtn'),
+  exampleSel: document.getElementById('exampleSel'),
+  importBtn: document.getElementById('importBtn'),
+  importFile: document.getElementById('importFile'),
   arc: document.getElementById('arc'),
   needle: document.getElementById('needle'),
   ticks: document.getElementById('ticks'),
@@ -256,9 +268,12 @@ function writePref(key, value) {
 const S = {
   cfg: null,
   catalog: null,
+  entry: null,
   exampleId: null,
   base: '',
   quality: 'std',
+  frameW: 1280,
+  frameH: 720,
   frames: [],
   frameSet: null,
   count: 0,
@@ -302,40 +317,173 @@ const S = {
 
 /* ---------- 加载 ---------- */
 
-async function boot() {
-  const catalog = await fetch(CATALOG_URL, { cache: 'no-cache' })
-    .then(r => (r.ok ? r.json() : null))
-    .catch(() => null);
+/* ---------- 资源包（zip）读取 ---------- */
 
-  let entry = null;
-  if (catalog && Array.isArray(catalog.items) && catalog.items.length) {
-    const want = new URLSearchParams(location.search).get('e');
-    entry = catalog.items.find(i => i.id === want)
-      || catalog.items.find(i => i.id === catalog.default)
-      || catalog.items[0];
-  }
-  S.catalog = catalog;
-  S.exampleId = entry ? entry.id : null;
-  S.base = entry ? entry.dir : '';       // 没有 catalog 时退回同目录，单示例部署仍可用
-  if (!catalog || !Array.isArray(catalog.items) || catalog.items.length < 2) el.exampleBtn.hidden = true;
-
-  const cfg = await fetch(S.base + CFG_URL, { cache: 'no-cache' }).then(r => {
-    if (!r.ok) throw new Error('config.json ' + r.status);
-    return r.json();
+// Safari 13 及更早没有 Blob.arrayBuffer()/text()，用 FileReader 兜底
+function blobToBuffer(blob) {
+  if (blob.arrayBuffer) return blob.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(fr.error || new Error('读取失败'));
+    fr.readAsArrayBuffer(blob);
   });
+}
+
+function blobToText(blob) {
+  if (blob.text) return blob.text();
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(fr.error || new Error('读取失败'));
+    fr.readAsText(blob, 'utf-8');
+  });
+}
+
+// 只实现 STORED 与 DEFLATE：STORED 直接切片，DEFLATE 交给浏览器原生解压
+async function readZipEntries(blob) {
+  const buf = new Uint8Array(await blobToBuffer(blob));
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let eocd = -1;
+  const stop = Math.max(0, buf.length - 22 - 65535);
+  for (let i = buf.length - 22; i >= stop; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('不是有效的 zip 文件');
+
+  const total = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const entries = new Map();
+
+  for (let i = 0; i < total; i++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) throw new Error('zip 中央目录损坏');
+    const method = dv.getUint16(off + 10, true);
+    const compSize = dv.getUint32(off + 20, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen = dv.getUint16(off + 30, true);
+    const commentLen = dv.getUint16(off + 32, true);
+    const localOff = dv.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(buf.subarray(off + 46, off + 46 + nameLen));
+    const lNameLen = dv.getUint16(localOff + 26, true);
+    const lExtraLen = dv.getUint16(localOff + 28, true);
+    const dataStart = localOff + 30 + lNameLen + lExtraLen;
+    entries.set(name, { method, data: buf.subarray(dataStart, dataStart + compSize) });
+    off += 46 + nameLen + extraLen + commentLen;
+  }
+  return entries;
+}
+
+async function zipFileBlob(entries, name) {
+  const e = entries.get(name);
+  if (!e) return null;
+  if (e.method === 0) return new Blob([e.data], { type: 'application/octet-stream' });
+  if (typeof DecompressionStream === 'function') {
+    const stream = new Blob([e.data]).stream()
+      .pipeThrough(new DecompressionStream('deflate-raw'));
+    return await new Response(stream).blob();
+  }
+  throw new Error(`${name} 使用了 deflate 压缩，当前浏览器无法解压`);
+}
+
+function loadImageBlob(blob) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
+/* ---------- 示例与画质 ---------- */
+
+const QUALITY_ORDER = ['std', 'hd', 'uhd'];   // 按钮按升档顺序循环
+const QUALITY_LABEL = { uhd: '超清', hd: '高清', std: '标准' };
+
+function isMobileViewport() {
+  return Math.min(window.innerWidth, screen?.width ?? 9999) <= 1100;
+}
+
+function availableQualities(entry) {
+  if (!entry || !entry.packs) return [];
+  return QUALITY_ORDER.filter(q => entry.packs[q]);
+}
+
+function pickEntry(catalog) {
+  if (!catalog || !Array.isArray(catalog.items) || !catalog.items.length) return null;
+  const want = new URLSearchParams(location.search).get('e');
+  return catalog.items.find(i => i.id === want)
+    || catalog.items.find(i => i.id === catalog.default)
+    || catalog.items[0];
+}
+
+function pickQuality(entry) {
+  const avail = availableQualities(entry);
+  if (!avail.length) return null;
+  const params = new URLSearchParams(location.search);
+  const urlQ = params.get('q');
+  const pref = readPref('orbit360.quality');
+  const dflt = entry.defaults?.quality;
+  const mobile = isMobileViewport();
+
+  if (urlQ && avail.includes(urlQ)) return urlQ;
+  if (pref && avail.includes(pref)) return pref;
+  if (dflt && avail.includes(dflt)) {
+    // meta 推荐超清时，手机自动降一档（解码约 500MB），仍可手动切回
+    if (mobile && dflt === 'uhd') return avail.includes('hd') ? 'hd' : dflt;
+    return dflt;
+  }
+  return mobile ? (avail.includes('std') ? 'std' : avail[0])
+    : (avail.includes('uhd') ? 'uhd' : avail[0]);
+}
+
+function syncQualityBtn() {
+  const avail = availableQualities(S.entry);
+  el.hdBtn.hidden = avail.length < 2;
+  if (avail.length < 2) return;
+  el.hdBtn.textContent = QUALITY_LABEL[S.quality] || S.quality;
+  el.hdBtn.classList.toggle('on', S.quality !== 'std');
+  el.hdBtn.title = '当前 ' + (S.quality || '') + '，点击切换';
+}
+
+function buildExampleSelect() {
+  const items = S.catalog?.items ?? [];
+  if (!items.length) return;
+  el.exampleSel.textContent = '';
+  items.forEach(it => {
+    const opt = document.createElement('option');
+    opt.value = it.id;
+    opt.textContent = it.title || it.id;
+    el.exampleSel.appendChild(opt);
+  });
+  el.exampleSel.value = S.exampleId;
+  el.exampleSel.disabled = items.length < 2;
+}
+
+/* ---------- 载入资源包 ---------- */
+
+async function applyConfig(cfg, quality) {
   S.cfg = cfg;
+  S.quality = quality;
   S.dirSign = cfg.orbit?.direction === 'ccw' ? -1 : 1;
   S.gyroGain = cfg.gyro?.gain ?? 1;
   S.invert = !!cfg.drag?.invert;
+
+  // 自动旋转：用户偏好 > 包内 defaults > 包配置
   const autoPref = readPref('orbit360.auto');
-  S.autoState = autoPref || (cfg.auto?.enabled ? (cfg.auto?.dir === 'ccw' ? 'ccw' : 'cw') : 'off');
+  const dp = cfg.defaults?.auto;
+  S.autoState = autoPref || (dp ? (dp.enabled ? (dp.dir === 'ccw' ? 'ccw' : 'cw') : 'off')
+    : (cfg.auto?.enabled ? (cfg.auto?.dir === 'ccw' ? 'ccw' : 'cw') : 'off'));
   S.autoDir = S.autoState === 'ccw' ? -1 : 1;
   S.auto = S.autoState !== 'off';
+
   const speedPref = parseFloat(readPref('orbit360.autoSpeed'));
   S.autoSpeed = Number.isFinite(speedPref) ? speedPref : (cfg.auto?.degPerSec ?? 14);
   el.autoSpeed.value = String(S.autoSpeed);
   el.autoSpeedVal.textContent = Math.round(S.autoSpeed) + '°/s';
   syncAutoBtn();
+
   S.mouseFollow = cfg.mouseFollow?.enabled ?? true;
   el.mouseBtn.classList.toggle('on', S.mouseFollow);
   S.gyroSmooth = cfg.gyro?.smooth ?? true;
@@ -348,36 +496,95 @@ async function boot() {
   el.gain.value = String(S.gyroGain);
   el.gainVal.textContent = S.gyroGain.toFixed(1) + '×';
 
-  const mobile = Math.min(window.innerWidth, screen?.width ?? 9999) <= (cfg.frames.mobileMaxScreenPx ?? 1100);
-  const stdSet = (mobile && cfg.frames.mobile) ? cfg.frames.mobile : cfg.frames.desktop;
-  const hdSet = (mobile && cfg.frames.mobileHd) ? cfg.frames.mobileHd : cfg.frames.desktopHd;
-  const params = new URLSearchParams(location.search);
-  const wantHd = params.get('q') === 'hd'
-    || (!params.has('q') && readPref('orbit360.quality') === 'hd');
-
-  S.quality = (wantHd && hdSet) ? 'hd' : 'std';
-  S.frameSet = S.quality === 'hd' ? hdSet : stdSet;
-  S.count = S.frameSet.count ?? cfg.frames.count;
-  S.degPerFrame = 360 / S.count;
-  S.frameDeg = (cfg.orbit?.spanDeg ?? 360) / S.count;
-
-  if (hdSet) {
-    el.hdBtn.hidden = false;
-    el.hdBtn.classList.toggle('on', S.quality === 'hd');
-    el.hdBtn.textContent = S.quality === 'hd' ? (mobile ? '高清' : '超清') : '标准';
-    el.hdBtn.title = mobile ? '切换 512×288 / 640×360' : '切换 1280×720 / 1920×1080';
-  }
-
-  el.title.textContent = cfg.title || '环绕视角';
   document.title = cfg.title || '环绕视角';
   buildRing();
-  initAutoGyro();
+}
 
-  S.frames = await preload();
+async function loadFromZipBlob(blob, qualityHint) {
+  const entries = await readZipEntries(blob);
+  const metaBlob = await zipFileBlob(entries, 'meta.json');
+  if (!metaBlob) throw new Error('包里缺少 meta.json');
+  const cfg = JSON.parse(await blobToText(metaBlob));
+  const pack = cfg.pack;
+  if (!pack || !Array.isArray(pack.files) || !pack.files.length) throw new Error('meta 缺少 pack.files');
+
+  await applyConfig(cfg, qualityHint || cfg.quality || 'std');
+
+  S.count = pack.count || pack.files.length;
+  S.degPerFrame = 360 / S.count;
+  S.frameDeg = (cfg.orbit?.spanDeg ?? 360) / S.count;
+  S.frameW = pack.frameW;
+  S.frameH = pack.frameH;
+
+  // 解出所有图片
+  const imgs = new Map();
+  let done = 0;
+  let next = 0;
+  const CONCURRENCY = 6;
+  const worker = async () => {
+    while (next < pack.files.length) {
+      const name = pack.files[next++];
+      const b = await zipFileBlob(entries, name);
+      imgs.set(name, b ? await loadImageBlob(b) : null);
+      done++;
+      S.loaded = done;
+      el.prog.style.width = (40 + (done / pack.files.length) * 58).toFixed(1) + '%';
+    }
+  };
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+  if (pack.type === 'atlas') {
+    const per = pack.cols * pack.rows;
+    S.frames = Array.from({ length: S.count }, (_, i) => {
+      const img = imgs.get(pack.files[Math.floor(i / per)]);
+      if (!img) return null;
+      const k = i % per;
+      return {
+        img,
+        sx: (k % pack.cols) * pack.frameW,
+        sy: Math.floor(k / pack.cols) * pack.frameH,
+        sw: pack.frameW,
+        sh: pack.frameH,
+      };
+    });
+  } else {
+    S.frames = Array.from({ length: S.count }, (_, i) => {
+      const img = imgs.get(pack.files[i]);
+      return img ? { img, sx: 0, sy: 0, sw: pack.frameW, sh: pack.frameH } : null;
+    });
+  }
+}
+
+async function loadFromUrl(url, quality) {
+  el.prog.style.width = '10%';
+  const res = await fetch(url, { cache: 'default' });
+  if (!res.ok) throw new Error(`包下载失败（HTTP ${res.status}）`);
+  const blob = await res.blob();
+  el.prog.style.width = '38%';
+  await loadFromZipBlob(blob, quality);
+}
+
+async function boot() {
+  S.catalog = await fetch(CATALOG_URL, { cache: 'no-cache' })
+    .then(r => (r.ok ? r.json() : null))
+    .catch(() => null);
+
+  const entry = pickEntry(S.catalog);
+  S.entry = entry;
+  S.exampleId = entry ? entry.id : null;
+  if (entry) buildExampleSelect();
+
+  const quality = pickQuality(entry);
+  const url = quality ? entry.packs[quality] : null;
+  if (!url) throw new Error('找不到可用的示例包（catalog.json）');
+
+  await loadFromUrl(url, quality);
+  syncQualityBtn();
+
   layout();
   const missing = S.frames.filter(f => !f || !f.img).length;
   if (missing) {
-    el.hint.textContent = `${missing} 帧加载失败，请检查 ${S.base}${S.frameSet.dir}`;
+    el.hint.textContent = `${missing} 帧解码失败（${S.quality}）`;
     el.hint.classList.remove('hide');
   }
   el.loader.classList.add('done');
@@ -387,85 +594,6 @@ async function boot() {
     if (!S.dragging) setUI(false);
   }, 3200);
   requestAnimationFrame(loop);
-}
-
-function frameURL(i) {
-  const f = S.frameSet;
-  const n = (f.start ?? 0) + i;
-  return S.base + f.dir + f.pattern.replace('%03d', String(n).padStart(3, '0'));
-}
-
-// 用 <img> 而不是 ImageBitmap：iOS 上 ImageBitmap 的纹理经常被逐出/重传，
-// 逐帧换纹理就是画面闪动的来源；<img> 走浏览器的图像缓存更稳。
-function loadImage(url, attempt = 0) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = () => {
-      if (img.decode) img.decode().catch(() => {});
-      resolve(img);
-    };
-    img.onerror = () => {
-      if (attempt < 2) {
-        const retryURL = url + (url.includes('?') ? '&' : '?') + 'r=' + (attempt + 1);
-        setTimeout(() => resolve(loadImage(retryURL, attempt + 1)), 90 * (attempt + 1));
-      } else {
-        resolve(null);
-      }
-    };
-    img.src = url;
-  });
-}
-
-async function preloadSequence(fs) {
-  const total = S.count;
-  const out = new Array(total);
-  const CONCURRENCY = 6;
-  let next = 0, done = 0;
-  const worker = async () => {
-    while (next < total) {
-      const i = next++;
-      const img = await loadImage(frameURL(i));
-      out[i] = img
-        ? { img, sx: 0, sy: 0, sw: img.naturalWidth, sh: img.naturalHeight }
-        : null;
-      done++;
-      S.loaded = done;
-      el.prog.style.width = ((done / total) * 100).toFixed(1) + '%';
-    }
-  };
-  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-  return out;
-}
-
-// 雪碧图：整段视频只占 1~2 块纹理，解码一次、绘制时裁剪，
-// 彻底消除「每帧换一张图」在移动端引起的闪动。
-async function preloadAtlas(fs) {
-  const { cols, rows, frameW, frameH } = fs;
-  const per = cols * rows;
-  const sheets = [];
-  for (let s = 0; s < fs.atlasCount; s++) {
-    const url = S.base + fs.atlasDir + fs.atlasPattern.replace('%02d', String(s + 1).padStart(2, '0'));
-    sheets.push(await loadImage(url));
-    el.prog.style.width = (((s + 1) / fs.atlasCount) * 100).toFixed(1) + '%';
-    S.loaded = Math.min(S.count, (s + 1) * per);
-  }
-  return Array.from({ length: S.count }, (_, i) => {
-    const img = sheets[Math.floor(i / per)];
-    if (!img) return null;
-    const k = i % per;
-    return {
-      img,
-      sx: (k % cols) * frameW,
-      sy: Math.floor(k / cols) * frameH,
-      sw: frameW,
-      sh: frameH,
-    };
-  });
-}
-
-function preload() {
-  return S.frameSet.type === 'atlas' ? preloadAtlas(S.frameSet) : preloadSequence(S.frameSet);
 }
 
 /* ---------- 画布 ---------- */
@@ -518,7 +646,8 @@ function fillBackdrop() {
 function layout() {
   const cfg = S.cfg;
   if (!cfg || !viewW || !viewH) return;
-  const vw = cfg.video.width, vh = cfg.video.height;
+  const vw = S.frameW || cfg.video?.width || 1280;
+  const vh = S.frameH || cfg.video?.height || 720;
   const cover = S.fitMode === 'cover';
   const base = cover
     ? Math.max(viewW / vw, viewH / vh)                     // 铺满：填满视口，裁掉多余
@@ -1002,18 +1131,39 @@ el.autoSpeed.addEventListener('input', () => {
   touchActivity();
 });
 
-el.exampleBtn.addEventListener('click', () => {
-  const items = S.catalog?.items ?? [];
-  if (items.length < 2) return;
-  const i = items.findIndex(x => x.id === S.exampleId);
-  const next = items[(i + 1) % items.length];
+el.exampleSel.addEventListener('change', () => {
   const url = new URL(location.href);
-  url.searchParams.set('e', next.id);
+  url.searchParams.set('e', el.exampleSel.value);
+  url.searchParams.delete('q');
   location.href = url.toString();
 });
 
+el.importBtn.addEventListener('click', () => el.importFile.click());
+
+el.importFile.addEventListener('change', async () => {
+  const file = el.importFile.files && el.importFile.files[0];
+  el.importFile.value = '';
+  if (!file) return;
+  try {
+    flashHint('正在解析 ' + file.name, 4000);
+    await loadFromZipBlob(file, null);
+    S.entry = null;                 // 导入模式没有示例清单，画质切换隐藏
+    S.exampleId = null;
+    el.exampleSel.disabled = true;
+    syncQualityBtn();
+    layout();
+    flashHint(`已载入 ${S.cfg.title || file.name}（${S.quality}）`, 2400);
+  } catch (err) {
+    flashHint('导入失败：' + err.message, 4000);
+  }
+});
+
 el.hdBtn.addEventListener('click', () => {
-  const next = S.quality === 'hd' ? 'std' : 'hd';
+  const avail = availableQualities(S.entry);
+  if (avail.length < 2) return;
+  const i = avail.indexOf(S.quality);
+  const next = avail[(i + 1) % avail.length];
+  if (!next || next === S.quality) return;
   writePref('orbit360.quality', next);
   const url = new URL(location.href);
   url.searchParams.set('q', next);

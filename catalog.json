@@ -4,14 +4,46 @@
     {
       "id": "maid",
       "title": "沙发少女",
-      "dir": "assets/maid/",
-      "frames": 120
+      "packs": {
+        "std": "assets/maid/packs/std.zip",
+        "hd": "assets/maid/packs/hd.zip",
+        "uhd": "assets/maid/packs/uhd.zip"
+      },
+      "defaults": {
+        "quality": "uhd",
+        "auto": {
+          "enabled": true,
+          "dir": "cw"
+        }
+      },
+      "source": {
+        "width": 3840,
+        "height": 2160,
+        "frames": 239,
+        "durationSec": 9.963
+      }
     },
     {
       "id": "orbit",
       "title": "环绕视角",
-      "dir": "assets/orbit/",
-      "frames": 120
+      "packs": {
+        "std": "assets/orbit/packs/std.zip",
+        "hd": "assets/orbit/packs/hd.zip",
+        "uhd": "assets/orbit/packs/uhd.zip"
+      },
+      "defaults": {
+        "quality": "uhd",
+        "auto": {
+          "enabled": true,
+          "dir": "cw"
+        }
+      },
+      "source": {
+        "width": 1280,
+        "height": 720,
+        "frames": 240,
+        "durationSec": 10.027
+      }
     }
   ]
 }

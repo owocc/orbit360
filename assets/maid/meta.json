@@ -1,0 +1,61 @@
+{
+  "title": "沙发少女",
+  "source": {
+    "file": "../../examples/anime-maid.mp4",
+    "width": 3840,
+    "height": 2160,
+    "fps": 24.0,
+    "frames": 239,
+    "durationSec": 9.963,
+    "codec": "h264",
+    "bitRate": 21007050,
+    "loopSimilarity": 0.768,
+    "audio": "aac 48kHz stereo",
+    "sampledEveryNthFrame": 2
+  },
+  "orbit": {
+    "spanDeg": 360,
+    "direction": "cw"
+  },
+  "video": {
+    "displayScale": 1,
+    "portraitScale": 1.25,
+    "fit": "contain",
+    "width": 1280,
+    "height": 720
+  },
+  "drag": {
+    "degPerPx": 0.42,
+    "invert": false,
+    "inertiaMs": 110,
+    "inertia": true
+  },
+  "motion": {
+    "smoothMs": 45
+  },
+  "auto": {
+    "enabled": false,
+    "dir": "cw",
+    "degPerSec": 14,
+    "idleDelayMs": 2200,
+    "rampInMs": 700,
+    "rampOutMs": 280
+  },
+  "gyro": {
+    "gain": 1.0,
+    "invert": false,
+    "smooth": true,
+    "smoothMs": 80
+  },
+  "mouseFollow": {
+    "enabled": true,
+    "degPerPx": 0.3
+  },
+  "defaults": {
+    "quality": "uhd",
+    "auto": {
+      "enabled": true,
+      "dir": "cw"
+    }
+  }
+}

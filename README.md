@@ -18,25 +18,70 @@ python3 serve_tls.py 8443        # 手机 https://<本机IP>:8443/（自签证�
 
 仓库里已经带了两个示例（`assets/orbit/`、`assets/maid/`），开箱即用。
 
-## 示例切换
+## 资源包（zip）
 
-`catalog.json` 列出所有示例，页面默认加载 `default`（当前是 `maid` 沙发少女），面板右下角的 **示例** 按钮循环切换；
-也可以直接用 URL 指定：
+每个示例按画质打包成独立的 zip，里面就是 `meta.json` + 图片，**不压缩（ZIP_STORED）**，
+浏览器解包时不需要 inflate：
 
 ```
-http://127.0.0.1:8787/?e=orbit
-http://127.0.0.1:8787/?e=maid
+assets/maid/
+  meta.json              包外的一份副本，供 catalog 读取默认配置
+  packs/std.zip          512×288 ×120（2 张雪碧图，1.5 MB）
+  packs/hd.zip           640×360 ×120（2 张雪碧图，2.0 MB）
+  packs/uhd.zip          1920×1080 ×60（60 张序列帧，5.1 MB）
 ```
 
-切换会整页重载并释放上一套帧的内存，不会两套叠在一起。
+包内 `meta.json` 结构：
+
+```json
+{
+  "title": "沙发少女",
+  "source": { "width": 3840, "height": 2160, "fps": 24, "frames": 239, "durationSec": 9.963, ... },
+  "pack": { "type": "atlas", "count": 120, "cols": 6, "rows": 10,
+            "frameW": 512, "frameH": 288, "pattern": "sheet%02d.jpg",
+            "files": ["sheet01.jpg", "sheet02.jpg"] },
+  "defaults": { "quality": "uhd", "auto": { "enabled": true, "dir": "cw" } },
+  "orbit": { "spanDeg": 360, "direction": "cw" },
+  "drag": { ... }, "motion": { ... }, "auto": { ... }, "gyro": { ... }
+}
+```
+
+- `pack.type` 为 `atlas`（雪碧图，按 `sx/sy` 裁剪）或 `sequence`（逐帧）
+- `defaults.quality` 决定打开时用哪档；`defaults.auto` 决定是否自动旋转及方向
+- 页面对 DEFLATE 包会用 `DecompressionStream('deflate-raw')` 兜底，老浏览器只支持 STORED
+
+## 示例与画质切换
+
+`catalog.json` 列出所有示例与各自可用的包：
+
+```json
+{ "default": "maid",
+  "items": [{ "id": "maid", "title": "沙发少女",
+              "packs": { "std": "assets/maid/packs/std.zip", "hd": "...", "uhd": "..." },
+              "defaults": { "quality": "uhd" } }] }
+```
+
+- 面板左上角的下拉框切换示例（整页重载，上一套帧内存随之释放）
+- 面板右下角 `标准/高清/超清` 按升档顺序循环，选择记在 `localStorage`
+- URL 参数：`?e=maid&q=uhd`
+- 手机打开时即使 meta 推荐 `uhd` 也自动降为 `hd`（约 110 MB 解码），需要时手动切到超清
 
 新增一个示例：
 
 ```bash
-python3 build.py my-video.mp4 --out assets/myid --title "我的示例" --catalog catalog.json
+python3 build.py my-video.mp4 --out assets/myid --title "我的示例" \
+    --default-quality uhd --default-auto cw --catalog catalog.json
 ```
 
-`--catalog` 会扫描 `--out` 的父目录（默认 `assets/`），把所有 `<id>/config.json` 收进清单。
+## 导入自定义包
+
+面板的 `导入` 按钮接受一个 zip（就是上面那种包），要求：
+
+1. 根目录有 `meta.json`，含 `pack.files` 与 `pack.frameW/frameH`
+2. `pack.files` 列出的图片都在包里
+3. 建议 STORED（不压缩），老浏览器才能解
+
+导入后立即生效，不写入服务器；示例下拉框与画质按钮会禁用（单包模式）。
 
 ## 低版本兼容：两份页面
 
@@ -130,11 +175,11 @@ UI 集中在左下角面板，进入 3.2 秒后自动隐藏，画面全屏沉浸
 
 ```bash
 python3 build.py <video> --out assets/<id> [--title 标题] [--catalog catalog.json]
-                  [--fps 12] [--desktop 1280] [--desktop-hd 1920]
-                  [--mobile 512] [--mobile-hd 640] [--quality 6]
+                  [--fps 12] [--std 512] [--hd 640] [--uhd 1920]
+                  [--default-quality uhd] [--default-auto cw|ccw|off] [--quality 6]
 ```
 
-`--mobile-hd 0` / `--desktop-hd 0` 可关掉对应的高清档（只生成标准档）。
+`--uhd 0` 可关掉超清档；`--keep-raw` 会保留解包出来的中间帧目录（调试用）。
 ```
 
 - 用 `ffprobe` 读源 meta，用 32×18 灰度缩略图算首尾 ZNCC 闭环相似度（过差会警告）
@@ -156,28 +201,25 @@ iOS Safari 上逐帧切换 `ImageBitmap` 会不停上传/驱逐 GPU 纹理，画
 - `layout()`（resize / 切画幅）之后同步补画当前帧，避免清屏到下一帧 rAF 之间的空白
 - UI 面板隐藏后 `visibility: hidden`，不再参与合成
 
-桌面用序列帧（`frames/` 1280×720 ×120，或 `frames-hd/` 1920×1080 ×60）；
-判断阈值 `frames.mobileMaxScreenPx`（默认 1100，覆盖 iPad）。
+画质档在包里声明（`pack.type` 决定雪碧图还是序列帧），页面不关心目录结构。
+移动端判定阈值仍是 1100px（覆盖 iPad）。
 
 ## 目录
 
 ```
-index.html        播放器（无依赖，单文件）
-build.py          视频 → 帧集 + config.json
+index.html        播放器（无依赖，单文件；自带 zip 解析）
+build.py          视频 → meta.json + packs/{std,hd,uhd}.zip
 serve.py          多线程静态服务
 serve_tls.py      HTTPS 服务（手机陀螺仪必需，自动生成自签证书）
-config.json       示例 meta（由 build.py 生成）
-catalog.json      示例清单（default + items）
+catalog.json      示例清单（default + items + packs + defaults）
 examples/         示例源视频
   orbit-sample.mp4   1280×720 / 10s
   anime-maid.mp4     3840×2160 / 10s
-assets/<id>/      每个示例一套资产
-  config.json       该示例的 meta 与手感配置
-  atlas/            移动端标准档雪碧图（2 张 3072×2880，512×288）
-  atlas-hd/         移动端高清档雪碧图（2 张 3840×3600，640×360）
-  frames/           桌面标准档 1280×720 ×120
-  frames-hd/        桌面超清档 1920×1080 ×60
-  frames-small/     移动端单帧 512×288（雪碧图的来源）
+assets/<id>/      每个示例的发布产物
+  meta.json         包外副本（catalog 读取默认配置）
+  packs/std.zip     512×288 雪碧图包
+  packs/hd.zip      640×360 雪碧图包
+  packs/uhd.zip     1920×1080 序列帧包
 ```
 
 ## 兼容性
