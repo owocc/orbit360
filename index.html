@@ -312,9 +312,6 @@ async function boot() {
     return r.json();
   });
   S.cfg = cfg;
-  S.count = cfg.frames.count;
-  S.degPerFrame = 360 / S.count;
-  S.frameDeg = (cfg.orbit?.spanDeg ?? 360) / S.count;
   S.dirSign = cfg.orbit?.direction === 'ccw' ? -1 : 1;
   S.gyroGain = cfg.gyro?.gain ?? 1;
   S.invert = !!cfg.drag?.invert;
@@ -333,18 +330,23 @@ async function boot() {
   el.gainVal.textContent = S.gyroGain.toFixed(1) + '×';
 
   const mobile = Math.min(window.innerWidth, screen?.width ?? 9999) <= (cfg.frames.mobileMaxScreenPx ?? 1100);
-  if (mobile && cfg.frames.mobile) {
-    const wantHd = new URLSearchParams(location.search).get('q') === 'hd'
-      || (!new URLSearchParams(location.search).has('q') && readPref('orbit360.quality') === 'hd');
-    S.quality = (wantHd && cfg.frames.mobileHd) ? 'hd' : 'std';
-    S.frameSet = S.quality === 'hd' ? cfg.frames.mobileHd : cfg.frames.mobile;
-    if (cfg.frames.mobileHd) {
-      el.hdBtn.hidden = false;
-      el.hdBtn.classList.toggle('on', S.quality === 'hd');
-      el.hdBtn.textContent = S.quality === 'hd' ? '高清' : '标准';
-    }
-  } else {
-    S.frameSet = cfg.frames.desktop;
+  const stdSet = (mobile && cfg.frames.mobile) ? cfg.frames.mobile : cfg.frames.desktop;
+  const hdSet = (mobile && cfg.frames.mobileHd) ? cfg.frames.mobileHd : cfg.frames.desktopHd;
+  const params = new URLSearchParams(location.search);
+  const wantHd = params.get('q') === 'hd'
+    || (!params.has('q') && readPref('orbit360.quality') === 'hd');
+
+  S.quality = (wantHd && hdSet) ? 'hd' : 'std';
+  S.frameSet = S.quality === 'hd' ? hdSet : stdSet;
+  S.count = S.frameSet.count ?? cfg.frames.count;
+  S.degPerFrame = 360 / S.count;
+  S.frameDeg = (cfg.orbit?.spanDeg ?? 360) / S.count;
+
+  if (hdSet) {
+    el.hdBtn.hidden = false;
+    el.hdBtn.classList.toggle('on', S.quality === 'hd');
+    el.hdBtn.textContent = S.quality === 'hd' ? (mobile ? '高清' : '超清') : '标准';
+    el.hdBtn.title = mobile ? '切换 512×288 / 640×360' : '切换 1280×720 / 1920×1080';
   }
 
   el.title.textContent = cfg.title || '环绕视角';

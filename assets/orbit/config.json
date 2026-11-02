@@ -46,6 +46,13 @@
       "frameH": 288
     },
     "mobileMaxScreenPx": 1100,
+    "desktopHd": {
+      "type": "sequence",
+      "dir": "frames-hd/",
+      "pattern": "f%03d.jpg",
+      "start": 1,
+      "count": 60
+    },
     "mobileHd": {
       "type": "atlas",
       "dir": "atlas-hd/",

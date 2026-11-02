@@ -214,6 +214,8 @@ def main():
     ap.add_argument("--mobile", type=int, default=512, help="移动帧长边（默认 512）")
     ap.add_argument("--mobile-hd", type=int, default=640,
                     help="移动端高清档长边（默认 640，设 0 则不生成）")
+    ap.add_argument("--desktop-hd", type=int, default=1920,
+                    help="桌面超清档长边（默认 1920，帧数减半；设 0 则不生成）")
     ap.add_argument("--quality", type=int, default=6, help="JPEG 质量 2-31，越小越清晰（默认 6）")
     ap.add_argument("--title", help="示例标题，写入 config.title")
     ap.add_argument("--catalog", help="构建后生成示例清单，例如 catalog.json")
@@ -245,8 +247,15 @@ def main():
     mw, mh = fit(meta["width"], meta["height"], args.mobile)
     hw, hh = (fit(meta["width"], meta["height"], args.mobile_hd)
               if args.mobile_hd else (0, 0))
+    uw, uh = (fit(meta["width"], meta["height"], args.desktop_hd)
+              if args.desktop_hd else (0, 0))
 
     n_desktop = extract(src, os.path.join(out, "frames"), dw, dh, fps, args.quality, count)
+    # 桌面超清档：分辨率翻倍、帧数减半，解压内存与标准档相近（约 500 MB）
+    n_desktop_hd = 0
+    if uw:
+        n_desktop_hd = extract(src, os.path.join(out, "frames-hd"), uw, uh,
+                               max(fps / 2, 1), args.quality, max(1, count // 2))
     n_mobile = extract(src, os.path.join(out, "frames-small"), mw, mh, fps,
                        min(31, args.quality + 1), count)
     # 移动端雪碧图：6 列 × 10 行，512×288 时单张 3072×2880，正好在 iOS 纹理上限内
@@ -312,6 +321,15 @@ def main():
             },
             "mobileMaxScreenPx": 1100,
             **({
+                "desktopHd": {
+                    "type": "sequence",
+                    "dir": "frames-hd/",
+                    "pattern": "f%03d.jpg",
+                    "start": 1,
+                    "count": n_desktop_hd,
+                }
+            } if n_desktop_hd else {}),
+            **({
                 "mobileHd": {
                     "type": "atlas",
                     "dir": "atlas-hd/",
@@ -343,6 +361,8 @@ def main():
     print(f"雪碧图: {sheets} 张 {sw}x{sh}（atlas/）")
     if hd_sheets:
         print(f"高清雪碧图: {hd_sheets} 张 {hd_sw}x{hd_sh}（atlas-hd/，{hw}x{hh}）")
+    if n_desktop_hd:
+        print(f"桌面超清: {uw}x{uh} × {n_desktop_hd} 帧（frames-hd/，{360/max(1,n_desktop_hd):.1f}°/帧）")
     print(f"角度: {360 / max(1, n_desktop):.2f}°/帧   spanDeg={cfg['orbit']['spanDeg']}")
     print(f"配置: {cfg_path}")
     if args.catalog:
