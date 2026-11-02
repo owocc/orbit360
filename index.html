@@ -127,9 +127,9 @@
     #panel { width: 272px; max-width: calc(100vw - 24px); padding: 10px; gap: 8px 10px; }
     .p-deg { font-size: 20px; }
   }
-  /* 窄屏：缩小方位环与间距，避免压住画面 */
+  /* 窄屏：藏掉方位环，避免面板压住画面 */
   @media (max-width: 480px) and (min-height: 561px) {
-    #ring { width: 60px; height: 60px; }
+    #ring { display: none; }
     #panel { padding: 10px; gap: 8px 10px; }
   }
 
@@ -172,6 +172,12 @@
     <span>陀螺仪</span>
     <input id="gain" type="range" min="0.4" max="3" step="0.1" value="1" aria-label="陀螺仪灵敏度">
     <b id="gainVal">1.0×</b>
+  </label>
+
+  <label class="p-sens">
+    <span>自动转速</span>
+    <input id="autoSpeed" type="range" min="2" max="60" step="1" value="14" aria-label="自动旋转速度">
+    <b id="autoSpeedVal">14°/s</b>
   </label>
 
   <div class="p-btns">
@@ -226,6 +232,8 @@ const el = {
   hdBtn: document.getElementById('hdBtn'),
   gain: document.getElementById('gain'),
   gainVal: document.getElementById('gainVal'),
+  autoSpeed: document.getElementById('autoSpeed'),
+  autoSpeedVal: document.getElementById('autoSpeedVal'),
   invBtn: document.getElementById('invBtn'),
   autoBtn: document.getElementById('autoBtn'),
   exampleBtn: document.getElementById('exampleBtn'),
@@ -272,6 +280,10 @@ const S = {
   orientT: 0,
 
   auto: false,
+  autoState: 'off',
+  autoDir: 1,
+  autoSpeed: 14,
+  autoWeight: 0,
   invert: false,
   uiVisible: true,
   lastPointerType: '',
@@ -315,8 +327,15 @@ async function boot() {
   S.dirSign = cfg.orbit?.direction === 'ccw' ? -1 : 1;
   S.gyroGain = cfg.gyro?.gain ?? 1;
   S.invert = !!cfg.drag?.invert;
-  S.auto = !!cfg.auto?.enabled;
-  el.autoBtn.classList.toggle('on', S.auto);
+  const autoPref = readPref('orbit360.auto');
+  S.autoState = autoPref || (cfg.auto?.enabled ? (cfg.auto?.dir === 'ccw' ? 'ccw' : 'cw') : 'off');
+  S.autoDir = S.autoState === 'ccw' ? -1 : 1;
+  S.auto = S.autoState !== 'off';
+  const speedPref = parseFloat(readPref('orbit360.autoSpeed'));
+  S.autoSpeed = Number.isFinite(speedPref) ? speedPref : (cfg.auto?.degPerSec ?? 14);
+  el.autoSpeed.value = String(S.autoSpeed);
+  el.autoSpeedVal.textContent = Math.round(S.autoSpeed) + '°/s';
+  syncAutoBtn();
   S.mouseFollow = cfg.mouseFollow?.enabled ?? true;
   el.mouseBtn.classList.toggle('on', S.mouseFollow);
   S.gyroSmooth = cfg.gyro?.smooth ?? true;
@@ -539,6 +558,21 @@ function paint() {
 
 /* ---------- 主循环 ---------- */
 
+// 静止后渐入自动旋转；任何交互都以更快的速度渐出，避免启停顿挫
+function updateAuto(dt, t) {
+  const want = (S.auto && !S.gyro && !S.dragging
+    && (t - S.idleSince) > (S.cfg?.auto?.idleDelayMs ?? 2200)) ? 1 : 0;
+  const tau = want
+    ? (S.cfg?.auto?.rampInMs ?? 700)
+    : (S.dragging ? 120 : (S.cfg?.auto?.rampOutMs ?? 280));
+
+  S.autoWeight += (want - S.autoWeight) * (1 - Math.exp(-dt / tau));
+  if (want === 0 && S.autoWeight < 0.004) { S.autoWeight = 0; return; }
+  if (S.autoWeight <= 0) return;
+
+  S.target += S.autoDir * S.autoSpeed * S.autoWeight * dt / 1000;
+}
+
 let lastT = 0;
 function loop(t) {
   const dt = Math.min(t - (lastT || t), 64);
@@ -551,11 +585,9 @@ function loop(t) {
       touchActivity();
     } else {
       S.vel = 0;
-      if (S.auto && !S.gyro && t - S.idleSince > (S.cfg.auto?.idleDelayMs ?? 2200)) {
-        S.target += (S.cfg.auto?.degPerSec ?? 14) / 1000 * dt;
-      }
     }
   }
+  updateAuto(dt, t);
 
   const d = shortDelta(S.angle, S.target);
   const tau = S.cfg.motion?.smoothMs ?? 62;
@@ -946,9 +978,27 @@ el.fitBtn.addEventListener('click', () => {
   touchActivity();
 });
 
+function syncAutoBtn() {
+  el.autoBtn.textContent = S.autoState === 'off' ? '自动环绕'
+    : (S.autoState === 'cw' ? '顺时针' : '逆时针');
+  el.autoBtn.classList.toggle('on', S.autoState !== 'off');
+}
+
 el.autoBtn.addEventListener('click', () => {
-  S.auto = !S.auto;
-  el.autoBtn.classList.toggle('on', S.auto);
+  S.autoState = S.autoState === 'off' ? 'cw' : (S.autoState === 'cw' ? 'ccw' : 'off');
+  S.auto = S.autoState !== 'off';
+  S.autoDir = S.autoState === 'ccw' ? -1 : 1;
+  writePref('orbit360.auto', S.autoState);
+  syncAutoBtn();
+  touchActivity();
+  flashHint(S.autoState === 'off' ? '自动旋转已关闭'
+    : (S.autoState === 'cw' ? '顺时针自动旋转' : '逆时针自动旋转'), 1400);
+});
+
+el.autoSpeed.addEventListener('input', () => {
+  S.autoSpeed = parseFloat(el.autoSpeed.value) || 14;
+  el.autoSpeedVal.textContent = Math.round(S.autoSpeed) + '°/s';
+  writePref('orbit360.autoSpeed', String(S.autoSpeed));
   touchActivity();
 });
 
@@ -976,7 +1026,7 @@ addEventListener('keydown', e => {
   const step = e.shiftKey ? 15 : 3;
   if (e.key === 'ArrowRight') { S.target += step; touchActivity(); e.preventDefault(); }
   else if (e.key === 'ArrowLeft') { S.target -= step; touchActivity(); e.preventDefault(); }
-  else if (e.key === ' ') { S.auto = !S.auto; el.autoBtn.classList.toggle('on', S.auto); e.preventDefault(); }
+  else if (e.key === ' ') { el.autoBtn.click(); e.preventDefault(); }
   else if (e.key === 'h' || e.key === 'H') { clearTimeout(uiHideTimer); toggleUI(); e.preventDefault(); }
 });
 

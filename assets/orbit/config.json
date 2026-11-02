@@ -76,8 +76,11 @@
   },
   "auto": {
     "enabled": false,
+    "dir": "cw",
     "degPerSec": 14,
-    "idleDelayMs": 2200
+    "idleDelayMs": 2200,
+    "rampInMs": 700,
+    "rampOutMs": 280
   },
   "gyro": {
     "gain": 1.0,
