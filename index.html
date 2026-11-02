@@ -36,6 +36,15 @@
 
   .hud { position: fixed; z-index: 3; pointer-events: none; }
 
+  /* UI 默认隐藏，长按（触屏）/双击（鼠标）切换 */
+  .hud, #controls, #hint, #ring { transition: opacity .26s ease, transform .26s ease; }
+  body.ui-hidden .hud,
+  body.ui-hidden #controls,
+  body.ui-hidden #hint,
+  body.ui-hidden #ring { opacity: 0; pointer-events: none; }
+  body.ui-hidden #controls { transform: translate(-50%, 10px); }
+  body.ui-hidden #ring { transform: translateX(-50%) scale(.94); }
+
   #topbar {
     top: 0; left: 0; right: 0;
     padding: max(14px, env(safe-area-inset-top)) 18px 0;
@@ -116,7 +125,7 @@
   <button id="gyroBtn">开启陀螺仪</button>
   <button id="calBtn" disabled>校准</button>
   <button id="invBtn">反向</button>
-  <button id="autoBtn" class="on">自动环绕</button>
+  <button id="autoBtn">自动环绕</button>
 </div>
 
 <svg id="ring" viewBox="0 0 132 132" aria-hidden="true">
@@ -179,8 +188,10 @@ const S = {
   lastPointerX: 0,
   lastPointerT: 0,
 
-  auto: true,
+  auto: false,
   invert: false,
+  uiVisible: true,
+  lastPointerType: '',
   gyro: false,
   gyroSeen: false,
   hasAbsolute: false,
@@ -207,6 +218,8 @@ async function boot() {
   S.dirSign = cfg.orbit?.direction === 'ccw' ? -1 : 1;
   S.gyroGain = cfg.gyro?.gain ?? 1;
   S.invert = !!cfg.drag?.invert;
+  S.auto = !!cfg.auto?.enabled;
+  el.autoBtn.classList.toggle('on', S.auto);
 
   const small = !!cfg.frames.mobileDir &&
     Math.min(window.innerWidth, screen?.width ?? 9999) <= (cfg.frames.mobileMaxScreenPx ?? 900);
@@ -225,6 +238,10 @@ async function boot() {
   }
   el.loader.classList.add('done');
   setTimeout(() => el.loader.remove(), 600);
+  setUI(true);
+  uiHideTimer = setTimeout(() => {
+    if (!S.dragging) setUI(false);
+  }, 3200);
   requestAnimationFrame(loop);
 }
 
@@ -397,26 +414,62 @@ function buildRing() {
   el.ticks.innerHTML = s;
 }
 
-/* ---------- 拖拽 ---------- */
+/* ---------- 拖拽 & UI ---------- */
+
+const LONG_PRESS_MS = 420;
+let pressTimer = null;
+let pressStart = null;
+let suppressMove = false;
+let uiHideTimer = null;
 
 function touchActivity() {
   S.idleSince = performance.now();
 }
 
+function setUI(visible) {
+  S.uiVisible = visible;
+  document.body.classList.toggle('ui-hidden', !visible);
+}
+
+function toggleUI() {
+  setUI(!S.uiVisible);
+}
+
 el.stage.addEventListener('pointerdown', e => {
   if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
+  S.lastPointerType = e.pointerType;
   S.dragging = true;
   S.vel = 0;
   S.lastPointerX = e.clientX;
   S.lastPointerT = e.timeStamp;
   el.stage.classList.add('dragging');
-  el.stage.setPointerCapture(e.pointerId);
+  try { el.stage.setPointerCapture(e.pointerId); } catch (_) { /* 合成事件无活动指针 */ }
   touchActivity();
   el.hint.classList.add('hide');
+
+  clearTimeout(pressTimer);
+  pressTimer = null;
+  pressStart = { x: e.clientX, y: e.clientY };
+  if (e.pointerType !== 'mouse') {
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      suppressMove = true;
+      S.dragging = false;
+      S.vel = 0;
+      el.stage.classList.remove('dragging');
+      toggleUI();
+      navigator.vibrate?.(8);
+    }, LONG_PRESS_MS);
+  }
 });
 
 el.stage.addEventListener('pointermove', e => {
-  if (!S.dragging) return;
+  if (pressStart && Math.hypot(e.clientX - pressStart.x, e.clientY - pressStart.y) > 8) {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+    pressStart = null;           // 动了就算拖拽，取消长按
+  }
+  if (suppressMove || !S.dragging) return;
   const dx = e.clientX - S.lastPointerX;
   const dt = Math.max(e.timeStamp - S.lastPointerT, 1);
   const deg = dx * (S.cfg?.drag?.degPerPx ?? 0.42) * (S.invert ? -1 : 1);
@@ -430,12 +483,21 @@ el.stage.addEventListener('pointermove', e => {
 });
 
 function endDrag(e) {
-  if (!S.dragging) return;
-  S.dragging = false;
+  clearTimeout(pressTimer);
+  pressTimer = null;
+  pressStart = null;
   el.stage.classList.remove('dragging');
   if (e && e.pointerId !== undefined && el.stage.hasPointerCapture?.(e.pointerId)) {
-    el.stage.releasePointerCapture(e.pointerId);
+    try { el.stage.releasePointerCapture(e.pointerId); } catch (_) {}
   }
+  if (suppressMove) {
+    suppressMove = false;
+    S.dragging = false;
+    S.vel = 0;
+    return;
+  }
+  if (!S.dragging) return;
+  S.dragging = false;
   if (performance.now() - S.lastPointerT > 90) S.vel = 0;
   S.vel = Math.max(-0.55, Math.min(0.55, S.vel));
   touchActivity();
@@ -443,13 +505,14 @@ function endDrag(e) {
 el.stage.addEventListener('pointerup', endDrag);
 el.stage.addEventListener('pointercancel', endDrag);
 
+// PC：双击显示/隐藏 UI；触屏走长按
 el.stage.addEventListener('dblclick', () => {
-  S.target = 0;
-  S.vel = 0;
-  S.gyroRef = null;
-  S.gyroBase = 0;
-  touchActivity();
+  if (S.lastPointerType === 'touch') return;
+  clearTimeout(uiHideTimer);
+  toggleUI();
 });
+
+el.stage.addEventListener('contextmenu', e => e.preventDefault());
 
 /* ---------- 陀螺仪 ---------- */
 
@@ -556,6 +619,7 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') { S.target += step; touchActivity(); e.preventDefault(); }
   else if (e.key === 'ArrowLeft') { S.target -= step; touchActivity(); e.preventDefault(); }
   else if (e.key === ' ') { S.auto = !S.auto; el.autoBtn.classList.toggle('on', S.auto); e.preventDefault(); }
+  else if (e.key === 'h' || e.key === 'H') { clearTimeout(uiHideTimer); toggleUI(); e.preventDefault(); }
 });
 
 /* ---------- 启动 ---------- */

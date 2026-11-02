@@ -130,7 +130,7 @@ def load_ui_defaults(path):
         "orbit": {"spanDeg": 360, "direction": "cw"},
         "drag": {"degPerPx": 0.42, "invert": False, "inertiaMs": 110},
         "motion": {"smoothMs": 45},
-        "auto": {"degPerSec": 14, "idleDelayMs": 2200},
+        "auto": {"enabled": False, "degPerSec": 14, "idleDelayMs": 2200},
         "gyro": {"gain": 1.0, "invert": False},
         "video": {"displayScale": 1, "portraitScale": 1.25},
     }
