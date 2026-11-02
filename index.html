@@ -61,14 +61,39 @@
   }
 
   .p-brand { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
-  .p-select {
-    font: inherit; font-size: 14px; font-weight: 600; letter-spacing: -.01em;
-    color: var(--fg); background: transparent; border: 0; padding: 0;
-    margin: 0 0 2px -2px; max-width: 190px; cursor: pointer;
-    appearance: none; -webkit-appearance: none; text-overflow: ellipsis;
+  /* 右下角示例切换：一条可横向滚动的胶囊栏 */
+  .ex-bar {
+    position: fixed; z-index: 5; right: 14px;
+    bottom: 14px;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 6px;
+    max-width: calc(100vw - 28px);
+    padding: 5px;
+    border-radius: 999px;
+    background: rgba(13, 15, 19, .74);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    transition: opacity .26s ease, transform .26s ease, visibility .26s;
   }
-  .p-select:disabled { opacity: 1; cursor: default; }
-  .p-select option { color: #111; background: #fff; }
+  .ex-bar::-webkit-scrollbar { display: none; }
+  body.ui-hidden .ex-bar {
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transform: translateY(10px);
+  }
+  .ex-pill {
+    flex: 0 0 auto; border-radius: 999px; border: 1px solid transparent;
+    background: transparent; color: var(--muted);
+    font-size: 11.5px; padding: 7px 13px; cursor: pointer;
+    white-space: nowrap; transition: color .15s, background .15s;
+  }
+  .ex-pill:hover { background: rgba(255, 255, 255, .08); color: var(--fg); }
+  .ex-pill.on {
+    color: #06281e; background: var(--accent); font-weight: 600;
+  }
   .p-sub {
     font-size: 10.5px; color: var(--muted); margin-top: 3px;
     letter-spacing: .04em; font-variant-numeric: tabular-nums;
@@ -135,10 +160,23 @@
     #panel { width: 272px; max-width: calc(100vw - 24px); padding: 10px; gap: 8px 10px; }
     .p-deg { font-size: 20px; }
   }
-  /* 窄屏：藏掉方位环，避免面板压住画面 */
+  /* 窄屏：藏掉方位环，示例条与面板合并成底部控制区 */
   @media (max-width: 480px) and (min-height: 561px) {
     #ring { display: none; }
     #panel { padding: 10px; gap: 8px 10px; }
+  }
+  @media (max-width: 560px) {
+    .ex-bar {
+      left: 12px; right: 12px;
+      bottom: 12px;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      justify-content: flex-start;
+      max-width: none;
+    }
+    #panel {
+      bottom: 68px;
+      bottom: calc(68px + env(safe-area-inset-bottom));
+    }
   }
 
   #loader {
@@ -161,7 +199,7 @@
 
 <div id="panel">
   <div>
-    <select id="exampleSel" class="p-select" aria-label="示例"></select>
+    <div class="p-brand" id="title">环绕视角</div>
     <div class="p-sub" id="meta">— / —</div>
   </div>
   <div class="p-deg"><span id="deg">0</span><small>°</small></div>
@@ -207,6 +245,8 @@
   </div>
 </div>
 
+<div id="examples" class="ex-bar" hidden></div>
+
 <input id="importFile" type="file" accept=".zip,application/zip" hidden>
 
 <div id="loader">
@@ -246,7 +286,7 @@ const el = {
   autoSpeedVal: document.getElementById('autoSpeedVal'),
   invBtn: document.getElementById('invBtn'),
   autoBtn: document.getElementById('autoBtn'),
-  exampleSel: document.getElementById('exampleSel'),
+  examples: document.getElementById('examples'),
   importBtn: document.getElementById('importBtn'),
   importFile: document.getElementById('importFile'),
   arc: document.getElementById('arc'),
@@ -447,18 +487,27 @@ function syncQualityBtn() {
   el.hdBtn.title = '当前 ' + (S.quality || '') + '，点击切换';
 }
 
-function buildExampleSelect() {
+function buildExampleBar() {
   const items = S.catalog?.items ?? [];
-  if (!items.length) return;
-  el.exampleSel.textContent = '';
+  if (items.length < 2) { el.examples.hidden = true; return; }
+  el.examples.textContent = '';
   items.forEach(it => {
-    const opt = document.createElement('option');
-    opt.value = it.id;
-    opt.textContent = it.title || it.id;
-    el.exampleSel.appendChild(opt);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ex-pill' + (it.id === S.exampleId ? ' on' : '');
+    b.textContent = it.title || it.id;
+    b.addEventListener('click', () => {
+      if (it.id === S.exampleId) { touchActivity(); return; }
+      const url = new URL(location.href);
+      url.searchParams.set('e', it.id);
+      url.searchParams.delete('q');
+      location.href = url.toString();
+    });
+    el.examples.appendChild(b);
   });
-  el.exampleSel.value = S.exampleId;
-  el.exampleSel.disabled = items.length < 2;
+  el.examples.hidden = false;
+  const cur = el.examples.querySelector('.ex-pill.on');
+  if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 
 /* ---------- 载入资源包 ---------- */
@@ -496,6 +545,7 @@ async function applyConfig(cfg, quality) {
   el.gain.value = String(S.gyroGain);
   el.gainVal.textContent = S.gyroGain.toFixed(1) + '×';
 
+  el.title.textContent = cfg.title || '环绕视角';
   document.title = cfg.title || '环绕视角';
   buildRing();
 }
@@ -572,7 +622,7 @@ async function boot() {
   const entry = pickEntry(S.catalog);
   S.entry = entry;
   S.exampleId = entry ? entry.id : null;
-  if (entry) buildExampleSelect();
+  if (entry) buildExampleBar();
 
   const quality = pickQuality(entry);
   const url = quality ? entry.packs[quality] : null;
@@ -1131,13 +1181,6 @@ el.autoSpeed.addEventListener('input', () => {
   touchActivity();
 });
 
-el.exampleSel.addEventListener('change', () => {
-  const url = new URL(location.href);
-  url.searchParams.set('e', el.exampleSel.value);
-  url.searchParams.delete('q');
-  location.href = url.toString();
-});
-
 el.importBtn.addEventListener('click', () => el.importFile.click());
 
 el.importFile.addEventListener('change', async () => {
@@ -1149,7 +1192,8 @@ el.importFile.addEventListener('change', async () => {
     await loadFromZipBlob(file, null);
     S.entry = null;                 // 导入模式没有示例清单，画质切换隐藏
     S.exampleId = null;
-    el.exampleSel.disabled = true;
+    const pills = el.examples.querySelectorAll('.ex-pill');
+    for (let i = 0; i < pills.length; i++) pills[i].classList.remove('on');
     syncQualityBtn();
     layout();
     flashHint(`已载入 ${S.cfg.title || file.name}（${S.quality}）`, 2400);
