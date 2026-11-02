@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-legacy="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0a0b0e">
+<title>兼容版 · 环绕视角 · Orbit Scrub</title>
+<style>
+  :root {
+    --bg: #0a0b0e;
+    --fg: #f2f3f5;
+    --muted: #8b909a;
+    --line: rgba(255, 255, 255, 0.12);
+    --accent: #6ee7b7;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC", "Helvetica Neue", sans-serif;
+    touch-action: none; overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  body::before {
+    content: ""; position: fixed; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 42%, #1b1f27 0%, #0a0b0e 62%, #050608 100%);
+  }
+  #stage {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+    cursor: grab; touch-action: none;
+  }
+  #stage.dragging { cursor: grabbing; }
+  #view {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: block;
+    width: 100%; height: 100%; min-width: 0; min-height: 0;
+  }
+
+  /* ---------- 左下角控制面板 ---------- */
+  #panel {
+    position: fixed; z-index: 4;
+    left: 14px;
+    left: max(14px, env(safe-area-inset-left));
+    bottom: 14px;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    width: 300px;
+    max-width: calc(100vw - 28px);
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(13, 15, 19, .74);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 14px 44px rgba(0, 0, 0, .5);
+    display: grid; grid-template-columns: 1fr auto; gap: 10px 12px;
+    align-items: center;
+    transition: opacity .26s ease, transform .26s ease, visibility .26s;
+  }
+  body.ui-hidden #panel {
+    opacity: 0; pointer-events: none; visibility: hidden;
+    transform: translateY(12px) scale(.98);
+  }
+
+  .p-brand { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+  .p-sub {
+    font-size: 10.5px; color: var(--muted); margin-top: 3px;
+    letter-spacing: .04em; font-variant-numeric: tabular-nums;
+  }
+  .p-deg {
+    font-size: 24px; font-weight: 600; letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums; text-align: right;
+  }
+  .p-deg small { font-size: 11px; color: var(--muted); margin-left: 2px; }
+
+  #ring { width: 76px; height: 76px; margin: 0 auto; grid-column: 1 / -1; }
+  #ring .track { stroke: rgba(255,255,255,.09); }
+  #ring .tick { stroke: rgba(255,255,255,.18); }
+  #ring .arc { stroke: var(--accent); stroke-linecap: round; }
+  #ring .needle { stroke: var(--accent); }
+  #ring text { fill: var(--muted); font-size: 9px; letter-spacing: .1em; }
+
+  .p-sens {
+    grid-column: 1 / -1; display: flex; align-items: center;
+    font-size: 10.5px; color: var(--muted); letter-spacing: .03em;
+  }
+  .p-sens span { white-space: nowrap; margin-right: 8px; }
+  .p-sens input {
+    flex: 1; min-width: 0; height: 16px; accent-color: var(--accent);
+    background: transparent; cursor: pointer;
+  }
+  .p-sens b {
+    font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums;
+    min-width: 30px; text-align: right; margin-left: 8px;
+  }
+
+  .p-btns { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .p-toggles {
+    grid-column: 1 / -1; display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px;
+  }
+  .p-toggles button { font-size: 10.5px; padding: 6px 4px; border-radius: 8px; background: rgba(255,255,255,.04); }
+  button {
+    font: inherit; font-size: 11px; color: var(--fg);
+    background: rgba(255,255,255,.06); border: 1px solid var(--line);
+    border-radius: 9px; padding: 7px 4px; cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  button:hover { background: rgba(255,255,255,.12); }
+  button.on { color: #06281e; background: var(--accent); border-color: var(--accent); }
+  button:disabled { opacity: .38; cursor: default; }
+  button[hidden] { display: none; }
+
+  #hint {
+    position: fixed; z-index: 3; left: 50%; transform: translateX(-50%);
+    top: 16px;
+    top: max(16px, env(safe-area-inset-top));
+    color: var(--muted); font-size: 11.5px; letter-spacing: .02em;
+    text-align: center; width: 100%; padding: 0 20px; pointer-events: none;
+    transition: opacity .45s;
+  }
+  #hint.hide { opacity: 0; }
+  body.ui-hidden #hint { opacity: 0; }
+
+  /* 横屏/矮屏：收紧面板，藏掉方位环 */
+  @media (max-height: 560px) {
+    #ring { display: none; }
+    #panel { width: 272px; max-width: calc(100vw - 24px); padding: 10px; gap: 8px 10px; }
+    .p-deg { font-size: 20px; }
+  }
+  /* 窄屏：缩小方位环与间距，避免压住画面 */
+  @media (max-width: 480px) and (min-height: 561px) {
+    #ring { width: 60px; height: 60px; }
+    #panel { padding: 10px; gap: 8px 10px; }
+  }
+
+  #loader {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 10;
+    display: grid; place-items: center;
+    background: var(--bg); transition: opacity .5s;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+  .loadwrap { width: 260px; max-width: 62vw; text-align: center; }
+  .loadwrap p { margin: 0 0 12px; color: var(--muted); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; }
+  .bar { height: 2px; border-radius: 2px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+</style>
+</head>
+<body>
+
+<div id="stage"><canvas id="view"></canvas></div>
+
+<div id="hint">左右拖拽旋转 · 倾斜手机环视</div>
+
+<div id="panel">
+  <div>
+    <div class="p-brand" id="title">环绕视角</div>
+    <div class="p-sub" id="meta">— / —</div>
+  </div>
+  <div class="p-deg"><span id="deg">0</span><small>°</small></div>
+
+  <svg id="ring" viewBox="0 0 132 132" aria-hidden="true">
+    <circle class="track" cx="66" cy="66" r="52" fill="none" stroke-width="1.5"/>
+    <g id="ticks"></g>
+    <circle class="arc" id="arc" cx="66" cy="66" r="52" fill="none" stroke-width="2.5"
+            stroke-dasharray="0 327" transform="rotate(-90 66 66)"/>
+    <line class="needle" id="needle" x1="66" y1="66" x2="66" y2="24" stroke-width="2"/>
+    <circle cx="66" cy="66" r="3.2" fill="currentColor" style="color:var(--accent)"/>
+    <text x="66" y="124" text-anchor="middle">BEARING</text>
+  </svg>
+
+  <label class="p-sens">
+    <span>陀螺仪</span>
+    <input id="gain" type="range" min="0.4" max="3" step="0.1" value="1" aria-label="陀螺仪灵敏度">
+    <b id="gainVal">1.0×</b>
+  </label>
+
+  <div class="p-btns">
+    <button id="fsBtn">全屏</button>
+    <button id="gyroBtn">陀螺仪</button>
+    <button id="resetBtn">重置</button>
+    <button id="calBtn" disabled>校准</button>
+    <button id="invBtn">反向</button>
+    <button id="mouseBtn">鼠标跟随</button>
+    <button id="autoBtn">自动环绕</button>
+    <button id="exampleBtn">示例</button>
+  </div>
+
+  <div class="p-toggles">
+    <button id="gyroSmoothBtn" class="on">陀螺仪平滑</button>
+    <button id="inertiaBtn" class="on">惯性</button>
+    <button id="fitBtn">自适应</button>
+    <button id="hdBtn" hidden>标准</button>
+  </div>
+</div>
+
+<div id="loader">
+  <div class="loadwrap">
+    <p>载入环绕帧</p>
+    <div class="bar"><i id="prog"></i></div>
+  </div>
+</div>
+
+<script>
+/* legacy.html 专用：给不支持 Pointer Events 的浏览器（iOS 12 及更早）补一层
+ * pointerdown / pointermove / pointerup / pointercancel / pointerleave 合成事件。
+ * 纯 ES5，必须能在老引擎上直接跑。现代浏览器会跳过整个模块。 */
+(function () {
+  // 老内核没有 ResizeObserver；resize/orientationchange 已单独绑定，空缺即可
+  if (!window.ResizeObserver) {
+    window.ResizeObserver = function () {
+      this.observe = function () {};
+      this.unobserve = function () {};
+      this.disconnect = function () {};
+    };
+  }
+
+  if (window.PointerEvent) return;
+
+  var stage = null;
+  function stageEl() {
+    if (!stage) stage = document.getElementById('stage');
+    return stage;
+  }
+
+  function define(ev, key, value) {
+    try {
+      Object.defineProperty(ev, key, { value: value, configurable: true });
+    } catch (e) {
+      ev[key] = value;
+    }
+  }
+
+  function fire(type, src, pointerType, buttons) {
+    var target = stageEl();
+    if (!target) return;
+    var ev = document.createEvent('Event');
+    ev.initEvent(type, true, true);
+    define(ev, 'pointerType', pointerType);
+    define(ev, 'pointerId', src.identifier || 1);
+    define(ev, 'clientX', src.clientX);
+    define(ev, 'clientY', src.clientY);
+    define(ev, 'pageX', src.pageX != null ? src.pageX : src.clientX);
+    define(ev, 'pageY', src.pageY != null ? src.pageY : src.clientY);
+    define(ev, 'button', 0);
+    define(ev, 'buttons', buttons);
+    define(ev, 'isPrimary', true);
+    ev.preventDefault = function () {};
+    target.dispatchEvent(ev);
+  }
+
+  // 老内核没有 pointer capture API，补空实现避免调用报错
+  if (!window.Element.prototype.setPointerCapture) {
+    window.Element.prototype.setPointerCapture = function () {};
+    window.Element.prototype.releasePointerCapture = function () {};
+    window.Element.prototype.hasPointerCapture = function () { return false; };
+  }
+
+  document.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1) return;
+    if (e.cancelable) e.preventDefault();
+    fire('pointerdown', e.touches[0], 'touch', 1);
+  }, { passive: false, capture: false });
+
+  document.addEventListener('touchmove', function (e) {
+    if (!e.touches.length) return;
+    if (e.cancelable) e.preventDefault();
+    fire('pointermove', e.touches[0], 'touch', 1);
+  }, { passive: false, capture: false });
+
+  function touchEnd(e) {
+    var t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    fire('pointerup', t, 'touch', 0);
+  }
+  document.addEventListener('touchend', touchEnd, false);
+  document.addEventListener('touchcancel', touchEnd, false);
+
+  var down = false;
+  function inPanel(el) {
+    while (el) {
+      if (el.id === 'panel') return true;
+      el = el.parentNode;
+    }
+    return false;
+  }
+
+  document.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    down = true;
+    fire('pointerdown', e, 'mouse', 1);
+  }, false);
+
+  document.addEventListener('mousemove', function (e) {
+    if (!down && inPanel(e.target)) {
+      fire('pointerleave', e, 'mouse', 0);
+      return;
+    }
+    fire('pointermove', e, 'mouse', down ? 1 : 0);
+  }, false);
+
+  document.addEventListener('mouseup', function (e) {
+    if (!down) return;
+    down = false;
+    fire('pointerup', e, 'mouse', 0);
+  }, false);
+})();
+
+"use strict";(()=>{var L=(e,o,i)=>new Promise((a,r)=>{var s=l=>{try{d(i.next(l))}catch(u){r(u)}},c=l=>{try{d(i.throw(l))}catch(u){r(u)}},d=l=>l.done?a(l.value):Promise.resolve(l.value).then(s,c);d((i=i.apply(e,o)).next())});const at="config.json",rt="catalog.json",n={stage:document.getElementById("stage"),canvas:document.getElementById("view"),deg:document.getElementById("deg"),meta:document.getElementById("meta"),title:document.getElementById("title"),hint:document.getElementById("hint"),loader:document.getElementById("loader"),prog:document.getElementById("prog"),gyroBtn:document.getElementById("gyroBtn"),calBtn:document.getElementById("calBtn"),resetBtn:document.getElementById("resetBtn"),fsBtn:document.getElementById("fsBtn"),mouseBtn:document.getElementById("mouseBtn"),gyroSmoothBtn:document.getElementById("gyroSmoothBtn"),inertiaBtn:document.getElementById("inertiaBtn"),fitBtn:document.getElementById("fitBtn"),hdBtn:document.getElementById("hdBtn"),gain:document.getElementById("gain"),gainVal:document.getElementById("gainVal"),invBtn:document.getElementById("invBtn"),autoBtn:document.getElementById("autoBtn"),exampleBtn:document.getElementById("exampleBtn"),arc:document.getElementById("arc"),needle:document.getElementById("needle"),ticks:document.getElementById("ticks")},x=n.canvas.getContext("2d",{alpha:!1}),g=(e,o)=>(e%o+o)%o,k=(e,o)=>g(o-e+180,360)-180;function st(e){try{return localStorage.getItem(e)}catch(o){return null}}function lt(e,o){try{localStorage.setItem(e,o)}catch(i){}}const t={cfg:null,catalog:null,exampleId:null,base:"",quality:"std",frames:[],frameSet:null,count:0,degPerFrame:360/1,frameDeg:1,dirSign:1,angle:0,target:0,vel:0,dragging:!1,lastPointerX:0,lastPointerT:0,hoverX:null,mouseFollow:!0,gyroSmooth:!0,inertia:!0,fitMode:"contain",orientT:0,auto:!1,invert:!1,uiVisible:!0,lastPointerType:"",gyro:!1,gyroSeen:!1,pendingGyro:!1,hasAbsolute:!1,gyroRef:null,gyroBase:0,gyroGain:1,idleSince:0,loaded:0,drawnIndex:-1,hudDeg:-1};function ct(){return L(this,null,function*(){var s,c,d,l,u,f,y,b,_,z,V,j,N,W,Y,Q;const e=yield fetch(rt,{cache:"no-cache"}).then(m=>m.ok?m.json():null).catch(()=>null);let o=null;if(e&&Array.isArray(e.items)&&e.items.length){const m=new URLSearchParams(location.search).get("e");o=e.items.find(A=>A.id===m)||e.items.find(A=>A.id===e.default)||e.items[0]}t.catalog=e,t.exampleId=o?o.id:null,t.base=o?o.dir:"",(!e||!Array.isArray(e.items)||e.items.length<2)&&(n.exampleBtn.hidden=!0);const i=yield fetch(t.base+at,{cache:"no-cache"}).then(m=>{if(!m.ok)throw new Error("config.json "+m.status);return m.json()});if(t.cfg=i,t.count=i.frames.count,t.degPerFrame=360/t.count,t.frameDeg=((c=(s=i.orbit)==null?void 0:s.spanDeg)!=null?c:360)/t.count,t.dirSign=((d=i.orbit)==null?void 0:d.direction)==="ccw"?-1:1,t.gyroGain=(u=(l=i.gyro)==null?void 0:l.gain)!=null?u:1,t.invert=!!((f=i.drag)!=null&&f.invert),t.auto=!!((y=i.auto)!=null&&y.enabled),n.autoBtn.classList.toggle("on",t.auto),t.mouseFollow=(_=(b=i.mouseFollow)==null?void 0:b.enabled)!=null?_:!0,n.mouseBtn.classList.toggle("on",t.mouseFollow),t.gyroSmooth=(V=(z=i.gyro)==null?void 0:z.smooth)!=null?V:!0,n.gyroSmoothBtn.classList.toggle("on",t.gyroSmooth),t.inertia=(N=(j=i.drag)==null?void 0:j.inertia)!=null?N:!0,n.inertiaBtn.classList.toggle("on",t.inertia),t.fitMode=((W=i.video)==null?void 0:W.fit)==="cover"?"cover":"contain",n.fitBtn.classList.toggle("on",t.fitMode==="cover"),n.fitBtn.textContent=t.fitMode==="cover"?"\u94FA\u6EE1":"\u81EA\u9002\u5E94",n.gain.value=String(t.gyroGain),n.gainVal.textContent=t.gyroGain.toFixed(1)+"\xD7",Math.min(window.innerWidth,(Y=screen==null?void 0:screen.width)!=null?Y:9999)<=((Q=i.frames.mobileMaxScreenPx)!=null?Q:1100)&&i.frames.mobile){const m=new URLSearchParams(location.search).get("q")==="hd"||!new URLSearchParams(location.search).has("q")&&st("orbit360.quality")==="hd";t.quality=m&&i.frames.mobileHd?"hd":"std",t.frameSet=t.quality==="hd"?i.frames.mobileHd:i.frames.mobile,i.frames.mobileHd&&(n.hdBtn.hidden=!1,n.hdBtn.classList.toggle("on",t.quality==="hd"),n.hdBtn.textContent=t.quality==="hd"?"\u9AD8\u6E05":"\u6807\u51C6")}else t.frameSet=i.frames.desktop;n.title.textContent=i.title||"\u73AF\u7ED5\u89C6\u89D2",document.title=i.title||"\u73AF\u7ED5\u89C6\u89D2",vt(),xt(),t.frames=yield ft(),R();const r=t.frames.filter(m=>!m||!m.img).length;r&&(n.hint.textContent=`${r} \u5E27\u52A0\u8F7D\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5 ${t.base}${t.frameSet.dir}`,n.hint.classList.remove("hide")),n.loader.classList.add("done"),setTimeout(()=>n.loader.remove(),600),C(!0),H=setTimeout(()=>{t.dragging||C(!1)},3200),requestAnimationFrame(et)})}function dt(e){var a;const o=t.frameSet,i=((a=o.start)!=null?a:0)+e;return t.base+o.dir+o.pattern.replace("%03d",String(i).padStart(3,"0"))}function D(e,o=0){return new Promise(i=>{const a=new Image;a.decoding="async",a.onload=()=>{a.decode&&a.decode().catch(()=>{}),i(a)},a.onerror=()=>{if(o<2){const r=e+(e.includes("?")?"&":"?")+"r="+(o+1);setTimeout(()=>i(D(r,o+1)),90*(o+1))}else i(null)},a.src=e})}function ut(e){return L(this,null,function*(){const o=t.count,i=new Array(o),a=6;let r=0,s=0;const c=()=>L(null,null,function*(){for(;r<o;){const d=r++,l=yield D(dt(d));i[d]=l?{img:l,sx:0,sy:0,sw:l.naturalWidth,sh:l.naturalHeight}:null,s++,t.loaded=s,n.prog.style.width=(s/o*100).toFixed(1)+"%"}});return yield Promise.all(Array.from({length:a},c)),i})}function gt(e){return L(this,null,function*(){const{cols:o,rows:i,frameW:a,frameH:r}=e,s=o*i,c=[];for(let d=0;d<e.atlasCount;d++){const l=t.base+e.atlasDir+e.atlasPattern.replace("%02d",String(d+1).padStart(2,"0"));c.push(yield D(l)),n.prog.style.width=((d+1)/e.atlasCount*100).toFixed(1)+"%",t.loaded=Math.min(t.count,(d+1)*s)}return Array.from({length:t.count},(d,l)=>{const u=c[Math.floor(l/s)];if(!u)return null;const f=l%s;return{img:u,sx:f%o*a,sy:Math.floor(f/o)*r,sw:a,sh:r}})})}function ft(){return t.frameSet.type==="atlas"?gt(t.frameSet):ut(t.frameSet)}let p=0,B=0,I=1;const v={x:0,y:0,w:0,h:0};function tt(){const e=n.stage.clientWidth||window.innerWidth,o=n.stage.clientHeight||window.innerHeight,i=Math.min(window.devicePixelRatio||1,2);I=i,p=e,B=o;const a=Math.round(e*i),r=Math.round(o*i);n.canvas.width!==a&&(n.canvas.width=a),n.canvas.height!==r&&(n.canvas.height=r),x.imageSmoothingEnabled=!0,x.imageSmoothingQuality="medium",R()}let q=!1;function S(){q||(q=!0,requestAnimationFrame(()=>{q=!1,tt()}))}addEventListener("resize",S);addEventListener("orientationchange",S);new ResizeObserver(S).observe(n.stage);function mt(){const e=x.createRadialGradient(p*.5,B*.42,0,p*.5,B*.42,Math.max(p,B)*.78);e.addColorStop(0,"#1b1f27"),e.addColorStop(.62,"#0a0b0e"),e.addColorStop(1,"#050608"),x.fillStyle=e,x.fillRect(0,0,p,B)}function R(){var c;const e=t.cfg;if(!e||!p||!B)return;const o=e.video.width,i=e.video.height,a=t.fitMode==="cover",s=(a?Math.max(p/o,B/i):Math.min(p/o,B/i)*(B>p?(c=e.video.portraitScale)!=null?c:1.25:1))*(a?1:e.video.displayScale||1);v.w=o*s,v.h=i*s,v.x=(p-v.w)/2,v.y=(B-v.h)/2,x.setTransform(I,0,0,I,0,0),mt(),t.drawnIndex=-1,t.cfg&&t.count&&t.frames.length===t.count&&X()}function ht(){return g(Math.round(g(t.angle*t.dirSign,360)/t.degPerFrame),t.count)}function X(){if(!t.cfg)return;const e=ht();if(e===t.drawnIndex)return;t.drawnIndex=e;const o=t.frames[e];o&&(x.setTransform(I,0,0,I,0,0),x.drawImage(o.img,o.sx,o.sy,o.sw,o.sh,v.x,v.y,v.w,v.h)),n.meta.textContent=`\u5E27 ${e+1} / ${t.count} \xB7 ${t.frameDeg.toFixed(2)}\xB0/\u5E27`}let K=0;function et(e){var r,s,c,d,l,u,f,y;const o=Math.min(e-(K||e),64);K=e,t.dragging||(t.inertia&&!t.gyro&&Math.abs(t.vel)>5e-4?(t.target+=t.vel*o,t.vel*=Math.exp(-o/((s=(r=t.cfg.drag)==null?void 0:r.inertiaMs)!=null?s:110)),h()):(t.vel=0,t.auto&&!t.gyro&&e-t.idleSince>((d=(c=t.cfg.auto)==null?void 0:c.idleDelayMs)!=null?d:2200)&&(t.target+=((u=(l=t.cfg.auto)==null?void 0:l.degPerSec)!=null?u:14)/1e3*o)));const i=k(t.angle,t.target),a=(y=(f=t.cfg.motion)==null?void 0:f.smoothMs)!=null?y:62;t.angle=g(t.angle+i*(1-Math.exp(-o/a)),360),Math.abs(k(t.angle,t.target))<5e-4&&(t.angle=g(t.target,360)),t.target=g(t.target,360),X(),yt(),requestAnimationFrame(et)}function yt(){const e=Math.round(g(t.angle,360));if(e===t.hudDeg)return;t.hudDeg=e,n.deg.textContent=e.toString(),n.needle.setAttribute("transform",`rotate(${g(t.angle,360).toFixed(1)} 66 66)`);const o=52,i=2*Math.PI*o;n.arc.setAttribute("stroke-dasharray",`${(i*e/360).toFixed(2)} ${i.toFixed(2)}`)}function vt(){let e="";for(let o=0;o<72;o++){const i=o%6===0,a=o/72*Math.PI*2,r=52,s=i?45:48;e+=`<line class="tick" x1="${(66+Math.sin(a)*r).toFixed(2)}" y1="${(66-Math.cos(a)*r).toFixed(2)}"
+          x2="${(66+Math.sin(a)*s).toFixed(2)}" y2="${(66-Math.cos(a)*s).toFixed(2)}"
+          stroke-width="${i?1.4:.8}"/>`}n.ticks.innerHTML=e}const pt=420;let w=null,E=null,F=!1,H=null;function h(){t.idleSince=performance.now()}function C(e){t.uiVisible=e,document.body.classList.toggle("ui-hidden",!e)}function G(){C(!t.uiVisible)}n.stage.addEventListener("pointerdown",e=>{if(!(e.button!==void 0&&e.button!==0&&e.pointerType==="mouse")){t.lastPointerType=e.pointerType,t.pendingGyro&&(t.pendingGyro=!1,U()),t.dragging=!0,t.vel=0,t.hoverX=null,t.lastPointerX=e.clientX,t.lastPointerT=e.timeStamp,n.stage.classList.add("dragging");try{n.stage.setPointerCapture(e.pointerId)}catch(o){}h(),n.hint.classList.add("hide"),clearTimeout(w),w=null,E={x:e.clientX,y:e.clientY},e.pointerType!=="mouse"&&(w=setTimeout(()=>{var o;w=null,F=!0,t.dragging=!1,t.vel=0,n.stage.classList.remove("dragging"),G(),(o=navigator.vibrate)==null||o.call(navigator,8)},pt))}});n.stage.addEventListener("pointermove",e=>{var s,c,d,l,u,f;if(E&&Math.hypot(e.clientX-E.x,e.clientY-E.y)>8&&(clearTimeout(w),w=null,E=null),F)return;if(!t.dragging){if(t.mouseFollow&&e.pointerType==="mouse"&&e.buttons===0){if(t.hoverX===null){t.hoverX=e.clientX;return}const y=e.clientX-t.hoverX;if(t.hoverX=e.clientX,y){const b=y*((d=(c=(s=t.cfg)==null?void 0:s.mouseFollow)==null?void 0:c.degPerPx)!=null?d:.3)*(t.invert?-1:1);t.target+=b,t.gyro&&(t.gyroBase=g(t.gyroBase+b,360)),h()}}return}const o=e.clientX-t.lastPointerX,i=Math.max(e.timeStamp-t.lastPointerT,1),a=o*((f=(u=(l=t.cfg)==null?void 0:l.drag)==null?void 0:u.degPerPx)!=null?f:.42)*(t.invert?-1:1);t.target+=a,t.gyro&&(t.gyroBase=g(t.gyroBase+a,360));const r=i>90?0:a/i;t.vel=.6*r+.4*t.vel,t.lastPointerX=e.clientX,t.lastPointerT=e.timeStamp,h()});function nt(e){var o,i;if(clearTimeout(w),w=null,E=null,t.hoverX=null,n.stage.classList.remove("dragging"),e&&e.pointerId!==void 0&&((i=(o=n.stage).hasPointerCapture)!=null&&i.call(o,e.pointerId)))try{n.stage.releasePointerCapture(e.pointerId)}catch(a){}if(F){F=!1,t.dragging=!1,t.vel=0;return}t.dragging&&(t.dragging=!1,performance.now()-t.lastPointerT>90&&(t.vel=0),t.vel=Math.max(-.55,Math.min(.55,t.vel)),h())}n.stage.addEventListener("pointerup",nt);n.stage.addEventListener("pointercancel",nt);n.stage.addEventListener("pointerleave",()=>{t.hoverX=null});n.stage.addEventListener("dblclick",()=>{t.lastPointerType!=="touch"&&(clearTimeout(H),G())});n.stage.addEventListener("contextmenu",e=>e.preventDefault());const T=Math.PI/180;function Bt(){const e=screen.orientation;return e&&typeof e.angle=="number"?g(e.angle,360):typeof window.orientation=="number"?g(window.orientation,360):0}function $(e){if(typeof e.webkitCompassHeading=="number"&&!Number.isNaN(e.webkitCompassHeading)&&e.webkitCompassHeading>=0)return e.webkitCompassHeading;const o=e.alpha,i=e.beta,a=e.gamma;if(typeof o!="number")return null;if(typeof i!="number"||typeof a!="number")return g(360-o,360);const r=o*T,s=i*T,c=a*T,d=Math.sin(c)*Math.cos(r)+Math.cos(c)*Math.sin(s)*Math.sin(r),l=Math.sin(c)*Math.sin(r)-Math.cos(c)*Math.sin(s)*Math.cos(r);if(Math.hypot(d,l)<.25){const f=Bt();return g(f===90||f===270?o:360-o,360)}return g(Math.atan2(-d,-l)/T,360)}function ot(e){var s,c,d,l,u;const o=$(e);if(o===null||(t.gyroSeen=!0,t.dragging))return;if(t.gyroRef===null){t.gyroRef=o,t.gyroBase=t.target;return}const i=t.gyroGain*((c=(s=t.cfg)==null?void 0:s.gyro)!=null&&c.invert?-1:1)*(t.invert?-1:1),a=k(t.gyroRef,o)*i,r=g(t.gyroBase-a,360);if(t.gyroSmooth){const f=performance.now(),y=Math.min(Math.max(f-t.orientT,1),120);t.orientT=f;const b=(u=(l=(d=t.cfg)==null?void 0:d.gyro)==null?void 0:l.smoothMs)!=null?u:80;t.target=g(t.target+k(t.target,r)*(1-Math.exp(-y/b)),360)}else t.target=r;h()}function J(e){$(e)!==null&&(t.hasAbsolute=!0,ot(e))}function Z(e){t.hasAbsolute||ot(e)}function wt(){return matchMedia("(pointer: coarse)").matches||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1}function xt(){wt()&&typeof DeviceOrientationEvent!="undefined"&&(typeof DeviceOrientationEvent.requestPermission=="function"?(t.pendingGyro=!0,n.gyroBtn.textContent="\u5F85\u6388\u6743"):U())}function U(){return L(this,null,function*(){if(!t.gyro)try{if(typeof DeviceOrientationEvent!="undefined"&&typeof DeviceOrientationEvent.requestPermission=="function"&&(yield DeviceOrientationEvent.requestPermission())!=="granted")throw new Error("permission denied");if(typeof DeviceOrientationEvent=="undefined")throw new Error("unsupported");addEventListener("deviceorientationabsolute",J,!0),addEventListener("deviceorientation",Z,!0),t.gyro=!0,t.gyroSeen=!1,t.hasAbsolute=!1,t.gyroRef=null,n.gyroBtn.classList.add("on"),n.gyroBtn.textContent="\u9640\u87BA\u4EEA\u5DF2\u5F00",n.calBtn.disabled=!1,n.hint.textContent="\u8F6C\u52A8\u8EAB\u4F53\u73AF\u89C6 \xB7 \u4ECD\u53EF\u62D6\u62FD\u5FAE\u8C03",n.hint.classList.remove("hide"),setTimeout(()=>n.hint.classList.add("hide"),3200),setTimeout(()=>{t.gyroSeen||(removeEventListener("deviceorientationabsolute",J,!0),removeEventListener("deviceorientation",Z,!0),t.gyro=!1,t.gyroRef=null,n.gyroBtn.classList.remove("on"),n.gyroBtn.textContent="\u91CD\u8BD5\u9640\u87BA\u4EEA",n.calBtn.disabled=!0,n.hint.textContent="\u672A\u68C0\u6D4B\u5230\u65B9\u5411\u4F20\u611F\u5668\uFF0C\u8BF7\u7528\u62D6\u62FD",n.hint.classList.remove("hide"),setTimeout(()=>n.hint.classList.add("hide"),2600))},2200)}catch(e){n.gyroBtn.textContent="\u91CD\u8BD5\u9640\u87BA\u4EEA",n.hint.textContent="\u9640\u87BA\u4EEA\u88AB\u62D2\u7EDD\u6216\u9700 HTTPS\uFF0C\u684C\u9762\u8BF7\u7528\u62D6\u62FD",n.hint.classList.remove("hide")}})}const M=document.documentElement,bt=!!(M.requestFullscreen||M.webkitRequestFullscreen);function it(){return document.fullscreenElement||document.webkitFullscreenElement||null}function O(){const e=!!it();n.fsBtn.classList.toggle("on",e),n.fsBtn.textContent=e?"\u9000\u51FA\u5168\u5C4F":"\u5168\u5C4F"}function Lt(){return L(this,null,function*(){try{if(it()){const e=document.exitFullscreen||document.webkitExitFullscreen;e&&(yield e.call(document))}else{const e=M.requestFullscreen||M.webkitRequestFullscreen;e&&(yield e.call(M))}}catch(e){P("\u5168\u5C4F\u88AB\u6D4F\u89C8\u5668\u62D2\u7EDD")}O(),S()})}function P(e,o=2200){n.hint.textContent=e,n.hint.classList.remove("hide"),setTimeout(()=>n.hint.classList.add("hide"),o)}document.addEventListener("fullscreenchange",()=>{O(),S()});document.addEventListener("webkitfullscreenchange",()=>{O(),S()});n.fsBtn.addEventListener("click",Lt);bt||(n.fsBtn.hidden=!0);n.resetBtn.addEventListener("click",()=>{t.target=0,t.vel=0,t.gyro&&(t.gyroRef=null,t.gyroBase=0),h(),P("\u5DF2\u91CD\u7F6E\u5230 0\xB0",1400)});n.gyroBtn.addEventListener("click",U);n.calBtn.addEventListener("click",()=>{t.gyroRef=null});n.invBtn.addEventListener("click",()=>{t.invert=!t.invert,n.invBtn.classList.toggle("on",t.invert)});n.gain.addEventListener("input",()=>{t.gyroGain=parseFloat(n.gain.value)||1,n.gainVal.textContent=t.gyroGain.toFixed(1)+"\xD7"});n.mouseBtn.addEventListener("click",()=>{t.mouseFollow=!t.mouseFollow,n.mouseBtn.classList.toggle("on",t.mouseFollow),t.hoverX=null,h(),P(t.mouseFollow?"\u9F20\u6807\u79FB\u52A8\u5373\u53EF\u8F6C\u5411":"\u9F20\u6807\u8DDF\u968F\u5DF2\u5173\u95ED",1600)});n.gyroSmoothBtn.addEventListener("click",()=>{t.gyroSmooth=!t.gyroSmooth,n.gyroSmoothBtn.classList.toggle("on",t.gyroSmooth),t.orientT=0,P(t.gyroSmooth?"\u9640\u87BA\u4EEA\u5E73\u6ED1\u5DF2\u5F00":"\u9640\u87BA\u4EEA\u539F\u59CB\u8DDF\u968F\uFF08\u4F1A\u6709\u6296\u52A8\uFF09",1600)});n.inertiaBtn.addEventListener("click",()=>{t.inertia=!t.inertia,n.inertiaBtn.classList.toggle("on",t.inertia),t.inertia||(t.vel=0),P(t.inertia?"\u677E\u624B\u60EF\u6027\u5DF2\u5F00":"\u677E\u624B\u5373\u505C",1600)});n.fitBtn.addEventListener("click",()=>{t.fitMode=t.fitMode==="cover"?"contain":"cover",n.fitBtn.classList.toggle("on",t.fitMode==="cover"),n.fitBtn.textContent=t.fitMode==="cover"?"\u94FA\u6EE1":"\u81EA\u9002\u5E94",R(),h()});n.autoBtn.addEventListener("click",()=>{t.auto=!t.auto,n.autoBtn.classList.toggle("on",t.auto),h()});n.exampleBtn.addEventListener("click",()=>{var r,s;const e=(s=(r=t.catalog)==null?void 0:r.items)!=null?s:[];if(e.length<2)return;const o=e.findIndex(c=>c.id===t.exampleId),i=e[(o+1)%e.length],a=new URL(location.href);a.searchParams.set("e",i.id),location.href=a.toString()});n.hdBtn.addEventListener("click",()=>{const e=t.quality==="hd"?"std":"hd";lt("orbit360.quality",e);const o=new URL(location.href);o.searchParams.set("q",e),location.href=o.toString()});addEventListener("keydown",e=>{const o=e.shiftKey?15:3;e.key==="ArrowRight"?(t.target+=o,h(),e.preventDefault()):e.key==="ArrowLeft"?(t.target-=o,h(),e.preventDefault()):e.key===" "?(t.auto=!t.auto,n.autoBtn.classList.toggle("on",t.auto),e.preventDefault()):(e.key==="h"||e.key==="H")&&(clearTimeout(H),G(),e.preventDefault())});tt();t.idleSince=performance.now();ct().catch(e=>{n.prog.style.background="#f87171",n.loader.querySelector("p").textContent="\u52A0\u8F7D\u5931\u8D25\uFF1A"+e.message+"\uFF08\u9700 HTTP \u670D\u52A1\uFF0C\u52FF\u7528 file://\uFF09",console.error(e)});/(^|[?&])debug(=|&|$)/.test(location.search)&&(window.__orbit={S:t,el:n,paint:X,layout:R,setUI:C,headingOf:$});})();
+
+</script>
+</body>
+</html>

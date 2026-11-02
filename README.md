@@ -37,6 +37,32 @@ python3 build.py my-video.mp4 --out assets/myid --title "我的示例" --catalog
 
 `--catalog` 会扫描 `--out` 的父目录（默认 `assets/`），把所有 `<id>/config.json` 收进清单。
 
+## 低版本兼容：两份页面
+
+默认用 `index.html`；老系统访问 `legacy.html`。
+
+| 文件 | 目标引擎 | 依赖 |
+|---|---|---|
+| `index.html` | Safari 13.4+ / Chrome 80+ | ES2020（`?.` `??`）、Pointer Events、ResizeObserver |
+| `legacy.html` | **Safari 10 / iOS 10.3+** | ES2015 语法，附 Pointer Events 与 ResizeObserver 兜底 |
+
+`legacy.html` 由脚本生成，**不要手改**：
+
+```bash
+node make-legacy.mjs        # 读 index.html → esbuild 降到 ES2015 → 写入 legacy.html
+ESBUILD=npx node make-legacy.mjs   # 没有 bunx 时换用 npx
+```
+
+改动 `index.html` 后要重跑一次。降级只处理语法与缺失 API：
+
+- `?.` / `??` / `async` / 对象展开 → ES2015
+- 无 Pointer Events 的内核：`legacy-polyfill.js` 用 touch/mouse 合成 pointerdown/move/up/cancel/leave，
+  并补 `setPointerCapture` / `hasPointerCapture` 空实现
+- 无 ResizeObserver：补空壳，尺寸变化仍由 `resize` / `orientationchange` 触发重排
+
+老设备的真正限制不是语法而是内存：iOS 的 canvas 总内存约 224 MB，建议在面板里用 `标准` 档
+（512×288，雪碧图解码约 71 MB），`高清` 档 110 MB 在老机型上容易触发限制。
+
 ## 交互
 
 UI 集中在左下角面板，进入 3.2 秒后自动隐藏，画面全屏沉浸；触屏长按、鼠标双击（或 `H`）随时调出。
