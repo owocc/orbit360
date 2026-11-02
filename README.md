@@ -124,14 +124,14 @@ UI 集中在左下角面板，进入 3.2 秒后自动隐藏，画面全屏沉浸
 
 ```bash
 python3 build.py <video> --out assets/<id> [--title 标题] [--catalog catalog.json]
-                  [--fps 12] [--desktop 800] [--mobile 512] [--mobile-hd 640] [--quality 6]
+                  [--fps 12] [--desktop 1280] [--mobile 512] [--mobile-hd 640] [--quality 6]
 ```
 
 `--mobile-hd 0` 可关掉高清档（只生成标准档）。
 ```
 
 - 用 `ffprobe` 读源 meta，用 32×18 灰度缩略图算首尾 ZNCC 闭环相似度（过差会警告）
-- 抽两套帧：桌面长边 800、移动长边 512，移动端由 `frames.mobileMaxScreenPx` 自动选用
+- 抽三套帧：桌面长边 1280、移动标准 512、移动高清 640，移动端由 `frames.mobileMaxScreenPx` 自动选用
 - 帧数按 `--fps` 采样，默认 12fps → 10 秒视频 120 帧（3°/帧）
 
 ## 移动端为什么不闪
@@ -148,7 +148,7 @@ iOS Safari 上逐帧切换 `ImageBitmap` 会不停上传/驱逐 GPU 纹理，画
 - `layout()`（resize / 切画幅）之后同步补画当前帧，避免清屏到下一帧 rAF 之间的空白
 - UI 面板隐藏后 `visibility: hidden`，不再参与合成
 
-桌面仍用 `frames/` 序列帧；判断阈值 `frames.mobileMaxScreenPx`（默认 1100，覆盖 iPad）。
+桌面仍用 `frames/` 序列帧（1280×720）；判断阈值 `frames.mobileMaxScreenPx`（默认 1100，覆盖 iPad）。
 
 ## 目录
 
@@ -166,7 +166,7 @@ assets/<id>/      每个示例一套资产
   config.json       该示例的 meta 与手感配置
   atlas/            移动端标准档雪碧图（2 张 3072×2880，512×288）
   atlas-hd/         移动端高清档雪碧图（2 张 3840×3600，640×360）
-  frames/           桌面序列帧 800×450
+  frames/           桌面序列帧 1280×720
   frames-small/     移动端单帧 512×288（雪碧图的来源）
 ```
 

@@ -14,11 +14,11 @@
     "audio": "aac 48kHz stereo"
   },
   "video": {
-    "width": 800,
-    "height": 450,
     "displayScale": 1,
     "portraitScale": 1.25,
-    "fit": "contain"
+    "fit": "contain",
+    "width": 1280,
+    "height": 720
   },
   "orbit": {
     "spanDeg": 360,

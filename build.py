@@ -210,7 +210,7 @@ def main():
     ap.add_argument("--out", default=os.path.dirname(os.path.abspath(__file__)),
                     help="输出目录（默认脚本所在目录）")
     ap.add_argument("--fps", type=float, default=12.0, help="采样帧率（默认 12）")
-    ap.add_argument("--desktop", type=int, default=800, help="桌面帧长边（默认 800）")
+    ap.add_argument("--desktop", type=int, default=1280, help="桌面帧长边（默认 1280）")
     ap.add_argument("--mobile", type=int, default=512, help="移动帧长边（默认 512）")
     ap.add_argument("--mobile-hd", type=int, default=640,
                     help="移动端高清档长边（默认 640，设 0 则不生成）")
@@ -281,9 +281,9 @@ def main():
             "sampledEveryNthFrame": int(round(meta["fps"] / fps)) if fps else 1,
         },
         "video": {
-            "width": dw,
-            "height": dh,
             **ui["video"],
+            "width": dw,          # 帧尺寸跟着本次抽帧走，不能沿用旧配置
+            "height": dh,
         },
         "orbit": {
             **ui["orbit"],
