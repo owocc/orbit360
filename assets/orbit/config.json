@@ -45,7 +45,18 @@
       "frameW": 512,
       "frameH": 288
     },
-    "mobileMaxScreenPx": 1100
+    "mobileMaxScreenPx": 1100,
+    "mobileHd": {
+      "type": "atlas",
+      "dir": "atlas-hd/",
+      "atlasDir": "atlas-hd/",
+      "atlasPattern": "sheet%02d.jpg",
+      "atlasCount": 2,
+      "cols": 6,
+      "rows": 10,
+      "frameW": 640,
+      "frameH": 360
+    }
   },
   "drag": {
     "degPerPx": 0.42,

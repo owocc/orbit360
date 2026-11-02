@@ -86,7 +86,10 @@
   .p-sens b { font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
 
   .p-btns { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .p-toggles { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .p-toggles {
+    grid-column: 1 / -1; display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px;
+  }
   .p-toggles button { font-size: 10.5px; padding: 6px 4px; border-radius: 8px; background: rgba(255,255,255,.04); }
   button {
     font: inherit; font-size: 11px; color: var(--fg);
@@ -177,6 +180,7 @@
     <button id="gyroSmoothBtn" class="on">陀螺仪平滑</button>
     <button id="inertiaBtn" class="on">惯性</button>
     <button id="fitBtn">自适应</button>
+    <button id="hdBtn" hidden>标准</button>
   </div>
 </div>
 
@@ -210,6 +214,7 @@ const el = {
   gyroSmoothBtn: document.getElementById('gyroSmoothBtn'),
   inertiaBtn: document.getElementById('inertiaBtn'),
   fitBtn: document.getElementById('fitBtn'),
+  hdBtn: document.getElementById('hdBtn'),
   gain: document.getElementById('gain'),
   gainVal: document.getElementById('gainVal'),
   invBtn: document.getElementById('invBtn'),
@@ -224,11 +229,19 @@ const ctx = el.canvas.getContext('2d', { alpha: false });
 const mod = (a, n) => ((a % n) + n) % n;
 const shortDelta = (from, to) => mod(to - from + 180, 360) - 180;
 
+function readPref(key) {
+  try { return localStorage.getItem(key); } catch (_) { return null; }
+}
+function writePref(key, value) {
+  try { localStorage.setItem(key, value); } catch (_) { /* 隐私模式 */ }
+}
+
 const S = {
   cfg: null,
   catalog: null,
   exampleId: null,
   base: '',
+  quality: 'std',
   frames: [],
   frameSet: null,
   count: 0,
@@ -311,7 +324,19 @@ async function boot() {
   el.gainVal.textContent = S.gyroGain.toFixed(1) + '×';
 
   const mobile = Math.min(window.innerWidth, screen?.width ?? 9999) <= (cfg.frames.mobileMaxScreenPx ?? 1100);
-  S.frameSet = (mobile && cfg.frames.mobile) ? cfg.frames.mobile : cfg.frames.desktop;
+  if (mobile && cfg.frames.mobile) {
+    const wantHd = new URLSearchParams(location.search).get('q') === 'hd'
+      || (!new URLSearchParams(location.search).has('q') && readPref('orbit360.quality') === 'hd');
+    S.quality = (wantHd && cfg.frames.mobileHd) ? 'hd' : 'std';
+    S.frameSet = S.quality === 'hd' ? cfg.frames.mobileHd : cfg.frames.mobile;
+    if (cfg.frames.mobileHd) {
+      el.hdBtn.hidden = false;
+      el.hdBtn.classList.toggle('on', S.quality === 'hd');
+      el.hdBtn.textContent = S.quality === 'hd' ? '高清' : '标准';
+    }
+  } else {
+    S.frameSet = cfg.frames.desktop;
+  }
 
   el.title.textContent = cfg.title || '环绕视角';
   document.title = cfg.title || '环绕视角';
@@ -923,6 +948,14 @@ el.exampleBtn.addEventListener('click', () => {
   const next = items[(i + 1) % items.length];
   const url = new URL(location.href);
   url.searchParams.set('e', next.id);
+  location.href = url.toString();
+});
+
+el.hdBtn.addEventListener('click', () => {
+  const next = S.quality === 'hd' ? 'std' : 'hd';
+  writePref('orbit360.quality', next);
+  const url = new URL(location.href);
+  url.searchParams.set('q', next);
   location.href = url.toString();
 });
 

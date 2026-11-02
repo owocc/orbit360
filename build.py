@@ -212,6 +212,8 @@ def main():
     ap.add_argument("--fps", type=float, default=12.0, help="采样帧率（默认 12）")
     ap.add_argument("--desktop", type=int, default=800, help="桌面帧长边（默认 800）")
     ap.add_argument("--mobile", type=int, default=512, help="移动帧长边（默认 512）")
+    ap.add_argument("--mobile-hd", type=int, default=640,
+                    help="移动端高清档长边（默认 640，设 0 则不生成）")
     ap.add_argument("--quality", type=int, default=6, help="JPEG 质量 2-31，越小越清晰（默认 6）")
     ap.add_argument("--title", help="示例标题，写入 config.title")
     ap.add_argument("--catalog", help="构建后生成示例清单，例如 catalog.json")
@@ -241,6 +243,8 @@ def main():
 
     dw, dh = fit(meta["width"], meta["height"], args.desktop)
     mw, mh = fit(meta["width"], meta["height"], args.mobile)
+    hw, hh = (fit(meta["width"], meta["height"], args.mobile_hd)
+              if args.mobile_hd else (0, 0))
 
     n_desktop = extract(src, os.path.join(out, "frames"), dw, dh, fps, args.quality, count)
     n_mobile = extract(src, os.path.join(out, "frames-small"), mw, mh, fps,
@@ -249,6 +253,14 @@ def main():
     cols, rows = 6, 10
     sheets, sw, sh = make_atlas(os.path.join(out, "frames-small"), os.path.join(out, "atlas"),
                                 cols, rows, mw, mh, n_mobile, min(31, args.quality + 1))
+    # 高清档只保留雪碧图（序列帧是中间产物，用完即删，避免仓库翻倍）
+    hd_sheets = 0
+    if hw:
+        tmp = os.path.join(out, ".hd-tmp")
+        n_hd = extract(src, tmp, hw, hh, fps, args.quality, count)
+        hd_sheets, hd_sw, hd_sh = make_atlas(tmp, os.path.join(out, "atlas-hd"),
+                                             cols, rows, hw, hh, n_hd, args.quality)
+        shutil.rmtree(tmp, ignore_errors=True)
 
     cfg_path = os.path.join(out, "config.json")
     ui = load_ui_defaults(cfg_path)
@@ -299,6 +311,19 @@ def main():
                 "frameH": mh,
             },
             "mobileMaxScreenPx": 1100,
+            **({
+                "mobileHd": {
+                    "type": "atlas",
+                    "dir": "atlas-hd/",
+                    "atlasDir": "atlas-hd/",
+                    "atlasPattern": "sheet%02d.jpg",
+                    "atlasCount": hd_sheets,
+                    "cols": cols,
+                    "rows": rows,
+                    "frameW": hw,
+                    "frameH": hh,
+                }
+            } if hd_sheets else {}),
         },
         "drag": ui["drag"],
         "motion": ui["motion"],
@@ -316,6 +341,8 @@ def main():
     print(f"帧集: 桌面 {dw}x{dh} × {n_desktop}  (frames/)   "
           f"移动 {mw}x{mh} × {n_mobile}  (frames-small/)")
     print(f"雪碧图: {sheets} 张 {sw}x{sh}（atlas/）")
+    if hd_sheets:
+        print(f"高清雪碧图: {hd_sheets} 张 {hd_sw}x{hd_sh}（atlas-hd/，{hw}x{hh}）")
     print(f"角度: {360 / max(1, n_desktop):.2f}°/帧   spanDeg={cfg['orbit']['spanDeg']}")
     print(f"配置: {cfg_path}")
     if args.catalog:
