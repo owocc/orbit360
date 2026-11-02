@@ -128,12 +128,12 @@ def load_ui_defaults(path):
     defaults = {
         "title": "环绕视角",
         "orbit": {"spanDeg": 360, "direction": "cw"},
-        "drag": {"degPerPx": 0.42, "invert": False, "inertiaMs": 110},
+        "drag": {"degPerPx": 0.42, "invert": False, "inertiaMs": 110, "inertia": True},
         "motion": {"smoothMs": 45},
         "auto": {"enabled": False, "degPerSec": 14, "idleDelayMs": 2200},
-        "gyro": {"gain": 1.0, "invert": False},
+        "gyro": {"gain": 1.0, "invert": False, "smooth": True, "smoothMs": 80},
         "mouseFollow": {"enabled": True, "degPerPx": 0.3},
-        "video": {"displayScale": 1, "portraitScale": 1.25},
+        "video": {"displayScale": 1, "portraitScale": 1.25, "fit": "contain"},
     }
     if not os.path.exists(path):
         return defaults

@@ -83,6 +83,8 @@
   .p-sens b { font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
 
   .p-btns { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .p-toggles { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .p-toggles button { font-size: 10.5px; padding: 6px 4px; border-radius: 8px; background: rgba(255,255,255,.04); }
   button {
     font: inherit; font-size: 11px; color: var(--fg);
     background: rgba(255,255,255,.06); border: 1px solid var(--line);
@@ -110,6 +112,11 @@
     #ring { display: none; }
     #panel { width: min(272px, calc(100vw - 24px)); padding: 10px; gap: 8px 10px; }
     .p-deg { font-size: 20px; }
+  }
+  /* 窄屏：缩小方位环与间距，避免压住画面 */
+  @media (max-width: 480px) and (min-height: 561px) {
+    #ring { width: 60px; height: 60px; }
+    #panel { padding: 10px; gap: 8px 10px; }
   }
 
   #loader {
@@ -161,6 +168,12 @@
     <button id="mouseBtn">鼠标跟随</button>
     <button id="autoBtn">自动环绕</button>
   </div>
+
+  <div class="p-toggles">
+    <button id="gyroSmoothBtn" class="on">陀螺仪平滑</button>
+    <button id="inertiaBtn" class="on">惯性</button>
+    <button id="fitBtn">自适应</button>
+  </div>
 </div>
 
 <div id="loader">
@@ -189,6 +202,9 @@ const el = {
   resetBtn: document.getElementById('resetBtn'),
   fsBtn: document.getElementById('fsBtn'),
   mouseBtn: document.getElementById('mouseBtn'),
+  gyroSmoothBtn: document.getElementById('gyroSmoothBtn'),
+  inertiaBtn: document.getElementById('inertiaBtn'),
+  fitBtn: document.getElementById('fitBtn'),
   gain: document.getElementById('gain'),
   gainVal: document.getElementById('gainVal'),
   invBtn: document.getElementById('invBtn'),
@@ -219,6 +235,10 @@ const S = {
   lastPointerT: 0,
   hoverX: null,
   mouseFollow: true,
+  gyroSmooth: true,
+  inertia: true,
+  fitMode: 'contain',
+  orientT: 0,
 
   auto: false,
   invert: false,
@@ -255,6 +275,13 @@ async function boot() {
   el.autoBtn.classList.toggle('on', S.auto);
   S.mouseFollow = cfg.mouseFollow?.enabled ?? true;
   el.mouseBtn.classList.toggle('on', S.mouseFollow);
+  S.gyroSmooth = cfg.gyro?.smooth ?? true;
+  el.gyroSmoothBtn.classList.toggle('on', S.gyroSmooth);
+  S.inertia = cfg.drag?.inertia ?? true;
+  el.inertiaBtn.classList.toggle('on', S.inertia);
+  S.fitMode = cfg.video?.fit === 'cover' ? 'cover' : 'contain';
+  el.fitBtn.classList.toggle('on', S.fitMode === 'cover');
+  el.fitBtn.textContent = S.fitMode === 'cover' ? '铺满' : '自适应';
   el.gain.value = String(S.gyroGain);
   el.gainVal.textContent = S.gyroGain.toFixed(1) + '×';
 
@@ -374,8 +401,11 @@ function layout() {
   const cfg = S.cfg;
   if (!cfg || !viewW || !viewH) return;
   const vw = cfg.video.width, vh = cfg.video.height;
-  const portraitBoost = viewH > viewW ? (cfg.video.portraitScale ?? 1.25) : 1;
-  const scale = Math.min(viewW / vw, viewH / vh) * (cfg.video.displayScale || 1) * portraitBoost;
+  const cover = S.fitMode === 'cover';
+  const base = cover
+    ? Math.max(viewW / vw, viewH / vh)                     // 铺满：填满视口，裁掉多余
+    : Math.min(viewW / vw, viewH / vh) * (viewH > viewW ? (cfg.video.portraitScale ?? 1.25) : 1);
+  const scale = base * (cover ? 1 : (cfg.video.displayScale || 1));
   dst.w = vw * scale;
   dst.h = vh * scale;
   dst.x = (viewW - dst.w) / 2;
@@ -411,7 +441,7 @@ function loop(t) {
   lastT = t;
 
   if (!S.dragging) {
-    if (!S.gyro && Math.abs(S.vel) > 0.0005) {
+    if (S.inertia && !S.gyro && Math.abs(S.vel) > 0.0005) {
       S.target += S.vel * dt;
       S.vel *= Math.exp(-dt / (S.cfg.drag?.inertiaMs ?? 110));
       touchActivity();
@@ -625,7 +655,18 @@ function onOrient(e) {
   }
   const gain = S.gyroGain * (S.cfg?.gyro?.invert ? -1 : 1) * (S.invert ? -1 : 1);
   const d = shortDelta(S.gyroRef, h) * gain;
-  S.target = mod(S.gyroBase - d, 360);
+  const raw = mod(S.gyroBase - d, 360);
+
+  if (S.gyroSmooth) {
+    // 低通滤波：传感器噪声被压掉，代价是约 smoothMs 的延迟
+    const now = performance.now();
+    const dt = Math.min(Math.max(now - S.orientT, 1), 120);
+    S.orientT = now;
+    const tau = S.cfg?.gyro?.smoothMs ?? 80;
+    S.target = mod(S.target + shortDelta(S.target, raw) * (1 - Math.exp(-dt / tau)), 360);
+  } else {
+    S.target = raw;
+  }
   touchActivity();
 }
 
@@ -777,6 +818,28 @@ el.mouseBtn.addEventListener('click', () => {
   S.hoverX = null;
   touchActivity();
   flashHint(S.mouseFollow ? '鼠标移动即可转向' : '鼠标跟随已关闭', 1600);
+});
+
+el.gyroSmoothBtn.addEventListener('click', () => {
+  S.gyroSmooth = !S.gyroSmooth;
+  el.gyroSmoothBtn.classList.toggle('on', S.gyroSmooth);
+  S.orientT = 0;
+  flashHint(S.gyroSmooth ? '陀螺仪平滑已开' : '陀螺仪原始跟随（会有抖动）', 1600);
+});
+
+el.inertiaBtn.addEventListener('click', () => {
+  S.inertia = !S.inertia;
+  el.inertiaBtn.classList.toggle('on', S.inertia);
+  if (!S.inertia) S.vel = 0;
+  flashHint(S.inertia ? '松手惯性已开' : '松手即停', 1600);
+});
+
+el.fitBtn.addEventListener('click', () => {
+  S.fitMode = S.fitMode === 'cover' ? 'contain' : 'cover';
+  el.fitBtn.classList.toggle('on', S.fitMode === 'cover');
+  el.fitBtn.textContent = S.fitMode === 'cover' ? '铺满' : '自适应';
+  layout();
+  touchActivity();
 });
 
 el.autoBtn.addEventListener('click', () => {

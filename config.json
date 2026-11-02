@@ -17,7 +17,8 @@
     "width": 800,
     "height": 450,
     "displayScale": 1,
-    "portraitScale": 1.25
+    "portraitScale": 1.25,
+    "fit": "contain"
   },
   "orbit": {
     "spanDeg": 360,
@@ -34,7 +35,8 @@
   "drag": {
     "degPerPx": 0.42,
     "invert": false,
-    "inertiaMs": 110
+    "inertiaMs": 110,
+    "inertia": true
   },
   "motion": {
     "smoothMs": 45
@@ -46,7 +48,9 @@
   },
   "gyro": {
     "gain": 1.0,
-    "invert": false
+    "invert": false,
+    "smooth": true,
+    "smoothMs": 80
   },
   "mouseFollow": {
     "enabled": true,
