@@ -105,6 +105,13 @@
   #hint.hide { opacity: 0; }
   body.ui-hidden #hint { opacity: 0; }
 
+  /* 横屏/矮屏：收紧面板，藏掉方位环 */
+  @media (max-height: 560px) {
+    #ring { display: none; }
+    #panel { width: min(272px, calc(100vw - 24px)); padding: 10px; gap: 8px 10px; }
+    .p-deg { font-size: 20px; }
+  }
+
   #loader {
     position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
     background: var(--bg); transition: opacity .5s;
