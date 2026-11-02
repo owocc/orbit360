@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+"""从一段环绕视频生成 orbit360 页面所需的全部资产。
+
+    python3 build.py ../Camera_orbiting_frozen_subject_xxx.mp4
+
+产物（默认写到本脚本所在目录）：
+    source.mp4        原始视频副本
+    frames/           桌面帧集（长边 800）
+    frames-small/     移动帧集（长边 512）
+    config.json       源视频 meta + 环绕/手感配置
+
+需要 ffmpeg / ffprobe 在 PATH 中。
+"""
+import argparse
+import json
+import os
+import shutil
+import statistics
+import subprocess
+import sys
+
+THUMB_W, THUMB_H = 32, 18
+THUMB_SIZE = THUMB_W * THUMB_H
+
+
+def die(msg):
+    print(f"错误: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def have(binary):
+    return shutil.which(binary) is not None
+
+
+def probe(path):
+    if not have("ffprobe"):
+        die("找不到 ffprobe，请先安装 ffmpeg")
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_format", "-show_streams", "-of", "json", path],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    data = json.loads(out)
+    v = next((s for s in data["streams"] if s.get("codec_type") == "video"), None)
+    a = next((s for s in data["streams"] if s.get("codec_type") == "audio"), None)
+    if v is None:
+        die("文件里没有视频轨")
+    num, den = (v.get("r_frame_rate") or "0/1").split("/")
+    fps = float(num) / float(den) if float(den) else 0.0
+    duration = float(data["format"].get("duration") or v.get("duration") or 0)
+    return {
+        "width": int(v["width"]),
+        "height": int(v["height"]),
+        "fps": round(fps, 3),
+        "frames": int(v.get("nb_frames") or round(fps * duration)),
+        "durationSec": round(duration, 3),
+        "codec": v.get("codec_name"),
+        "audio": (f"{a['codec_name']} {int(a.get('sample_rate', 0)) // 1000}kHz "
+                  f"{'stereo' if a.get('channels') == 2 else str(a.get('channels', 0)) + 'ch'}")
+        if a else None,
+        "bitRate": int(data["format"].get("bit_rate") or 0),
+        "size": int(data["format"].get("size") or 0),
+    }
+
+
+def thumbs(path):
+    """解出每帧 32x18 灰度，用于估算环绕闭合度。"""
+    proc = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", path,
+         "-vf", f"scale={THUMB_W}:{THUMB_H}:flags=area,format=gray",
+         "-f", "rawvideo", "-"],
+        capture_output=True, check=True,
+    )
+    raw = proc.stdout
+    return [raw[i * THUMB_SIZE:(i + 1) * THUMB_SIZE] for i in range(len(raw) // THUMB_SIZE)]
+
+
+def _stats(frames):
+    means = [sum(f) / THUMB_SIZE for f in frames]
+    devs = []
+    for f, m in zip(frames, means):
+        devs.append((sum((x - m) ** 2 for x in f) / THUMB_SIZE) ** 0.5)
+    return means, devs
+
+
+def zncc(a, b, ma, mb, da, db):
+    if da == 0 or db == 0:
+        return 0.0
+    return sum((x - ma) * (y - mb) for x, y in zip(a, b)) / (da * db * THUMB_SIZE)
+
+
+def loop_quality(frames):
+    """首尾帧相似度 + 相邻帧相似度中位数。"""
+    if len(frames) < 2:
+        return None, None
+    means, devs = _stats(frames)
+    adj = [zncc(frames[i], frames[i + 1], means[i], means[i + 1], devs[i], devs[i + 1])
+           for i in range(len(frames) - 1)]
+    seam = zncc(frames[0], frames[-1], means[0], means[-1], devs[0], devs[-1])
+    return round(seam, 3), round(statistics.median(adj), 3)
+
+
+def fit(w, h, long_edge):
+    """等比缩放到长边 = long_edge，取偶数。"""
+    scale = long_edge / max(w, h)
+    return max(2, int(round(w * scale / 2)) * 2), max(2, int(round(h * scale / 2)) * 2)
+
+
+def extract(src, out_dir, width, height, fps, quality, count):
+    os.makedirs(out_dir, exist_ok=True)
+    for name in os.listdir(out_dir):
+        if name.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+            os.remove(os.path.join(out_dir, name))
+    vf = f"fps={fps},scale={width}:{height}:flags=lanczos"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-i", src, "-an", "-vf", vf,
+         "-q:v", str(quality), "-start_number", "1",
+         os.path.join(out_dir, "f%03d.jpg")],
+        check=True,
+    )
+    files = sorted(n for n in os.listdir(out_dir) if n.endswith(".jpg"))
+    if len(files) != count:
+        print(f"警告: 期望 {count} 帧，实际 {len(files)} 帧（{out_dir}）", file=sys.stderr)
+    return len(files)
+
+
+def load_ui_defaults(path):
+    """沿用旧 config 里的手感参数，避免每次重建都把调过的值冲掉。"""
+    defaults = {
+        "title": "环绕视角",
+        "orbit": {"spanDeg": 360, "direction": "cw"},
+        "drag": {"degPerPx": 0.42, "invert": False, "inertiaMs": 110},
+        "motion": {"smoothMs": 45},
+        "auto": {"degPerSec": 14, "idleDelayMs": 2200},
+        "gyro": {"gain": 1.0, "invert": False},
+        "video": {"displayScale": 1, "portraitScale": 1.25},
+    }
+    if not os.path.exists(path):
+        return defaults
+    try:
+        old = json.load(open(path, encoding="utf-8"))
+    except (OSError, ValueError):
+        return defaults
+    for key in ("title", "orbit", "drag", "motion", "auto", "gyro", "video"):
+        if key in old:
+            if isinstance(defaults.get(key), dict) and isinstance(old[key], dict):
+                defaults.setdefault(key, {}).update(old[key])
+            else:
+                defaults[key] = old[key]
+    return defaults
+
+
+def main():
+    ap = argparse.ArgumentParser(description="环绕视频 → orbit360 资产")
+    ap.add_argument("video", help="源视频路径")
+    ap.add_argument("--out", default=os.path.dirname(os.path.abspath(__file__)),
+                    help="输出目录（默认脚本所在目录）")
+    ap.add_argument("--fps", type=float, default=12.0, help="采样帧率（默认 12）")
+    ap.add_argument("--desktop", type=int, default=800, help="桌面帧长边（默认 800）")
+    ap.add_argument("--mobile", type=int, default=512, help="移动帧长边（默认 512）")
+    ap.add_argument("--quality", type=int, default=6, help="JPEG 质量 2-31，越小越清晰（默认 6）")
+    args = ap.parse_args()
+
+    if not os.path.exists(args.video):
+        die(f"找不到文件: {args.video}")
+    if not have("ffmpeg"):
+        die("找不到 ffmpeg，请先安装")
+
+    src = os.path.abspath(args.video)
+    out = os.path.abspath(args.out)
+    os.makedirs(out, exist_ok=True)
+
+    meta = probe(src)
+    fps = args.fps if meta["fps"] >= args.fps else meta["fps"]
+    count = max(1, int(round(meta["durationSec"] * fps)))
+
+    print(f"源: {os.path.basename(src)}  {meta['width']}x{meta['height']}  "
+          f"{meta['fps']}fps  {meta['frames']}帧  {meta['durationSec']}s  {meta['codec']}")
+    seam, adjacent = loop_quality(thumbs(src))
+    print(f"闭环: 首尾相似度 {seam}（相邻帧 {adjacent}）"
+          + ("" if seam is not None and adjacent is not None and seam >= adjacent - 0.12
+             else "  ⚠ 首尾不闭合，环回会有一次跳变"))
+
+    dw, dh = fit(meta["width"], meta["height"], args.desktop)
+    mw, mh = fit(meta["width"], meta["height"], args.mobile)
+
+    n_desktop = extract(src, os.path.join(out, "frames"), dw, dh, fps, args.quality, count)
+    n_mobile = extract(src, os.path.join(out, "frames-small"), mw, mh, fps,
+                       min(31, args.quality + 1), count)
+
+    cfg_path = os.path.join(out, "config.json")
+    ui = load_ui_defaults(cfg_path)
+    cfg = {
+        "title": ui["title"],
+        "source": {
+            "file": os.path.relpath(src, out),
+            "width": meta["width"],
+            "height": meta["height"],
+            "fps": meta["fps"],
+            "frames": meta["frames"],
+            "durationSec": meta["durationSec"],
+            "codec": meta["codec"],
+            "bitRate": meta["bitRate"],
+            "loopSimilarity": seam,
+            "sampledEveryNthFrame": int(round(meta["fps"] / fps)) if fps else 1,
+        },
+        "video": {
+            "width": dw,
+            "height": dh,
+            **ui["video"],
+        },
+        "orbit": {
+            **ui["orbit"],
+            "spanDeg": ui["orbit"].get("spanDeg", 360),
+        },
+        "frames": {
+            "dir": "frames/",
+            "mobileDir": "frames-small/",
+            "mobileMaxScreenPx": 900,
+            "pattern": "f%03d.jpg",
+            "start": 1,
+            "count": n_desktop,
+        },
+        "drag": ui["drag"],
+        "motion": ui["motion"],
+        "auto": ui["auto"],
+        "gyro": ui["gyro"],
+    }
+    if meta["audio"]:
+        cfg["source"]["audio"] = meta["audio"]
+
+    with open(cfg_path, "w", encoding="utf-8") as fh:
+        json.dump(cfg, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+
+    print(f"帧集: 桌面 {dw}x{dh} × {n_desktop}  (frames/)   "
+          f"移动 {mw}x{mh} × {n_mobile}  (frames-small/)")
+    print(f"角度: {360 / max(1, n_desktop):.2f}°/帧   spanDeg={cfg['orbit']['spanDeg']}")
+    print(f"配置: {cfg_path}")
+    print("启动: python3 serve.py 8787    或    python3 serve_tls.py 8443（手机陀螺仪）")
+
+
+if __name__ == "__main__":
+    main()

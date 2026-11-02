@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0a0b0e">
+<title>环绕视角 · Orbit Scrub</title>
+<style>
+  :root {
+    --bg: #0a0b0e;
+    --fg: #f2f3f5;
+    --muted: #8b909a;
+    --line: rgba(255, 255, 255, 0.12);
+    --accent: #6ee7b7;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC", "Helvetica Neue", sans-serif;
+    touch-action: none; overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 42%, #1b1f27 0%, #0a0b0e 62%, #050608 100%);
+  }
+  #stage {
+    position: fixed; inset: 0; cursor: grab; touch-action: none;
+  }
+  #stage.dragging { cursor: grabbing; }
+  #view {
+    position: absolute; inset: 0; display: block;
+    width: 100%; height: 100%; min-width: 0; min-height: 0;
+  }
+
+  .hud { position: fixed; z-index: 3; pointer-events: none; }
+
+  #topbar {
+    top: 0; left: 0; right: 0;
+    padding: max(14px, env(safe-area-inset-top)) 18px 0;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  }
+  .brand { letter-spacing: .08em; text-transform: uppercase; font-size: 10.5px; color: var(--muted); }
+  .brand b { display: block; font-size: 15px; letter-spacing: 0; color: var(--fg); margin-top: 2px; font-weight: 600; }
+
+  #readout { text-align: right; font-variant-numeric: tabular-nums; }
+  #deg { font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+  #deg small { font-size: 11px; color: var(--muted); margin-left: 2px; font-weight: 500; }
+  #meta { font-size: 10.5px; color: var(--muted); margin-top: 2px; letter-spacing: .04em; }
+
+  #ring {
+    position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom));
+    transform: translateX(-50%); width: 132px; height: 132px; z-index: 2;
+    pointer-events: none; opacity: .9;
+  }
+  #ring .track { stroke: rgba(255,255,255,.08); }
+  #ring .tick { stroke: rgba(255,255,255,.16); }
+  #ring .arc { stroke: var(--accent); stroke-linecap: round; }
+  #ring .needle { stroke: var(--accent); }
+  #ring text { fill: var(--muted); font-size: 9px; letter-spacing: .1em; }
+
+  #controls {
+    position: fixed; z-index: 4; left: 50%; transform: translateX(-50%);
+    bottom: calc(max(18px, env(safe-area-inset-bottom)) + 148px);
+    display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+    padding: 0 12px; width: min(560px, 100%);
+  }
+  button {
+    font: inherit; font-size: 11.5px; color: var(--fg);
+    background: rgba(255,255,255,.06); border: 1px solid var(--line);
+    border-radius: 999px; padding: 7px 13px; cursor: pointer;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    transition: background .15s, color .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  button:hover { background: rgba(255,255,255,.11); }
+  button.on { color: #06281e; background: var(--accent); border-color: var(--accent); }
+  button:disabled { opacity: .38; cursor: default; }
+
+  #hint {
+    position: fixed; z-index: 3; left: 50%; transform: translateX(-50%);
+    top: calc(max(14px, env(safe-area-inset-top)) + 58px);
+    color: var(--muted); font-size: 11.5px; letter-spacing: .02em;
+    text-align: center; width: 100%; padding: 0 20px; pointer-events: none;
+    transition: opacity .6s;
+  }
+  #hint.hide { opacity: 0; }
+
+  #loader {
+    position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
+    background: var(--bg); transition: opacity .5s;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+  .loadwrap { width: min(260px, 62vw); text-align: center; }
+  .loadwrap p { margin: 0 0 12px; color: var(--muted); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; }
+  .bar { height: 2px; border-radius: 2px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+</style>
+</head>
+<body>
+
+<div id="stage"><canvas id="view"></canvas></div>
+
+<div class="hud" id="topbar">
+  <div class="brand">Orbit Scrub<b id="title">环绕视角</b></div>
+  <div id="readout">
+    <div id="deg">0<small>°</small></div>
+    <div id="meta">— / —</div>
+  </div>
+</div>
+
+<div id="hint">左右拖拽旋转 · 倾斜手机环视</div>
+
+<div id="controls">
+  <button id="gyroBtn">开启陀螺仪</button>
+  <button id="calBtn" disabled>校准</button>
+  <button id="invBtn">反向</button>
+  <button id="autoBtn" class="on">自动环绕</button>
+</div>
+
+<svg id="ring" viewBox="0 0 132 132" aria-hidden="true">
+  <circle class="track" cx="66" cy="66" r="52" fill="none" stroke-width="1.5"/>
+  <g id="ticks"></g>
+  <circle class="arc" id="arc" cx="66" cy="66" r="52" fill="none" stroke-width="2.5"
+          stroke-dasharray="0 327" transform="rotate(-90 66 66)"/>
+  <line class="needle" id="needle" x1="66" y1="66" x2="66" y2="24" stroke-width="2"/>
+  <circle cx="66" cy="66" r="3.2" fill="currentColor" style="color:var(--accent)"/>
+  <text x="66" y="124" text-anchor="middle">BEARING</text>
+</svg>
+
+<div id="loader">
+  <div class="loadwrap">
+    <p>载入环绕帧</p>
+    <div class="bar"><i id="prog"></i></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const CFG_URL = 'config.json';
+
+const el = {
+  stage: document.getElementById('stage'),
+  canvas: document.getElementById('view'),
+  deg: document.getElementById('deg'),
+  meta: document.getElementById('meta'),
+  title: document.getElementById('title'),
+  hint: document.getElementById('hint'),
+  loader: document.getElementById('loader'),
+  prog: document.getElementById('prog'),
+  gyroBtn: document.getElementById('gyroBtn'),
+  calBtn: document.getElementById('calBtn'),
+  invBtn: document.getElementById('invBtn'),
+  autoBtn: document.getElementById('autoBtn'),
+  arc: document.getElementById('arc'),
+  needle: document.getElementById('needle'),
+  ticks: document.getElementById('ticks'),
+};
+const ctx = el.canvas.getContext('2d', { alpha: true, desynchronized: true });
+
+const mod = (a, n) => ((a % n) + n) % n;
+const shortDelta = (from, to) => mod(to - from + 180, 360) - 180;
+
+const S = {
+  cfg: null,
+  frames: [],
+  frameSet: null,
+  count: 0,
+  degPerFrame: 360 / 1,
+  frameDeg: 1,
+  dirSign: 1,
+
+  angle: 0,          // 渲染角度（平滑后）
+  target: 0,         // 目标角度
+  vel: 0,            // 惯性 deg/ms
+  dragging: false,
+  lastPointerX: 0,
+  lastPointerT: 0,
+
+  auto: true,
+  invert: false,
+  gyro: false,
+  gyroSeen: false,
+  hasAbsolute: false,
+  gyroRef: null,
+  gyroBase: 0,
+  gyroGain: 1,
+  idleSince: 0,
+  loaded: 0,
+  drawnIndex: -1,
+  hudDeg: -1,
+};
+
+/* ---------- 加载 ---------- */
+
+async function boot() {
+  const cfg = await fetch(CFG_URL, { cache: 'no-cache' }).then(r => {
+    if (!r.ok) throw new Error('config.json ' + r.status);
+    return r.json();
+  });
+  S.cfg = cfg;
+  S.count = cfg.frames.count;
+  S.degPerFrame = 360 / S.count;
+  S.frameDeg = (cfg.orbit?.spanDeg ?? 360) / S.count;
+  S.dirSign = cfg.orbit?.direction === 'ccw' ? -1 : 1;
+  S.gyroGain = cfg.gyro?.gain ?? 1;
+  S.invert = !!cfg.drag?.invert;
+
+  const small = !!cfg.frames.mobileDir &&
+    Math.min(window.innerWidth, screen?.width ?? 9999) <= (cfg.frames.mobileMaxScreenPx ?? 900);
+  S.frameSet = { ...cfg.frames, dir: small ? cfg.frames.mobileDir : cfg.frames.dir };
+
+  el.title.textContent = cfg.title || '环绕视角';
+  document.title = cfg.title || '环绕视角';
+  buildRing();
+
+  S.frames = await preload();
+  layout();
+  const missing = S.frames.filter(f => !f || !(f.width || f.naturalWidth)).length;
+  if (missing) {
+    el.hint.textContent = `${missing} 帧加载失败，请检查 ${S.frameSet.dir}`;
+    el.hint.classList.remove('hide');
+  }
+  el.loader.classList.add('done');
+  setTimeout(() => el.loader.remove(), 600);
+  requestAnimationFrame(loop);
+}
+
+function frameURL(i) {
+  const f = S.frameSet;
+  const n = (f.start ?? 0) + i;
+  return f.dir + f.pattern.replace('%03d', String(n).padStart(3, '0'));
+}
+
+// 优先解码成 ImageBitmap：GPU 常驻，drawImage 无解码抖动
+async function decodeFrame(i) {
+  const url = frameURL(i);
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const res = await fetch(url, { cache: 'force-cache' });
+      if (!res.ok) throw new Error(res.status);
+      const blob = await res.blob();
+      return await createImageBitmap(blob, {
+        premultiplyAlpha: 'none',
+        colorSpaceConversion: 'none',
+        imageOrientation: 'none',
+      });
+    } catch (e) { /* 回退到 <img> */ }
+  }
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = url;
+  try { await img.decode(); } catch (e) { /* 保留占位，绘制时跳过 */ }
+  return img;
+}
+
+function preload() {
+  const total = S.count;
+  const out = new Array(total);
+  const CONCURRENCY = 6;
+  let next = 0, done = 0;
+  return new Promise(resolve => {
+    const worker = async () => {
+      while (next < total) {
+        const i = next++;
+        out[i] = await decodeFrame(i);
+        done++;
+        S.loaded = done;
+        el.prog.style.width = ((done / total) * 100).toFixed(1) + '%';
+      }
+    };
+    Promise.all(Array.from({ length: CONCURRENCY }, worker)).then(() => resolve(out));
+  });
+}
+
+/* ---------- 画布 ---------- */
+
+let viewW = 0, viewH = 0, dpr = 1;
+const dst = { x: 0, y: 0, w: 0, h: 0 };
+
+function resize() {
+  // clientWidth 在 canvas 属性尺寸参与布局的瞬间可能还没更新，取容器尺寸更稳
+  const w = el.stage.clientWidth || window.innerWidth;
+  const h = el.stage.clientHeight || window.innerHeight;
+  const ndpr = Math.min(window.devicePixelRatio || 1, 2);
+  dpr = ndpr;
+  viewW = w;
+  viewH = h;
+  const bw = Math.round(w * ndpr);
+  const bh = Math.round(h * ndpr);
+  if (el.canvas.width !== bw) el.canvas.width = bw;
+  if (el.canvas.height !== bh) el.canvas.height = bh;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'medium';
+  layout();
+}
+
+let resizeQueued = false;
+function queueResize() {
+  if (resizeQueued) return;
+  resizeQueued = true;
+  requestAnimationFrame(() => {
+    resizeQueued = false;
+    resize();
+  });
+}
+addEventListener('resize', queueResize);
+addEventListener('orientationchange', queueResize);
+new ResizeObserver(queueResize).observe(el.stage);
+
+function layout() {
+  const cfg = S.cfg;
+  if (!cfg || !viewW || !viewH) return;
+  const vw = cfg.video.width, vh = cfg.video.height;
+  const portraitBoost = viewH > viewW ? (cfg.video.portraitScale ?? 1.25) : 1;
+  const scale = Math.min(viewW / vw, viewH / vh) * (cfg.video.displayScale || 1) * portraitBoost;
+  dst.w = vw * scale;
+  dst.h = vh * scale;
+  dst.x = (viewW - dst.w) / 2;
+  dst.y = (viewH - dst.h) / 2;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, viewW, viewH);
+  S.drawnIndex = -1;
+}
+
+function frameIndex() {
+  return mod(Math.round(mod(S.angle * S.dirSign, 360) / S.degPerFrame), S.count);
+}
+
+// 只在帧号变化时重绘：单帧硬切，无叠加过渡
+function paint() {
+  if (!S.cfg) return;
+  const idx = frameIndex();
+  if (idx === S.drawnIndex) return;
+  S.drawnIndex = idx;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(dst.x - 2, dst.y - 2, dst.w + 4, dst.h + 4);
+  const img = S.frames[idx];
+  if (img && (img.width || img.naturalWidth)) ctx.drawImage(img, dst.x, dst.y, dst.w, dst.h);
+  el.meta.textContent = `帧 ${idx + 1} / ${S.count} · ${S.frameDeg.toFixed(2)}°/帧`;
+}
+
+/* ---------- 主循环 ---------- */
+
+let lastT = 0;
+function loop(t) {
+  const dt = Math.min(t - (lastT || t), 64);
+  lastT = t;
+
+  if (!S.dragging) {
+    if (!S.gyro && Math.abs(S.vel) > 0.0005) {
+      S.target += S.vel * dt;
+      S.vel *= Math.exp(-dt / (S.cfg.drag?.inertiaMs ?? 110));
+      touchActivity();
+    } else {
+      S.vel = 0;
+      if (S.auto && !S.gyro && t - S.idleSince > (S.cfg.auto?.idleDelayMs ?? 2200)) {
+        S.target += (S.cfg.auto?.degPerSec ?? 14) / 1000 * dt;
+      }
+    }
+  }
+
+  const d = shortDelta(S.angle, S.target);
+  const tau = S.cfg.motion?.smoothMs ?? 62;
+  S.angle = mod(S.angle + d * (1 - Math.exp(-dt / tau)), 360);
+  if (Math.abs(shortDelta(S.angle, S.target)) < 0.0005) S.angle = mod(S.target, 360);
+  S.target = mod(S.target, 360);
+
+  paint();
+  updateHUD();
+  requestAnimationFrame(loop);
+}
+
+function updateHUD() {
+  const deg = Math.round(mod(S.angle, 360));
+  if (deg === S.hudDeg) return;
+  S.hudDeg = deg;
+  el.deg.firstChild.nodeValue = deg.toString();
+  el.needle.setAttribute('transform', `rotate(${mod(S.angle, 360).toFixed(1)} 66 66)`);
+  const r = 52, c = 2 * Math.PI * r;
+  el.arc.setAttribute('stroke-dasharray', `${(c * deg / 360).toFixed(2)} ${c.toFixed(2)}`);
+}
+
+function buildRing() {
+  let s = '';
+  for (let i = 0; i < 72; i++) {
+    const major = i % 6 === 0;
+    const a = (i / 72) * Math.PI * 2;
+    const r1 = 52, r2 = major ? 45 : 48;
+    s += `<line class="tick" x1="${(66 + Math.sin(a) * r1).toFixed(2)}" y1="${(66 - Math.cos(a) * r1).toFixed(2)}"
+          x2="${(66 + Math.sin(a) * r2).toFixed(2)}" y2="${(66 - Math.cos(a) * r2).toFixed(2)}"
+          stroke-width="${major ? 1.4 : 0.8}"/>`;
+  }
+  el.ticks.innerHTML = s;
+}
+
+/* ---------- 拖拽 ---------- */
+
+function touchActivity() {
+  S.idleSince = performance.now();
+}
+
+el.stage.addEventListener('pointerdown', e => {
+  if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
+  S.dragging = true;
+  S.vel = 0;
+  S.lastPointerX = e.clientX;
+  S.lastPointerT = e.timeStamp;
+  el.stage.classList.add('dragging');
+  el.stage.setPointerCapture(e.pointerId);
+  touchActivity();
+  el.hint.classList.add('hide');
+});
+
+el.stage.addEventListener('pointermove', e => {
+  if (!S.dragging) return;
+  const dx = e.clientX - S.lastPointerX;
+  const dt = Math.max(e.timeStamp - S.lastPointerT, 1);
+  const deg = dx * (S.cfg?.drag?.degPerPx ?? 0.42) * (S.invert ? -1 : 1);
+  S.target += deg;
+  if (S.gyro) S.gyroBase = mod(S.gyroBase + deg, 360);
+  const inst = dt > 90 ? 0 : deg / dt;
+  S.vel = 0.6 * inst + 0.4 * S.vel;
+  S.lastPointerX = e.clientX;
+  S.lastPointerT = e.timeStamp;
+  touchActivity();
+});
+
+function endDrag(e) {
+  if (!S.dragging) return;
+  S.dragging = false;
+  el.stage.classList.remove('dragging');
+  if (e && e.pointerId !== undefined && el.stage.hasPointerCapture?.(e.pointerId)) {
+    el.stage.releasePointerCapture(e.pointerId);
+  }
+  if (performance.now() - S.lastPointerT > 90) S.vel = 0;
+  S.vel = Math.max(-0.55, Math.min(0.55, S.vel));
+  touchActivity();
+}
+el.stage.addEventListener('pointerup', endDrag);
+el.stage.addEventListener('pointercancel', endDrag);
+
+el.stage.addEventListener('dblclick', () => {
+  S.target = 0;
+  S.vel = 0;
+  S.gyroRef = null;
+  S.gyroBase = 0;
+  touchActivity();
+});
+
+/* ---------- 陀螺仪 ---------- */
+
+function headingOf(e) {
+  if (typeof e.webkitCompassHeading === 'number' && !Number.isNaN(e.webkitCompassHeading) && e.webkitCompassHeading >= 0) {
+    return e.webkitCompassHeading;               // iOS：0-360 顺时针
+  }
+  if (typeof e.alpha === 'number') {
+    return mod(360 - e.alpha, 360);              // 标准 alpha 逆时针
+  }
+  return null;
+}
+
+function onOrient(e) {
+  const h = headingOf(e);
+  if (h === null) return;
+  S.gyroSeen = true;
+  if (S.dragging) return;      // 拖拽期间让手势优先，避免互相拉扯
+  if (S.gyroRef === null) {
+    S.gyroRef = h;
+    S.gyroBase = S.target;
+    return;
+  }
+  const gain = S.gyroGain * (S.cfg?.gyro?.invert ? -1 : 1) * (S.invert ? -1 : 1);
+  const d = shortDelta(S.gyroRef, h) * gain;
+  S.target = mod(S.gyroBase - d, 360);
+  touchActivity();
+}
+
+function onAbsolute(e) {
+  if (headingOf(e) === null) return;   // 空读数的 absolute 事件不能锁死相对事件
+  S.hasAbsolute = true;
+  onOrient(e);
+}
+
+function onRelative(e) {
+  if (S.hasAbsolute) return;   // 已有绝对朝向，相对 alpha 会跳变
+  onOrient(e);
+}
+
+async function enableGyro() {
+  if (S.gyro) return;
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const p = await DeviceOrientationEvent.requestPermission();
+      if (p !== 'granted') throw new Error('permission denied');
+    }
+    if (typeof DeviceOrientationEvent === 'undefined') throw new Error('unsupported');
+    addEventListener('deviceorientationabsolute', onAbsolute, true);
+    addEventListener('deviceorientation', onRelative, true);
+    S.gyro = true;
+    S.gyroSeen = false;
+    S.hasAbsolute = false;
+    S.gyroRef = null;
+    el.gyroBtn.classList.add('on');
+    el.gyroBtn.textContent = '陀螺仪已开';
+    el.calBtn.disabled = false;
+    el.hint.textContent = '转动身体环视 · 仍可拖拽微调';
+    el.hint.classList.remove('hide');
+    setTimeout(() => el.hint.classList.add('hide'), 3200);
+
+    // 没有传感器读数（桌面/无权限）时自动回退
+    setTimeout(() => {
+      if (S.gyroSeen) return;
+      removeEventListener('deviceorientationabsolute', onAbsolute, true);
+      removeEventListener('deviceorientation', onRelative, true);
+      S.gyro = false;
+      S.gyroRef = null;
+      el.gyroBtn.classList.remove('on');
+      el.gyroBtn.textContent = '重试陀螺仪';
+      el.calBtn.disabled = true;
+      el.hint.textContent = '未检测到方向传感器，请用拖拽';
+      el.hint.classList.remove('hide');
+      setTimeout(() => el.hint.classList.add('hide'), 2600);
+    }, 2200);
+  } catch (err) {
+    el.gyroBtn.textContent = '重试陀螺仪';
+    el.hint.textContent = '陀螺仪被拒绝或需 HTTPS，桌面请用拖拽';
+    el.hint.classList.remove('hide');
+  }
+}
+
+el.gyroBtn.addEventListener('click', enableGyro);
+
+el.calBtn.addEventListener('click', () => {
+  S.gyroRef = null;
+});
+
+el.invBtn.addEventListener('click', () => {
+  S.invert = !S.invert;
+  el.invBtn.classList.toggle('on', S.invert);
+});
+
+el.autoBtn.addEventListener('click', () => {
+  S.auto = !S.auto;
+  el.autoBtn.classList.toggle('on', S.auto);
+  touchActivity();
+});
+
+/* ---------- 键盘 ---------- */
+
+addEventListener('keydown', e => {
+  const step = e.shiftKey ? 15 : 3;
+  if (e.key === 'ArrowRight') { S.target += step; touchActivity(); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { S.target -= step; touchActivity(); e.preventDefault(); }
+  else if (e.key === ' ') { S.auto = !S.auto; el.autoBtn.classList.toggle('on', S.auto); e.preventDefault(); }
+});
+
+/* ---------- 启动 ---------- */
+
+resize();
+S.idleSince = performance.now();
+boot().catch(err => {
+  el.prog.style.background = '#f87171';
+  el.loader.querySelector('p').textContent = '加载失败：' + err.message + '（需 HTTP 服务，勿用 file://）';
+  console.error(err);
+});
+</script>
+</body>
+</html>

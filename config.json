@@ -1,0 +1,50 @@
+{
+  "title": "环绕视角",
+  "source": {
+    "file": "examples/orbit-sample.mp4",
+    "width": 1280,
+    "height": 720,
+    "fps": 24.0,
+    "frames": 240,
+    "durationSec": 10.027,
+    "codec": "h264",
+    "bitRate": 6525208,
+    "loopSimilarity": 0.952,
+    "sampledEveryNthFrame": 2,
+    "audio": "aac 48kHz stereo"
+  },
+  "video": {
+    "width": 800,
+    "height": 450,
+    "displayScale": 1,
+    "portraitScale": 1.25
+  },
+  "orbit": {
+    "spanDeg": 360,
+    "direction": "cw"
+  },
+  "frames": {
+    "dir": "frames/",
+    "mobileDir": "frames-small/",
+    "mobileMaxScreenPx": 900,
+    "pattern": "f%03d.jpg",
+    "start": 1,
+    "count": 120
+  },
+  "drag": {
+    "degPerPx": 0.42,
+    "invert": false,
+    "inertiaMs": 110
+  },
+  "motion": {
+    "smoothMs": 45
+  },
+  "auto": {
+    "degPerSec": 14,
+    "idleDelayMs": 2200
+  },
+  "gyro": {
+    "gain": 1.0,
+    "invert": false
+  }
+}
