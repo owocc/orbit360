@@ -132,6 +132,7 @@ def load_ui_defaults(path):
         "motion": {"smoothMs": 45},
         "auto": {"enabled": False, "degPerSec": 14, "idleDelayMs": 2200},
         "gyro": {"gain": 1.0, "invert": False},
+        "mouseFollow": {"enabled": True, "degPerPx": 0.3},
         "video": {"displayScale": 1, "portraitScale": 1.25},
     }
     if not os.path.exists(path):
@@ -140,7 +141,7 @@ def load_ui_defaults(path):
         old = json.load(open(path, encoding="utf-8"))
     except (OSError, ValueError):
         return defaults
-    for key in ("title", "orbit", "drag", "motion", "auto", "gyro", "video"):
+    for key in ("title", "orbit", "drag", "motion", "auto", "gyro", "mouseFollow", "video"):
         if key in old:
             if isinstance(defaults.get(key), dict) and isinstance(old[key], dict):
                 defaults.setdefault(key, {}).update(old[key])
@@ -224,6 +225,7 @@ def main():
         "motion": ui["motion"],
         "auto": ui["auto"],
         "gyro": ui["gyro"],
+        "mouseFollow": ui["mouseFollow"],
     }
     if meta["audio"]:
         cfg["source"]["audio"] = meta["audio"]

@@ -47,5 +47,9 @@
   "gyro": {
     "gain": 1.0,
     "invert": false
+  },
+  "mouseFollow": {
+    "enabled": true,
+    "degPerPx": 0.3
   }
 }

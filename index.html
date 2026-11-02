@@ -64,18 +64,29 @@
   }
   .p-deg small { font-size: 11px; color: var(--muted); margin-left: 2px; }
 
-  #ring { width: 92px; height: 92px; margin: 0 auto; grid-column: 1 / -1; }
+  #ring { width: 76px; height: 76px; margin: 0 auto; grid-column: 1 / -1; }
   #ring .track { stroke: rgba(255,255,255,.09); }
   #ring .tick { stroke: rgba(255,255,255,.18); }
   #ring .arc { stroke: var(--accent); stroke-linecap: round; }
   #ring .needle { stroke: var(--accent); }
   #ring text { fill: var(--muted); font-size: 9px; letter-spacing: .1em; }
 
-  .p-btns { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .p-sens {
+    grid-column: 1 / -1; display: flex; align-items: center; gap: 8px;
+    font-size: 10.5px; color: var(--muted); letter-spacing: .03em;
+  }
+  .p-sens span { white-space: nowrap; }
+  .p-sens input {
+    flex: 1; min-width: 0; height: 16px; accent-color: var(--accent);
+    background: transparent; cursor: pointer;
+  }
+  .p-sens b { font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+
+  .p-btns { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
   button {
-    font: inherit; font-size: 11.5px; color: var(--fg);
+    font: inherit; font-size: 11px; color: var(--fg);
     background: rgba(255,255,255,.06); border: 1px solid var(--line);
-    border-radius: 10px; padding: 8px 6px; cursor: pointer;
+    border-radius: 9px; padding: 7px 4px; cursor: pointer;
     transition: background .15s, color .15s, border-color .15s;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
@@ -128,12 +139,19 @@
     <text x="66" y="124" text-anchor="middle">BEARING</text>
   </svg>
 
+  <label class="p-sens">
+    <span>陀螺仪</span>
+    <input id="gain" type="range" min="0.4" max="3" step="0.1" value="1" aria-label="陀螺仪灵敏度">
+    <b id="gainVal">1.0×</b>
+  </label>
+
   <div class="p-btns">
     <button id="fsBtn">全屏</button>
     <button id="gyroBtn">陀螺仪</button>
     <button id="resetBtn">重置</button>
     <button id="calBtn" disabled>校准</button>
     <button id="invBtn">反向</button>
+    <button id="mouseBtn">鼠标跟随</button>
     <button id="autoBtn">自动环绕</button>
   </div>
 </div>
@@ -163,6 +181,9 @@ const el = {
   calBtn: document.getElementById('calBtn'),
   resetBtn: document.getElementById('resetBtn'),
   fsBtn: document.getElementById('fsBtn'),
+  mouseBtn: document.getElementById('mouseBtn'),
+  gain: document.getElementById('gain'),
+  gainVal: document.getElementById('gainVal'),
   invBtn: document.getElementById('invBtn'),
   autoBtn: document.getElementById('autoBtn'),
   arc: document.getElementById('arc'),
@@ -189,6 +210,8 @@ const S = {
   dragging: false,
   lastPointerX: 0,
   lastPointerT: 0,
+  hoverX: null,
+  mouseFollow: true,
 
   auto: false,
   invert: false,
@@ -223,6 +246,10 @@ async function boot() {
   S.invert = !!cfg.drag?.invert;
   S.auto = !!cfg.auto?.enabled;
   el.autoBtn.classList.toggle('on', S.auto);
+  S.mouseFollow = cfg.mouseFollow?.enabled ?? true;
+  el.mouseBtn.classList.toggle('on', S.mouseFollow);
+  el.gain.value = String(S.gyroGain);
+  el.gainVal.textContent = S.gyroGain.toFixed(1) + '×';
 
   const small = !!cfg.frames.mobileDir &&
     Math.min(window.innerWidth, screen?.width ?? 9999) <= (cfg.frames.mobileMaxScreenPx ?? 900);
@@ -453,6 +480,7 @@ el.stage.addEventListener('pointerdown', e => {
   }
   S.dragging = true;
   S.vel = 0;
+  S.hoverX = null;
   S.lastPointerX = e.clientX;
   S.lastPointerT = e.timeStamp;
   el.stage.classList.add('dragging');
@@ -482,7 +510,23 @@ el.stage.addEventListener('pointermove', e => {
     pressTimer = null;
     pressStart = null;           // 动了就算拖拽，取消长按
   }
-  if (suppressMove || !S.dragging) return;
+  if (suppressMove) return;
+
+  if (!S.dragging) {
+    // 鼠标悬停即可转向，无需按住
+    if (S.mouseFollow && e.pointerType === 'mouse' && e.buttons === 0) {
+      if (S.hoverX === null) { S.hoverX = e.clientX; return; }
+      const mx = e.clientX - S.hoverX;
+      S.hoverX = e.clientX;
+      if (mx) {
+        const d = mx * (S.cfg?.mouseFollow?.degPerPx ?? 0.3) * (S.invert ? -1 : 1);
+        S.target += d;
+        if (S.gyro) S.gyroBase = mod(S.gyroBase + d, 360);
+        touchActivity();
+      }
+    }
+    return;
+  }
   const dx = e.clientX - S.lastPointerX;
   const dt = Math.max(e.timeStamp - S.lastPointerT, 1);
   const deg = dx * (S.cfg?.drag?.degPerPx ?? 0.42) * (S.invert ? -1 : 1);
@@ -499,6 +543,7 @@ function endDrag(e) {
   clearTimeout(pressTimer);
   pressTimer = null;
   pressStart = null;
+  S.hoverX = null;
   el.stage.classList.remove('dragging');
   if (e && e.pointerId !== undefined && el.stage.hasPointerCapture?.(e.pointerId)) {
     try { el.stage.releasePointerCapture(e.pointerId); } catch (_) {}
@@ -517,6 +562,7 @@ function endDrag(e) {
 }
 el.stage.addEventListener('pointerup', endDrag);
 el.stage.addEventListener('pointercancel', endDrag);
+el.stage.addEventListener('pointerleave', () => { S.hoverX = null; });
 
 // PC：双击显示/隐藏 UI；触屏走长按
 el.stage.addEventListener('dblclick', () => {
@@ -529,14 +575,35 @@ el.stage.addEventListener('contextmenu', e => e.preventDefault());
 
 /* ---------- 陀螺仪 ---------- */
 
+const RAD = Math.PI / 180;
+
+function screenAngle() {
+  const so = screen.orientation;
+  if (so && typeof so.angle === 'number') return mod(so.angle, 360);
+  return typeof window.orientation === 'number' ? mod(window.orientation, 360) : 0;
+}
+
+// 由设备姿态解出水平方位角（yaw）：与握持倾斜、横竖屏都无关
 function headingOf(e) {
   if (typeof e.webkitCompassHeading === 'number' && !Number.isNaN(e.webkitCompassHeading) && e.webkitCompassHeading >= 0) {
-    return e.webkitCompassHeading;               // iOS：0-360 顺时针
+    return e.webkitCompassHeading;               // iOS：直接提供绝对朝向
   }
-  if (typeof e.alpha === 'number') {
-    return mod(360 - e.alpha, 360);              // 标准 alpha 逆时针
+  const a = e.alpha, b = e.beta, g = e.gamma;
+  if (typeof a !== 'number') return null;
+  if (typeof b !== 'number' || typeof g !== 'number') return mod(360 - a, 360);
+
+  const A = a * RAD, B = b * RAD, G = g * RAD;
+  // 设备 z 轴（屏幕法线）在世界坐标中的方向：R = Rz(alpha)·Rx(beta)·Ry(gamma)
+  const vx = Math.sin(G) * Math.cos(A) + Math.cos(G) * Math.sin(B) * Math.sin(A);
+  const vy = Math.sin(G) * Math.sin(A) - Math.cos(G) * Math.sin(B) * Math.cos(A);
+  const horizontal = Math.hypot(vx, vy);
+
+  if (horizontal < 0.25) {
+    // 手机接近平放（z 轴几乎竖直）只能退回 alpha；横屏时屏幕转了 90°，方向相反
+    const sa = screenAngle();
+    return (sa === 90 || sa === 270) ? mod(a, 360) : mod(360 - a, 360);
   }
-  return null;
+  return mod(Math.atan2(-vx, -vy) / RAD, 360);
 }
 
 function onOrient(e) {
@@ -690,6 +757,19 @@ el.calBtn.addEventListener('click', () => {
 el.invBtn.addEventListener('click', () => {
   S.invert = !S.invert;
   el.invBtn.classList.toggle('on', S.invert);
+});
+
+el.gain.addEventListener('input', () => {
+  S.gyroGain = parseFloat(el.gain.value) || 1;
+  el.gainVal.textContent = S.gyroGain.toFixed(1) + '×';
+});
+
+el.mouseBtn.addEventListener('click', () => {
+  S.mouseFollow = !S.mouseFollow;
+  el.mouseBtn.classList.toggle('on', S.mouseFollow);
+  S.hoverX = null;
+  touchActivity();
+  flashHint(S.mouseFollow ? '鼠标移动即可转向' : '鼠标跟随已关闭', 1600);
 });
 
 el.autoBtn.addEventListener('click', () => {
