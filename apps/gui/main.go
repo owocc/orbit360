@@ -1,6 +1,6 @@
-// Orbit360 打包工具：把 scripts/build.py 的「环绕视频 → 雪碧图 zip 资源包」流程
-// 做成一个原生窗口（MyGo native UI，没有 webview）。zip 仅用于旧版兼容；
-// 发布示例请用 scripts/bundle.py 生成 .orb。
+// Orbit360 打包工具：把 scripts/bundle.py 的「环绕视频 → .orb 场景包」流程
+// 做成一个原生窗口（MyGo native UI，没有 webview）。
+// 与命令行共用同一个 python 脚本，产物统一是 assets/<id>/scene.orb。
 //
 //	go run .        # 开发
 //	go tool mygo build
@@ -27,18 +27,21 @@ import (
 )
 
 var (
-	qualityKeys   = []string{"std", "hd", "uhd"}
-	qualityLabels = []string{"标准", "高清", "超清"}
-	autoKeys      = []string{"off", "cw", "ccw"}
-	autoLabels    = []string{"关", "顺时针", "逆时针"}
+	codecKeys      = []string{"webp", "avif", "jpeg"}
+	codecLabels    = []string{"WebP", "AVIF", "JPEG"}
+	orbitDirKeys   = []string{"cw", "ccw"}
+	orbitDirLabels = []string{"顺时针", "逆时针"}
 )
 
-const logLimit = 400
+const (
+	logLimit        = 400
+	defaultLongEdge = 1280
+)
 
 // app 是窗口渲染的全部状态。
 type app struct {
 	// 环境
-	root   string // 项目目录（scripts/build.py / assets / catalog.json 所在）
+	root   string // 项目目录（scripts/bundle.py / assets / catalog.json 所在）
 	python string
 	ffmpeg string
 
@@ -48,11 +51,11 @@ type app struct {
 	title   string
 	srcInfo string
 
-	// 参数
-	fps, std, hd, uhd, jpegQ float64
-	quality, autoDir         int
-	keepRaw, updateCatalog   bool
-	uhdTouched               bool // 用户改过超清长边后，不再随源视频自动调
+	// 参数（与 scripts/bundle.py build 一一对应）
+	fps, longEdge, quality, orbitSpan, initialAngle float64
+	codec, orbitDir                                 int
+	updateCatalog                                   bool
+	longEdgeTouched                                 bool // 用户改过长边后，不再随源视频自动调
 
 	// 运行状态
 	win       *mygo.Window
@@ -76,14 +79,15 @@ func main() {
 	if *shot != "" {
 		a := newApp()
 		a.id, a.title = "gen", "生成视频"
-		a.uhd = 752
+		a.longEdge = 752
 		if v := filepath.Join(a.root, "examples", "generated-video.mp4"); fileExists(v) {
 			a.video = v
 		}
 		a.srcInfo = "源：752×416 · 24 fps · 10.04 s · h264"
 		a.appendLog("源: generated-video.mp4  752x416  24fps  241帧  10.042s  h264")
-		a.appendLog("闭环: 首尾相似度 1.0（相邻帧 0.994）")
-		a.appendLog("  std: 512x284 × 121 帧  atlas     1.6 MB  packs/std.zip")
+		a.appendLog("场景包: assets/gen/scene.orb  752x416  webp  120 帧  1.6 MB")
+		a.appendLog("  头部: 1252 B（Header 32 + Meta 1044 + Index 1920）")
+		a.appendLog("  v1: 120 帧 752x416 @12fps 放在 (0,0) 752x416  1.6 MB")
 		a.setStatus("完成，点「打开预览」看看", false)
 		a.lastOut, a.lastID = filepath.Join(a.root, "assets", "gen"), "gen"
 		img := ui.Render(a.view, 900, 760, 2)
@@ -139,7 +143,7 @@ func (a *app) view(c *ui.Context) {
 func (a *app) header(c *ui.Context, t *ui.Theme) {
 	ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, "Orbit360").FontSize(18).Bold()
-		ui.Text(c, "视频 → 雪碧图 zip → 可转视角的 3D 画面").FontSize(12).TextColor(t.TextMuted)
+		ui.Text(c, "视频 → 单文件 .orb → 可转视角的 3D 画面").FontSize(12).TextColor(t.TextMuted)
 		ui.Spacer(c).Grow(1)
 		if a.busy {
 			ui.Spinner(c)
@@ -164,11 +168,11 @@ func (a *app) sources(c *ui.Context, t *ui.Theme) {
 		ui.Field(c, "标题", func() {
 			ui.TextInput(c, &a.title).Placeholder("我的示例").Grow(1)
 		})
-		ui.Textf(c, "→ assets/%s", orDash(a.id)).FontSize(12).TextColor(t.TextMuted).Padding(0, 0, 4, 0)
+		ui.Textf(c, "→ assets/%s/scene.orb", orDash(a.id)).FontSize(12).TextColor(t.TextMuted).Padding(0, 0, 4, 0)
 	})
 	ui.Field(c, "项目目录", func() {
 		ui.Row(c).Gap(8).Children(func() {
-			ui.TextInput(c, &a.root).Placeholder("包含 scripts/build.py 的目录").Grow(1)
+			ui.TextInput(c, &a.root).Placeholder("包含 scripts/bundle.py 的目录").Grow(1)
 			ui.Button(c, "选择…").OnClick(a.pickRoot)
 		})
 	})
@@ -179,40 +183,37 @@ func (a *app) params(c *ui.Context, t *ui.Theme) {
 		ui.Column(c).Gap(8).Children(func() {
 			ui.Row(c).Gap(16).AlignItems(ui.Center).Children(func() {
 				a.num(c, t, "帧率", &a.fps, 1, 60, 1)
-				a.num(c, t, "标准长边", &a.std, 128, 4096, 16)
-				a.num(c, t, "高清长边", &a.hd, 128, 4096, 16)
-			})
-			ui.Row(c).Gap(16).AlignItems(ui.Center).Children(func() {
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, "超清长边").FontSize(12).TextColor(t.TextMuted)
-					if ui.NumberInput(c, &a.uhd, 0, 4096, 16).Label("超清长边").Changed() {
-						a.uhdTouched = true
+					ui.Text(c, "每帧长边").FontSize(12).TextColor(t.TextMuted)
+					if ui.NumberInput(c, &a.longEdge, 128, 4096, 16).Label("每帧长边").Changed() {
+						a.longEdgeTouched = true
 					}
 				})
-				a.num(c, t, "JPEG 质量", &a.jpegQ, 2, 31, 1)
+				a.num(c, t, "初始角度", &a.initialAngle, 0, 359, 15)
+			})
+			ui.Row(c).Gap(16).AlignItems(ui.Center).Children(func() {
+				a.num(c, t, "帧质量", &a.quality, 0, 100, 5)
+				a.num(c, t, "环绕角度", &a.orbitSpan, 0, 360, 10)
 			})
 		})
 	})
 	ui.Row(c).Gap(24).AlignItems(ui.End).Children(func() {
-		ui.Field(c, "默认画质", func() {
-			ui.Segmented(c, &a.quality, qualityLabels...).Label("默认画质")
+		ui.Field(c, "帧编码", func() {
+			ui.Segmented(c, &a.codec, codecLabels...).Label("帧编码")
 		})
-		ui.Field(c, "默认自动环绕", func() {
-			ui.Segmented(c, &a.autoDir, autoLabels...).Label("默认自动环绕")
+		ui.Field(c, "环向", func() {
+			ui.Segmented(c, &a.orbitDir, orbitDirLabels...).Label("环向")
 		})
 		ui.Row(c).Gap(18).AlignItems(ui.Center).Padding(0, 0, 2, 0).Children(func() {
-			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-				ui.Switch(c, &a.keepRaw).Label("保留中间帧")
-				ui.Text(c, "保留中间帧").FontSize(12)
-			})
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 				ui.Switch(c, &a.updateCatalog).Label("更新 catalog.json")
 				ui.Text(c, "更新 catalog.json").FontSize(12)
 			})
 		})
 	})
-	ui.Text(c, "标准 / 高清 / 超清是各档的长边像素（超清填 0 关掉该档），源视频比长边小时按源给，避免放大家庭。"+
-		"帧率是标准档采样率，超清档帧数减半；每帧角度 = 360 / 帧数。").FontSize(11).TextColor(t.TextMuted)
+	ui.Text(c, "每帧按长边等比缩放，源视频更小时会放大，建议别超过源的长边。帧率是采样率，"+
+		"每帧角度 = 环绕角度 / 帧数。产物只有一个 assets/<id>/scene.orb，与命令行完全一致。").
+		FontSize(11).TextColor(t.TextMuted)
 }
 
 func (a *app) num(c *ui.Context, t *ui.Theme, label string, v *float64, lo, hi, step float64) {
@@ -309,9 +310,30 @@ func (a *app) footer(c *ui.Context, t *ui.Theme) {
 
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
+// bundleFlags 是 GUI 依赖的 bundle.py 参数。项目目录里的脚本太旧时提前报错，
+// 不至于跑起来才看到 argparse 的 unrecognized arguments。
+var bundleFlags = []string{"build", "--long-edge", "--codec", "--orbit-span", "--catalog"}
+
+func bundleScriptReady(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	for _, flag := range bundleFlags {
+		if !strings.Contains(string(data), flag) {
+			return false
+		}
+	}
+	return true
+}
+
 func (a *app) validate() error {
-	if a.root == "" || !fileExists(filepath.Join(a.root, "scripts", "build.py")) {
-		return errors.New("找不到 scripts/build.py，检查项目目录")
+	script := filepath.Join(a.root, "scripts", "bundle.py")
+	if a.root == "" || !fileExists(script) {
+		return errors.New("找不到 scripts/bundle.py，检查项目目录")
+	}
+	if !bundleScriptReady(script) {
+		return errors.New("项目目录里的 scripts/bundle.py 太旧（缺 --catalog / --long-edge 等参数）：换成最新版，或把项目目录指向更新后的仓库")
 	}
 	if a.video == "" || !fileExists(a.video) {
 		return errors.New("先选一个源视频")
@@ -329,7 +351,7 @@ func (a *app) validate() error {
 		return errors.New("找不到 ffmpeg")
 	}
 	if !fileExists(ffprobeFor(a.ffmpeg)) {
-		return errors.New("缺少 ffprobe（scripts/build.py 读源信息要用）")
+		return errors.New("缺少 ffprobe（scripts/bundle.py 读源信息要用）")
 	}
 	return nil
 }
@@ -364,7 +386,7 @@ func (a *app) pickVideo() {
 		path := paths[0]
 		a.win.Update(func() {
 			a.video = path
-			a.uhdTouched = false
+			a.longEdgeTouched = false
 			if a.title == "" || a.title == "我的示例" {
 				a.title = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 			}
@@ -441,28 +463,29 @@ func (a *app) detectEnvSync() {
 
 /* ---------- 构建 ---------- */
 
-// buildArgs 是 scripts/build.py 的命令行：视频 + 参数 + 输出目录（+ 清单）。
+// buildArgs 是 scripts/bundle.py 的命令行：build + 产物 + 视频 + 参数（+ 清单）。
 func (a *app) buildArgs(out string) []string {
 	args := []string{
-		filepath.Join(a.root, "scripts", "build.py"),
-		a.video,
-		"--out", out,
-		"--title", a.title,
+		filepath.Join(a.root, "scripts", "bundle.py"),
+		"build", out, a.video,
 		"--fps", trimNum(a.fps),
-		"--std", trimNum(a.std),
-		"--hd", trimNum(a.hd),
-		"--uhd", trimNum(a.uhd),
-		"--quality", trimNum(a.jpegQ),
-		"--default-quality", qualityKeys[clampIndex(a.quality, len(qualityKeys))],
-		"--default-auto", autoKeys[clampIndex(a.autoDir, len(autoKeys))],
-	}
-	if a.keepRaw {
-		args = append(args, "--keep-raw")
+		"--long-edge", trimNum(a.longEdge),
+		"--codec", codecKeys[clampIndex(a.codec, len(codecKeys))],
+		"--quality", trimNum(a.quality),
+		"--title", a.title,
+		"--initial-angle", trimNum(a.initialAngle),
+		"--orbit-span", trimNum(a.orbitSpan),
+		"--orbit-dir", orbitDirKeys[clampIndex(a.orbitDir, len(orbitDirKeys))],
 	}
 	if a.updateCatalog {
 		args = append(args, "--catalog", filepath.Join(a.root, "catalog.json"))
 	}
 	return args
+}
+
+// outPath 是唯一产物：assets/<id>/scene.orb（与命令行示例一致）。
+func (a *app) outPath() string {
+	return filepath.Join(a.root, "assets", a.id, "scene.orb")
 }
 
 func (a *app) startBuild() {
@@ -472,7 +495,7 @@ func (a *app) startBuild() {
 	}
 	a.saveSettings()
 
-	out := filepath.Join(a.root, "assets", a.id)
+	out := a.outPath()
 	args := a.buildArgs(out)
 
 	cmd := exec.Command(a.python, args...)
@@ -537,7 +560,7 @@ func (a *app) startBuild() {
 				a.setStatus("生成失败，看日志", true)
 				return
 			}
-			a.lastOut = out
+			a.lastOut = filepath.Dir(out)
 			a.appendLog("完成：" + out)
 			a.setStatus("完成，点「打开预览」看看", false)
 		})

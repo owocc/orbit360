@@ -1,7 +1,7 @@
 # orbit360
 
 把一段 360° 环绕拍摄的视频变成「可以转的 3D 模型」：手机陀螺仪控制视角，左右拖拽当作转动，
-画面按角度切换帧（不是播放视频），Canvas 单帧硬切渲染；移动端用雪碧图避免逐帧换纹理的闪动。
+画面按角度切换帧（不是播放视频），Canvas 单帧硬切渲染；仓库发布的示例统一是单个 `.orb` 文件。
 
 默认演示素材是 `沙发少女`（`?e=maid`），另一段是 `环绕视角`（`?e=orbit`）。
 
@@ -31,7 +31,7 @@ python3 scripts/bundle.py build assets/<id>/scene.orb <视频路径> \
 ## GUI（原生窗口）
 
 不想敲命令行就用 `apps/gui/`：一个 [MyGo](https://github.com/egoist/mygo) 的原生窗口，
-Go 自己画界面，没有 webview、没有前端构建；里面只是给 `scripts/build.py` 套了一层表单。
+Go 自己画界面，没有 webview、没有前端构建；里面只是给 `scripts/bundle.py` 套了一层表单。
 
 ```bash
 cd apps/gui
@@ -40,19 +40,20 @@ go tool mygo dev      # 改 .go 自动重启
 go tool mygo build    # 打包成 Orbit360.app / .exe / .deb
 ```
 
-需要 Go 1.27+、Python 3（跑 `scripts/build.py`）、ffmpeg。ffmpeg 和 Python 都不用自己折腾：
+需要 Go 1.27+、Python 3（跑 `scripts/bundle.py`）、ffmpeg。ffmpeg 和 Python 都不用自己折腾：
 窗口会自动在 `PATH`、Homebrew 常见位置里找，找不到就点「下载」（macOS 从
 [evermeet.cx](https://evermeet.cx/ffmpeg/) 取 ffmpeg + ffprobe 静态构建，Windows 取
 gyan.dev 的 essentials 包，解到配置目录的 `bin/`）；Linux 走包管理器，窗口只给提示。
 
 | 位置 | 作用 |
 |---|---|
-| 源视频 | `选择…` 后自动用 ffprobe 读尺寸，并把「超清长边」收到源的长边（不放大） |
-| 示例 id / 标题 | `id` 决定 `assets/<id>/`，并写进 `catalog.json` |
-| 帧率 + 三档长边 | 就是 `--fps` / `--std` / `--hd` / `--uhd`（超清填 0 关掉该档） |
-| 默认画质 / 默认自动环绕 | `--default-quality` / `--default-auto` |
-| 保留中间帧 / 更新 catalog | `--keep-raw` / `--catalog` |
-| 开始生成 | 起 `python3 scripts/build.py`，日志实时贴在下半屏，可中途停止 |
+| 源视频 | `选择…` 后自动用 ffprobe 读尺寸，并把「每帧长边」收窄到源的长边（上限 1280） |
+| 示例 id / 标题 | `id` 决定唯一产物 `assets/<id>/scene.orb`，并写进 `catalog.json` |
+| 帧率 / 每帧长边 | `--fps` / `--long-edge` |
+| 帧质量 / 帧编码 | `--quality`（0–100，默认 80）/ `--codec`（webp / avif / jpeg） |
+| 初始角度 / 环向 / 环绕角度 | `--initial-angle` / `--orbit-dir` / `--orbit-span` |
+| 更新 catalog | `--catalog`，扫描 `assets/<id>/scene.orb` 重写清单 |
+| 开始生成 | 起 `python3 scripts/bundle.py build assets/<id>/scene.orb …`，日志实时贴在下半屏，可中途停止 |
 | 打开预览 | 没在跑就先起 `scripts/serve.py 8787`，再打开 `http://127.0.0.1:8787/?e=<id>` |
 | 打开输出目录 | 在 Finder / 资源管理器里定位 `assets/<id>` |
 
@@ -65,43 +66,8 @@ gyan.dev 的 essentials 包，解到配置目录的 `bin/`）；Linux 走包管�
 go run . -shot shot.png
 ```
 
-GUI 只是 `scripts/build.py` 的壳，页面仍是 `index.html`，两边互不影响。
-GUI 生成的是旧版 zip 资源包，只在本地预览 / 兼容旧页面时使用；仓库发布示例统一用 `.orb`。
-
-## 旧版资源包（zip，可选）
-
-仓库发布的示例只保留 `scene.orb`，**不再内置 zip**。页面仍保留 zip 解析作为兼容路径：
-只有 `catalog.json` 里给某个示例配了 `packs`，`?fmt=zip` 或任意 `?q=` 才会切回 zip。
-zip 里就是 `meta.json` + 图片，**不压缩（ZIP_STORED）**，浏览器解包时不需要 inflate：
-
-```
-assets/<id>/
-  meta.json              包外副本，供 catalog 读取默认配置
-  packs/std.zip          512×288 ×120（2 张雪碧图，1.5 MB）
-  packs/hd.zip           640×360 ×120（2 张雪碧图，2.0 MB）
-  packs/uhd.zip          1920×1080 ×60（60 张序列帧，5.1 MB）
-```
-
-包内 `meta.json` 结构：
-
-```json
-{
-  "title": "沙发少女",
-  "source": { "width": 3840, "height": 2160, "fps": 24, "frames": 239, "durationSec": 9.963, ... },
-  "pack": { "type": "atlas", "count": 120, "cols": 6, "rows": 10,
-            "frameW": 512, "frameH": 288, "pattern": "sheet%02d.jpg",
-            "files": ["sheet01.jpg", "sheet02.jpg"] },
-  "defaults": { "quality": "uhd", "auto": { "enabled": true, "dir": "cw" } },
-  "orbit": { "spanDeg": 360, "direction": "cw" },
-  "drag": { ... }, "motion": { ... }, "auto": { ... }, "gyro": { ... }
-}
-```
-
-- `pack.type` 为 `atlas`（雪碧图，按 `sx/sy` 裁剪）或 `sequence`（逐帧）
-- `defaults.quality` 决定打开时用哪档；`defaults.auto` 决定是否自动旋转及方向
-- 页面对 DEFLATE 包会用 `DecompressionStream('deflate-raw')` 兜底，老浏览器只支持 STORED
-- 需要旧格式时用 `scripts/build.py` 生成；`assets/*/packs/` 与 `assets/*/meta.json` 已在 `.gitignore` 里，
-  不会误提交进发布目录
+GUI 和命令行是同一个脚本的两个入口，参数一一对应，产物只有 `assets/<id>/scene.orb`；
+没有第二套 zip 产物链。页面仍是 `index.html`，两边互不影响。
 
 ## 场景包（`.orb`，多视频）
 
@@ -302,8 +268,8 @@ const head = OrbBundle.parse(prefixBuffer);   // 也可以只给前 prefixLen �
 - 右下角胶囊栏切换示例（当前项高亮，可横向滚动）；移动端它与面板合并成底部控制区，
   面板上移 68px 避让。切换时整页重载，上一套帧内存随之释放
 - 默认加载 `item.orb`；URL 参数 `?e=maid` 选择示例
-- 旧版页面仍可用 `?fmt=zip` / `?q=uhd` 切到 zip，但前提是清单里给该项配了 `packs`；
-  仓库发布的示例不提供 `packs`，画质按钮会自动隐藏
+- 页面仍保留旧版 zip 解析用于导入旧包，但仓库不再生成 zip，也不写 `packs` 字段，
+  所以 `?fmt=zip` / `?q=` 在发布示例上无效，画质按钮会自动隐藏
 
 新增一个示例（生成 `.orb` → 写清单，`index.html` 不动）：
 
@@ -352,8 +318,9 @@ ESBUILD=npx node scripts/make-legacy.mjs   # 没有 bunx 时换用 npx
   并补 `setPointerCapture` / `hasPointerCapture` 空实现
 - 无 ResizeObserver：补空壳，尺寸变化仍由 `resize` / `orientationchange` 触发重排
 
-老设备的真正限制不是语法而是内存：iOS 的 canvas 总内存约 224 MB，建议在面板里用 `标准` 档
-（512×288，雪碧图解码约 71 MB），`高清` 档 110 MB 在老机型上容易触发限制。
+老设备的真正限制不是语法而是内存：iOS 的 canvas 总内存约 224 MB，`.orb` 的帧尺寸直接决定占用，
+老机型建议 `--long-edge 960` 以内；导入旧 zip 包时仍可按 `标准` 档（512×288，
+雪碧图解码约 71 MB）控制内存。
 
 ## 交互
 
@@ -379,7 +346,6 @@ UI 集中在左下角面板，进入 3.2 秒后自动隐藏，画面全屏沉浸
 | 面板 `陀螺仪平滑` | 陀螺仪输入低通滤波（默认开）；关掉更跟手但会抖 |
 | 面板 `惯性` | 松手后是否继续滑行（默认开） |
 | 面板 `自适应` / `铺满` | 画面等比完整显示 / 强制铺满视口（裁掉多余） |
-| 面板 `标准` / `超清` | 切换帧清晰度：桌面 1280×720 ↔ 1920×1080（120/60 帧），移动 512×288 ↔ 640×360；选择记在 localStorage |
 | 面板 `陀螺仪` / `校准` / `反向` | 手动开关、重设基准、翻转方向 |
 | 面板 `陀螺仪` 滑块 | 陀螺仪增益，1.0× 为物理 1:1 |
 | 面板 `自动转速` 滑块 | 静止自动旋转的速度，2–60°/s |
@@ -388,19 +354,21 @@ UI 集中在左下角面板，进入 3.2 秒后自动隐藏，画面全屏沉浸
 所以竖屏、横屏、手机倾斜握持都是同一套映射；手机接近平放（法线几乎竖直）时退回 `alpha`，
 并按 `screen.orientation.angle` 修正 90°/270° 的方向。
 
-## 配置 `config.json`
+## 播放器配置
 
-由 `scripts/build.py` 生成；重建时会保留你已经调过的 `drag / motion / auto / gyro / orbit / video / title`。
+Web client 会把 `.orb` meta 里的 `title / video / orbit / drag / motion / auto / gyro / mouseFollow / defaults`
+合并到内置默认值上；`scripts/bundle.py` 默认只写 `title / canvas / codec / initialAngle / orbit / videos`，
+其余键取客户端默认值，也可以在加载后用 `client.setConfig({...})` 覆盖（完整字段见 [sdk/js/README.md](sdk/js/README.md)）。
 
 | 键 | 含义 | 默认 |
 |---|---|---|
-| `source` | 源视频 meta（分辨率/fps/帧数/时长/编码/码率/闭环相似度） | 自动 |
+| `source` | 源视频 meta（分辨率/fps/帧数/时长/编码/码率） | 自动 |
 | `video.width/height` | 帧的逻辑宽高（决定画面比例） | 自动 |
 | `video.displayScale` | 画面缩放 >1 时裁切边缘 | `1` |
 | `video.portraitScale` | 竖屏额外放大 | `1.25` |
-| `orbit.spanDeg` | 整段视频覆盖的真实角度 | `360` |
-| `orbit.direction` | `cw` / `ccw`，帧序列方向 | `cw` |
-| `frames.count` | 帧数；每帧角度 = `360/count` | 自动 |
+| `orbit.spanDeg` | 整段视频覆盖的真实角度（`--orbit-span`） | `360` |
+| `orbit.direction` | `cw` / `ccw`，帧序列方向（`--orbit-dir`） | `cw` |
+| `videos[].frames.count` | 帧数；每帧角度 = `orbit.spanDeg / count` | 自动 |
 | `drag.degPerPx` | 拖拽灵敏度（度/像素） | `0.42` |
 | `video.fit` | `contain` 自适应 / `cover` 铺满 | `contain` |
 | `drag.inertia` | 松手是否继续滑行 | `true` |
@@ -415,75 +383,21 @@ UI 集中在左下角面板，进入 3.2 秒后自动隐藏，画面全屏沉浸
 | `mouseFollow.enabled` | 是否默认开启鼠标悬停转向 | `true` |
 | `mouseFollow.degPerPx` | 鼠标跟随灵敏度（度/像素） | `0.3` |
 
-改完刷新页面即可生效。
-
-## 重新生成资产（旧版 zip）
-
-发布示例请用上面的 `scripts/bundle.py` 生成 `.orb`。下面这套只保留给旧版 zip 兼容路径，
-产物已被 `.gitignore` 忽略，不会进入 GitHub Pages。
-
-`scripts/build.py` 把「视频 → 可转的 3D 模型」这条链全包了：读源 meta、算闭环、抽帧、
-拼雪碧图、打 zip、刷新 `catalog.json`。
-
-```bash
-python3 scripts/build.py <视频路径> --out assets/<id> [--title 标题] [--catalog catalog.json]
-                         [--fps 12] [--std 512] [--hd 640] [--uhd 1920] [--quality 6]
-                         [--default-quality uhd] [--default-auto cw|ccw|off] [--assets-root DIR]
-                         [--keep-raw] [--frames-only [--frames-dir DIR]]
-```
-
-常见用法：
-
-```bash
-# 4K 源
-python3 scripts/build.py examples/anime-maid.mp4 --out assets/maid --title "沙发少女" --catalog catalog.json
-
-# 低分辨率源（752×416）：超清档给到原生 752 长边，不放大
-python3 scripts/build.py ~/Downloads/my-video.mp4 --out assets/gen --title "生成视频" \
-    --uhd 752 --default-quality uhd --catalog catalog.json
-
-# 只想看看抽出来的帧，不打包
-python3 scripts/build.py ~/Downloads/my-video.mp4 --frames-only --frames-dir /tmp/frames
-```
-
-| 参数 | 作用 |
-|---|---|
-| `--out` | 产物目录（默认脚本目录）：`meta.json` + `packs/{std,hd,uhd}.zip`（不入库） |
-| `--fps` | 标准/高清档采样帧率，默认 12（10 秒 → 120 帧，3°/帧） |
-| `--std` / `--hd` | 雪碧图档长边，默认 512 / 640 |
-| `--uhd` | 超清档长边，默认 1920，帧数减半；`0` 关掉该档；源更小时按源的长边给 |
-| `--quality` | JPEG 质量 2–31，越小越清晰（默认 6） |
-| `--catalog` | 构建完刷新示例清单；同时扫描 `<id>/scene.orb`，已有的 `.orb` 示例不会丢 |
-| `--assets-root` | 清单扫描的根目录，默认 `--out` 的父目录 |
-| `--keep-raw` | 中间产物留着：`out/frames-<std\|hd\|uhd>/`（序列帧）、`out/atlas-<std\|hd>/`（雪碧图） |
-| `--frames-only` | 只抽帧不建 zip、不写 meta（长边/帧率取 `--std`/`--fps`） |
-| `--frames-dir` | 配合 `--frames-only` 指定落地目录，默认 `out/frames` |
-
-流程要点：
-
-- 用 `ffprobe` 读源 meta，用 32×18 灰度缩略图算首尾 ZNCC 闭环相似度（过差会警告）
-- 三档都从同一个源解码：`std`/`hd` 合并成 6×10 雪碧图（`pack.type = atlas`），
-  `uhd` 输出逐帧序列（`pack.type = sequence`）；长边按 `fit()` 等比缩放并取偶数
-- 帧在临时目录里解码，构建完成即删；需要帧就显式加 `--keep-raw` 或 `--frames-only`
-- 已有 `meta.json` 里的 `drag / motion / auto / gyro / orbit / video / title` 会被沿用，
-  重建不会冲掉手调过的参数
+改完重新生成 `.orb`（或改 `client.setConfig`）后生效。
 
 ## 移动端为什么不闪
 
 iOS Safari 上逐帧切换 `ImageBitmap` 会不停上传/驱逐 GPU 纹理，画面出现闪动
 （[WebKit #229825](https://bugs.webkit.org/show_bug.cgi?id=229825)、
-[#234920](https://bugs.webkit.org/show_bug.cgi?id=234920)）。现在的做法：
+[#234920](https://bugs.webkit.org/show_bug.cgi?id=234920)）。`.orb` 是逐帧图，页面这样处理：
 
-- 移动端把 120 帧拼成 **2 张雪碧图**，整段只占 1~2 块纹理，绘制时按 `sx/sy` 裁剪
-- 手机两档：`标准` 512×288（2×3072×2880，解压约 71 MB）/ `高清` 640×360（2×3840×3600，解压约 110 MB）
-- 桌面两档：`标准` 1280×720 ×120（解压约 442 MB）/ `超清` 1920×1080 ×60（解压约 498 MB，6°/帧）
-- 默认都取标准档，切换后写入 localStorage
 - 用 `<img>` 而非 `createImageBitmap`，走浏览器的图像缓存
 - Canvas 上下文 `alpha: false`，绘制前**不再 `clearRect`**，直接覆盖——不会出现「已清空、尚未绘制」的空窗
 - `layout()`（resize / 切画幅）之后同步补画当前帧，避免清屏到下一帧 rAF 之间的空白
 - UI 面板隐藏后 `visibility: hidden`，不再参与合成
+- 内存随帧尺寸线性增长：手机建议 `--long-edge 960` 以内；旧版 zip 的雪碧图解析仍留在 Web client 里（兼容导入旧包），
+  但仓库不再生成 zip
 
-画质档在包里声明（`pack.type` 决定雪碧图还是序列帧），页面不关心目录结构。
 移动端判定阈值仍是 1100px（覆盖 iPad）。
 
 ## 目录
@@ -509,12 +423,11 @@ sdk/                多语言 SDK
     web-client.d.ts  Web client 类型
     README.md        npm 包说明与完整 API
 apps/
-  gui/              原生窗口 GUI（MyGo native UI，Go + scripts/build.py）
+  gui/              原生窗口 GUI（MyGo native UI，Go + scripts/bundle.py）
     main.go           界面与构建流程
     env.go            路径检测、ffmpeg 下载、设置持久化
 scripts/
-  bundle.py         多视频 → 单文件 .orb（发布示例用）
-  build.py          视频 → meta.json + packs/{std,hd,uhd}.zip（旧版兼容）
+  bundle.py         视频 → 单文件 .orb（唯一资产构建脚本，GUI 也调它）
   serve.py          多线程静态服务
   serve_tls.py      HTTPS 服务（手机陀螺仪必需，自动生成自签证书）
   make-legacy.mjs   由 index.html 生成 legacy.html
@@ -523,8 +436,7 @@ scripts/
   npm-publish.yml   SDK 校验与 npm 发布（NPM_TOKEN 占位）
 ```
 
-`assets/*/packs/`、`assets/*/meta.json`、中间帧目录都已在 `.gitignore` 里，
-发布目录只会保留 `.orb`。
+每个示例目录只有 `scene.orb` 一个产物，中间帧在临时目录里解码、构建完成即删。
 
 ## 兼容性
 
