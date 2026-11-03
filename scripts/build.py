@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """从一段环绕视频生成 orbit360 页面所需的全部资产。
 
-    python3 build.py <视频> --out assets/<id> --title "标题" --catalog catalog.json
+    python3 scripts/build.py <视频> --out assets/<id> --title "标题" --catalog catalog.json
 
 产物（写到 --out）：
     meta.json            包外副本，供 catalog 读取 defaults
@@ -19,6 +19,7 @@ import json
 import os
 import shutil
 import statistics
+import struct
 import subprocess
 import sys
 import tempfile
@@ -249,40 +250,82 @@ def source_ref(src, out):
     return os.path.basename(src) if rel.count("..") > 2 else rel
 
 
+def read_orb_meta(path):
+    """从 .orb 头部读 meta；文件不存在或格式不对时返回 None。"""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(32)
+            if len(head) < 32 or head[:4] != b"ORB3":
+                return None
+            meta_len = struct.unpack_from("<I", head, 12)[0]
+            if meta_len <= 0:
+                return None
+            return json.loads(fh.read(meta_len).decode("utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None
+
+
 def write_catalog(root, path, default_id=None):
-    """扫描 root 下的 <id>/meta.json，生成页面用的示例清单（每个示例带各画质的 zip）。"""
+    """扫描 root 下的 <id>/scene.orb 与 <id>/meta.json，生成页面示例清单。
+
+    发布示例只要求 scene.orb；zip 字段仅在旧版 packs 存在时保留。
+    """
     base = os.path.dirname(os.path.abspath(path))
+    existing = {}
+    old_default = None
+    try:
+        old = json.load(open(path, encoding="utf-8"))
+        old_default = old.get("default")
+        existing = {i.get("id"): i for i in old.get("items", []) if isinstance(i, dict)}
+    except (OSError, ValueError):
+        pass
+
     items = []
     for name in sorted(os.listdir(root)):
-        meta_path = os.path.join(root, name, "meta.json")
-        if not os.path.isfile(meta_path):
+        item_dir = os.path.join(root, name)
+        if not os.path.isdir(item_dir):
             continue
+        old_item = existing.get(name, {})
+        meta = {}
         try:
-            meta = json.load(open(meta_path, encoding="utf-8"))
+            meta = json.load(open(os.path.join(item_dir, "meta.json"), encoding="utf-8"))
         except (OSError, ValueError):
-            continue
+            pass
+        orb = os.path.join(item_dir, "scene.orb")
+        orb_meta = read_orb_meta(orb)
+        if not meta and orb_meta:
+            meta = orb_meta
+
         packs = {}
         for q in ("std", "hd", "uhd"):
-            p = os.path.join(root, name, "packs", f"{q}.zip")
+            p = os.path.join(item_dir, "packs", f"{q}.zip")
             if os.path.isfile(p):
                 packs[q] = os.path.relpath(p, base).replace(os.sep, "/")
-        if not packs:
+        if not packs and not orb_meta:
             continue
-        item = {
-            "id": name,
-            "title": meta.get("title", name),
-            "packs": packs,
-            "defaults": meta.get("defaults", {}),
-            "source": {k: meta.get("source", {}).get(k) for k in ("width", "height", "frames", "durationSec")},
-        }
-        orb = os.path.join(root, name, "scene.orb")
-        if os.path.isfile(orb):
+
+        source = meta.get("source") or {}
+        if not source and orb_meta:
+            videos = orb_meta.get("videos") or []
+            if videos:
+                source = videos[0].get("source") or {}
+        defaults = meta.get("defaults") or old_item.get("defaults")
+
+        item = {"id": name, "title": meta.get("title") or old_item.get("title") or name}
+        if orb_meta:
             item["orb"] = os.path.relpath(orb, base).replace(os.sep, "/")
+        if defaults:
+            item["defaults"] = defaults
+        if source:
+            item["source"] = {k: source.get(k) for k in ("width", "height", "frames", "durationSec")}
+        if packs:
+            item["packs"] = packs
         items.append(item)
     if not items:
-        die(f"{root} 下没有可用的示例包")
+        die(f"{root} 下没有可用的示例资产")
     ids = [i["id"] for i in items]
-    doc = {"default": default_id if default_id in ids else ids[0], "items": items}
+    default = default_id if default_id in ids else (old_default if old_default in ids else ids[0])
+    doc = {"default": default, "items": items}
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(doc, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
@@ -419,7 +462,7 @@ def main():
         print(f"原始帧: {out}/frames-<std|hd|uhd>   雪碧图: {out}/atlas-<std|hd>")
     print(f"meta: {meta_path}")
     print(f"角度: {360 / max(1, built['std'][0]['count']):.2f}°/帧（标准档）")
-    print("启动: python3 serve.py 8787    或    python3 serve_tls.py 8443（手机陀螺仪）")
+    print("启动: python3 scripts/serve.py 8787    或    python3 scripts/serve_tls.py 8443（手机陀螺仪）")
 
 
 if __name__ == "__main__":

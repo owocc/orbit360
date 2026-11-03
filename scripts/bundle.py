@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """orbit360 多视频场景包（.orb）：抽帧 + meta + 索引表打进一个二进制文件。
 
-    python3 bundle.py build scene.orb a.mp4 [b.mp4 ...] [--canvas WxH]
-    python3 bundle.py info scene.orb [--json]
-    python3 bundle.py extract scene.orb --out DIR [--video v1]
+    python3 scripts/bundle.py build scene.orb a.mp4 [b.mp4 ...] [--canvas WxH]
+    python3 scripts/bundle.py info scene.orb [--json]
+    python3 scripts/bundle.py extract scene.orb --out DIR [--video v1]
 
 文件布局（小端）：
 

@@ -115,7 +115,7 @@ func (a *app) saveSettings() {
 	os.WriteFile(settingsPath(), append(data, '\n'), 0o644)
 }
 
-// findRoot 从当前目录、可执行文件所在目录向上找带 build.py 的目录。
+// findRoot 从当前目录、可执行文件所在目录向上找带 scripts/build.py 的项目根目录。
 func findRoot() string {
 	dirs := []string{}
 	if wd, err := os.Getwd(); err == nil {
@@ -126,7 +126,7 @@ func findRoot() string {
 	}
 	for _, d := range dirs {
 		for i := 0; i < 4 && d != "" && d != string(filepath.Separator); i++ {
-			if fileExists(filepath.Join(d, "build.py")) {
+			if fileExists(filepath.Join(d, "scripts", "build.py")) {
 				return d
 			}
 			d = filepath.Dir(d)
@@ -188,7 +188,7 @@ func detectFFmpeg(current string) string {
 	return ""
 }
 
-// ffprobeFor 从 ffmpeg 的路径推出同目录的 ffprobe（build.py 两个都要）。
+// ffprobeFor 从 ffmpeg 的路径推出同目录的 ffprobe（scripts/build.py 两个都要）。
 func ffprobeFor(ffmpeg string) string {
 	name := "ffprobe"
 	if runtime.GOOS == "windows" {
@@ -519,7 +519,7 @@ func portOpen(port string) bool {
 	return true
 }
 
-// withPath 把 ffmpeg 所在目录放到 PATH 前面，build.py 调 ffmpeg/ffprobe 就能找到。
+// withPath 把 ffmpeg 所在目录放到 PATH 前面，scripts/build.py 调 ffmpeg/ffprobe 就能找到。
 func withPath(env []string, dir string) []string {
 	if dir == "" {
 		return env

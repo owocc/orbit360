@@ -256,7 +256,7 @@
   </div>
 </div>
 
-<script src="orb.js"></script>
+<script src="sdk/js/orb.js"></script>
 <script>
 'use strict';
 
@@ -621,7 +621,7 @@ async function loadFromZipBlob(blob, qualityHint) {
 }
 
 async function loadFromOrbBlob(blob, qualityHint) {
-  if (typeof OrbBundle === 'undefined') throw new Error('缺少 orb.js，无法解析 .orb');
+  if (typeof OrbBundle === 'undefined') throw new Error('缺少 sdk/js/orb.js，无法解析 .orb');
   const orb = await OrbBundle.fromBlob(blob);
   const meta = orb.meta;
   S.format = 'orb';

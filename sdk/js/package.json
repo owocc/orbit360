@@ -1,0 +1,49 @@
+{
+  "name": "@orbit360/javascript",
+  "version": "0.1.0",
+  "description": "ORB3 (.orb) scene bundle parser for orbit360 — browser and Node, zero dependencies",
+  "type": "commonjs",
+  "keywords": [
+    "orbit360",
+    "orb",
+    "orb3",
+    "360",
+    "panorama",
+    "scene-bundle"
+  ],
+  "homepage": "https://github.com/owocc/orbit360#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/owocc/orbit360.git",
+    "directory": "sdk/js"
+  },
+  "bugs": {
+    "url": "https://github.com/owocc/orbit360/issues"
+  },
+  "main": "./orb.js",
+  "browser": "./orb.js",
+  "types": "./orb.d.ts",
+  "exports": {
+    ".": {
+      "types": "./orb.d.ts",
+      "require": "./orb.js",
+      "import": "./orb.js",
+      "default": "./orb.js"
+    }
+  },
+  "files": [
+    "orb.js",
+    "orb.d.ts",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "test": "node --check orb.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

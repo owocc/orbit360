@@ -1,5 +1,6 @@
-// Orbit360 打包工具：把 build.py 的「环绕视频 → 雪碧图 zip 资源包」流程
-// 做成一个原生窗口（MyGo native UI，没有 webview）。
+// Orbit360 打包工具：把 scripts/build.py 的「环绕视频 → 雪碧图 zip 资源包」流程
+// 做成一个原生窗口（MyGo native UI，没有 webview）。zip 仅用于旧版兼容；
+// 发布示例请用 scripts/bundle.py 生成 .orb。
 //
 //	go run .        # 开发
 //	go tool mygo build
@@ -37,7 +38,7 @@ const logLimit = 400
 // app 是窗口渲染的全部状态。
 type app struct {
 	// 环境
-	root   string // 项目目录（build.py / assets / catalog.json 所在）
+	root   string // 项目目录（scripts/build.py / assets / catalog.json 所在）
 	python string
 	ffmpeg string
 
@@ -167,7 +168,7 @@ func (a *app) sources(c *ui.Context, t *ui.Theme) {
 	})
 	ui.Field(c, "项目目录", func() {
 		ui.Row(c).Gap(8).Children(func() {
-			ui.TextInput(c, &a.root).Placeholder("包含 build.py 的目录").Grow(1)
+			ui.TextInput(c, &a.root).Placeholder("包含 scripts/build.py 的目录").Grow(1)
 			ui.Button(c, "选择…").OnClick(a.pickRoot)
 		})
 	})
@@ -296,7 +297,7 @@ func (a *app) logView(c *ui.Context, t *ui.Theme) {
 
 func (a *app) footer(c *ui.Context, t *ui.Theme) {
 	ui.Row(c).Gap(10).Children(func() {
-		ui.Text(c, "生成后用「打开预览」启动本地服务并在浏览器里看；手机陀螺仪需要 HTTPS（python3 serve_tls.py 8443）。").
+		ui.Text(c, "生成后用「打开预览」启动本地服务并在浏览器里看；手机陀螺仪需要 HTTPS（python3 scripts/serve_tls.py 8443）。").
 			FontSize(11).TextColor(t.TextMuted).Grow(1)
 		if err := a.validate(); err != nil && !a.busy {
 			ui.Text(c, err.Error()).FontSize(11).TextColor(t.TextMuted)
@@ -309,8 +310,8 @@ func (a *app) footer(c *ui.Context, t *ui.Theme) {
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
 func (a *app) validate() error {
-	if a.root == "" || !fileExists(filepath.Join(a.root, "build.py")) {
-		return errors.New("找不到 build.py，检查项目目录")
+	if a.root == "" || !fileExists(filepath.Join(a.root, "scripts", "build.py")) {
+		return errors.New("找不到 scripts/build.py，检查项目目录")
 	}
 	if a.video == "" || !fileExists(a.video) {
 		return errors.New("先选一个源视频")
@@ -328,7 +329,7 @@ func (a *app) validate() error {
 		return errors.New("找不到 ffmpeg")
 	}
 	if !fileExists(ffprobeFor(a.ffmpeg)) {
-		return errors.New("缺少 ffprobe（build.py 读源信息要用）")
+		return errors.New("缺少 ffprobe（scripts/build.py 读源信息要用）")
 	}
 	return nil
 }
@@ -440,10 +441,10 @@ func (a *app) detectEnvSync() {
 
 /* ---------- 构建 ---------- */
 
-// buildArgs 是 build.py 的命令行：视频 + 参数 + 输出目录（+ 清单）。
+// buildArgs 是 scripts/build.py 的命令行：视频 + 参数 + 输出目录（+ 清单）。
 func (a *app) buildArgs(out string) []string {
 	args := []string{
-		filepath.Join(a.root, "build.py"),
+		filepath.Join(a.root, "scripts", "build.py"),
 		a.video,
 		"--out", out,
 		"--title", a.title,
@@ -578,7 +579,7 @@ func (a *app) ensureServe() {
 	if portOpen(previewPort) || a.serveCmd != nil {
 		return
 	}
-	cmd := exec.Command(a.python, filepath.Join(a.root, "serve.py"), previewPort)
+	cmd := exec.Command(a.python, filepath.Join(a.root, "scripts", "serve.py"), previewPort)
 	cmd.Dir = a.root
 	if err := cmd.Start(); err != nil {
 		a.appendLog("预览服务启动失败：" + err.Error())
