@@ -24,8 +24,11 @@ const DEFAULTS = {
     height: 720,
   },
   orbit: {
+    axis: 'x',
     spanDeg: 360,
     direction: 'cw',
+    minAngle: -180,
+    maxAngle: 180,
   },
   drag: {
     degPerPx: 0.42,
@@ -51,13 +54,16 @@ const DEFAULTS = {
     smoothMs: 80,
   },
   mouseFollow: {
-    enabled: true,
+    enabled: false,
     degPerPx: 0.3,
   },
 };
 
 const mod = (a, n) => ((a % n) + n) % n;
 const shortDelta = (from, to) => mod(to - from + 180, 360) - 180;
+// 1.2 起角度用带符号的 -180..180 表示：向右为正，向左为负。
+const wrapSigned = deg => mod(deg + 180, 360) - 180;
+const clampNum = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -213,6 +219,13 @@ function headingOf(e) {
   return mod(Math.atan2(-vx, -vy) / RAD, 360);
 }
 
+// Y 轴场景用前后俯仰（beta）：把 -180..180 归一到 0..360。
+function pitchOf(e) {
+  const b = e.beta;
+  if (typeof b !== 'number' || Number.isNaN(b)) return null;
+  return mod(b, 360);
+}
+
 export class Orbit360Client {
   /**
    * @param {HTMLCanvasElement} canvas
@@ -269,14 +282,20 @@ export class Orbit360Client {
     this._vel = 0;
     this._dragging = false;
     this._lastPointerX = 0;
+    this._lastPointerY = 0;
     this._lastPointerT = 0;
     this._lastPointerType = '';
     this._hoverX = null;
+    this._hoverY = null;
     this._idleSince = typeof performance !== 'undefined' ? performance.now() : Date.now();
     this._autoWeight = 0;
     this._orientT = 0;
     this._invert = false;
-    this._mouseFollow = true;
+    this._axis = 'x';
+    this._minAngle = -180;
+    this._maxAngle = 180;
+    this._limited = false;
+    this._mouseFollow = false;
     this._inertia = true;
     this._fitMode = 'contain';
     this._autoState = 'off';
@@ -364,6 +383,7 @@ export class Orbit360Client {
     this._emit('angle', {
       angle: this._angle,
       target: this._target,
+      axis: this._axis,
       frameIndex: this._frameIndex(),
     });
   }
@@ -389,6 +409,19 @@ export class Orbit360Client {
   _applyConfig() {
     const cfg = this._config;
     this._invert = !!cfg.drag.invert;
+    this._axis = cfg.orbit.axis === 'y' ? 'y' : 'x';
+    const minAngle = Number(cfg.orbit.minAngle);
+    const maxAngle = Number(cfg.orbit.maxAngle);
+    let lo = clampNum(Number.isFinite(minAngle) ? minAngle : -180, -180, 180);
+    let hi = clampNum(Number.isFinite(maxAngle) ? maxAngle : 180, -180, 180);
+    if (lo > hi) [lo, hi] = [hi, lo];
+    this._minAngle = lo;
+    this._maxAngle = hi;
+    this._limited = lo > -180 || hi < 180;
+    if (this._limited) {
+      this._target = clampNum(this._target, lo, hi);
+      this._angle = clampNum(this._angle, lo, hi);
+    }
     this._gyroGain = Number(cfg.gyro.gain);
     this._gyroSmooth = cfg.gyro.smooth !== false;
     this._inertia = cfg.drag.inertia !== false;
@@ -404,9 +437,27 @@ export class Orbit360Client {
   }
 
   _recalcFrames() {
-    this._degPerFrame = 360 / Math.max(1, this._count);
+    this._degPerFrame = this._frameSpan() / Math.max(1, this._count);
+    this._frameDeg = this._degPerFrame;
+  }
+
+  // 帧序列覆盖的真实角度：spanDeg，限定在 (0, 360]。
+  _frameSpan() {
     const span = Number(this._config.orbit.spanDeg);
-    this._frameDeg = (Number.isFinite(span) ? span : 360) / Math.max(1, this._count);
+    if (!Number.isFinite(span) || span <= 0) return 360;
+    return Math.min(360, span);
+  }
+
+  // 有限区间直接钳制；整圈时按 -180..180 循环。
+  _normAngle(value) {
+    const v = Number(value);
+    if (!Number.isFinite(v)) return this._limited ? this._minAngle : 0;
+    if (this._limited) return clampNum(v, this._minAngle, this._maxAngle);
+    return wrapSigned(v);
+  }
+
+  _angleDelta(from, to) {
+    return this._limited ? to - from : shortDelta(from, to);
   }
 
   setConfig(partial) {
@@ -445,8 +496,14 @@ export class Orbit360Client {
       quality: this._quality,
       codec: this._codec,
       title: this._config.title || '环绕视角',
-      angle: mod(this._angle, 360),
-      target: mod(this._target, 360),
+      angle: this._normAngle(this._angle),
+      target: this._normAngle(this._target),
+      axis: this._axis,
+      limits: {
+        min: this._minAngle,
+        max: this._maxAngle,
+        limited: this._limited,
+      },
       velocity: this._vel,
       frameIndex,
       frameCount: this._count,
@@ -505,11 +562,11 @@ export class Orbit360Client {
   }
 
   getAngle() {
-    return mod(this._angle, 360);
+    return this._normAngle(this._angle);
   }
 
   getTargetAngle() {
-    return mod(this._target, 360);
+    return this._normAngle(this._target);
   }
 
   getFrameIndex() {
@@ -523,7 +580,7 @@ export class Orbit360Client {
   setAngle(deg, options = {}) {
     const value = Number(deg);
     if (!Number.isFinite(value)) throw new Error('setAngle: deg 必须是数字');
-    this._target = mod(value, 360);
+    this._target = this._normAngle(value);
     this._vel = 0;
     if (options.immediate) {
       this._angle = this._target;
@@ -538,14 +595,14 @@ export class Orbit360Client {
   rotateBy(deg) {
     const value = Number(deg);
     if (!Number.isFinite(value)) throw new Error('rotateBy: deg 必须是数字');
-    this._target = mod(this._target + value, 360);
+    this._target = this._normAngle(this._target + value);
     this._touchActivity();
     this._emitState();
     return this;
   }
 
   reset(angle = 0, options = {}) {
-    this._target = mod(Number(angle) || 0, 360);
+    this._target = this._normAngle(Number(angle) || 0);
     this._vel = 0;
     if (this._gyro) {
       this._gyroRef = null;
@@ -793,9 +850,9 @@ export class Orbit360Client {
     this._count = Math.max.apply(null, meta.videos.map(v => v.frames.count));
     this._layers = layers;
     this._frames = [];
-    this._angle = this._target = mod(Number(meta.initialAngle) || 0, 360);
     this._config = this._resolveConfig();
     this._applyConfig();
+    this._angle = this._target = this._normAngle(Number(meta.initialAngle) || 0);
   }
 
   async _loadZip(blob, token, options) {
@@ -861,9 +918,9 @@ export class Orbit360Client {
       frames,
       count,
     }];
-    this._angle = this._target = mod(Number(meta.initialAngle) || 0, 360);
     this._config = this._resolveConfig();
     this._applyConfig();
+    this._angle = this._target = this._normAngle(Number(meta.initialAngle) || 0);
   }
 
   async _decodeJobs(jobs, token, from, to) {
@@ -977,7 +1034,15 @@ export class Orbit360Client {
 
   _frameIndex() {
     if (!this._count) return 0;
-    return mod(Math.round(mod(this._angle * this._dirSign(), 360) / this._degPerFrame), this._count);
+    const angle = wrapSigned(this._angle * this._dirSign());
+    const span = this._frameSpan();
+    if (span >= 360) {
+      return mod(Math.round(mod(angle, 360) / this._degPerFrame), this._count);
+    }
+    // 帧序列只覆盖 spanDeg：居中映射到 [-span/2, span/2]，超出取首尾帧。
+    const t = (angle + span / 2) / span;
+    return Math.min(this._count - 1,
+      Math.max(0, Math.round(t * (this._count - 1))));
   }
 
   _dirSign() {
@@ -1023,7 +1088,9 @@ export class Orbit360Client {
 
     if (!this._dragging) {
       if (this._inertia && !this._gyro && Math.abs(this._vel) > 0.0005) {
-        this._target += this._vel * dt;
+        const next = this._normAngle(this._target + this._vel * dt);
+        if (this._limited && next === this._target) this._vel = 0;
+        this._target = next;
         this._vel *= Math.exp(-dt / (this._config.drag.inertiaMs ?? 110));
         this._touchActivity();
       } else {
@@ -1033,13 +1100,15 @@ export class Orbit360Client {
     this._updateAuto(dt, t);
 
     const prev = this._angle;
-    const delta = shortDelta(this._angle, this._target);
+    const delta = this._angleDelta(this._angle, this._target);
     const tau = this._config.motion.smoothMs ?? 62;
-    this._angle = mod(this._angle + delta * (1 - Math.exp(-dt / tau)), 360);
-    if (Math.abs(shortDelta(this._angle, this._target)) < 0.0005) {
-      this._angle = mod(this._target, 360);
+    const next = this._angle + delta * (1 - Math.exp(-dt / tau));
+    this._angle = this._limited
+      ? clampNum(next, this._minAngle, this._maxAngle)
+      : mod(next, 360);
+    if (Math.abs(this._angleDelta(this._angle, this._target)) < 0.0005) {
+      this._angle = this._target;
     }
-    this._target = mod(this._target, 360);
 
     this._paint();
     if (this._angle !== prev) this._emitAngle();
@@ -1057,7 +1126,9 @@ export class Orbit360Client {
     this._autoWeight += (want - this._autoWeight) * (1 - Math.exp(-dt / tau));
     if (want === 0 && this._autoWeight < 0.004) { this._autoWeight = 0; return; }
     if (this._autoWeight <= 0) return;
-    this._target += this._autoDir * this._autoSpeed * this._autoWeight * dt / 1000;
+    this._target = this._normAngle(
+      this._target + this._autoDir * this._autoSpeed * this._autoWeight * dt / 1000,
+    );
   }
 
   /* ---------- 指针 / 手势 ---------- */
@@ -1078,7 +1149,7 @@ export class Orbit360Client {
     this._onPointerDown = e => this._handlePointerDown(e);
     this._onPointerMove = e => this._handlePointerMove(e);
     this._onPointerUp = e => this._handlePointerUp(e);
-    this._onPointerLeave = () => { this._hoverX = null; };
+    this._onPointerLeave = () => { this._hoverX = null; this._hoverY = null; };
     this._onDblClick = () => {
       if (this._lastPointerType === 'touch') return;
       this._emit('doubletap', {});
@@ -1109,7 +1180,9 @@ export class Orbit360Client {
     this._dragging = true;
     this._vel = 0;
     this._hoverX = null;
+    this._hoverY = null;
     this._lastPointerX = e.clientX;
+    this._lastPointerY = e.clientY;
     this._lastPointerT = e.timeStamp;
     this.dragTarget.classList.add(this.options.dragClass);
     try { this.input.setPointerCapture(e.pointerId); } catch (_) { /* 合成事件无活动指针 */ }
@@ -1142,13 +1215,20 @@ export class Orbit360Client {
 
     if (!this._dragging) {
       if (this._mouseFollow && e.pointerType === 'mouse' && e.buttons === 0) {
-        if (this._hoverX === null) { this._hoverX = e.clientX; return; }
+        if (this._hoverX === null || this._hoverY === null) {
+          this._hoverX = e.clientX;
+          this._hoverY = e.clientY;
+          return;
+        }
         const mx = e.clientX - this._hoverX;
+        const my = e.clientY - this._hoverY;
         this._hoverX = e.clientX;
-        if (mx) {
-          const d = mx * (this._config.mouseFollow.degPerPx ?? 0.3) * (this._invert ? -1 : 1);
-          this._target += d;
-          if (this._gyro) this._gyroBase = mod(this._gyroBase + d, 360);
+        this._hoverY = e.clientY;
+        const px = this._axis === 'y' ? my : mx;
+        if (px) {
+          const d = px * (this._config.mouseFollow.degPerPx ?? 0.3) * (this._invert ? -1 : 1);
+          this._target = this._normAngle(this._target + d);
+          if (this._gyro) this._gyroBase = this._normAngle(this._gyroBase + d);
           this._touchActivity();
         }
       }
@@ -1156,13 +1236,16 @@ export class Orbit360Client {
     }
 
     const dx = e.clientX - this._lastPointerX;
+    const dy = e.clientY - this._lastPointerY;
     const dt = Math.max(e.timeStamp - this._lastPointerT, 1);
-    const deg = dx * (this._config.drag.degPerPx ?? 0.42) * (this._invert ? -1 : 1);
-    this._target += deg;
-    if (this._gyro) this._gyroBase = mod(this._gyroBase + deg, 360);
+    const px = this._axis === 'y' ? dy : dx;
+    const deg = px * (this._config.drag.degPerPx ?? 0.42) * (this._invert ? -1 : 1);
+    this._target = this._normAngle(this._target + deg);
+    if (this._gyro) this._gyroBase = this._normAngle(this._gyroBase + deg);
     const inst = dt > 90 ? 0 : deg / dt;
     this._vel = 0.6 * inst + 0.4 * this._vel;
     this._lastPointerX = e.clientX;
+    this._lastPointerY = e.clientY;
     this._lastPointerT = e.timeStamp;
     this._touchActivity();
   }
@@ -1172,6 +1255,7 @@ export class Orbit360Client {
     this._pressTimer = null;
     this._pressStart = null;
     this._hoverX = null;
+    this._hoverY = null;
     this.dragTarget.classList.remove(this.options.dragClass);
     if (e && e.pointerId !== undefined && this.input.hasPointerCapture?.(e.pointerId)) {
       try { this.input.releasePointerCapture(e.pointerId); } catch (_) { /* ignore */ }
@@ -1295,7 +1379,7 @@ export class Orbit360Client {
   }
 
   _handleOrientation(e, absolute) {
-    const heading = headingOf(e);
+    const heading = this._axis === 'y' ? pitchOf(e) : headingOf(e);
     if (heading === null) return;
     if (absolute) this._hasAbsolute = true;
     else if (this._hasAbsolute) return;
@@ -1314,16 +1398,15 @@ export class Orbit360Client {
       * (this._config.gyro.invert ? -1 : 1)
       * (this._invert ? -1 : 1);
     const delta = shortDelta(this._gyroRef, heading) * gain;
-    const raw = mod(this._gyroBase - delta, 360);
+    const raw = this._normAngle(this._gyroBase - delta);
 
     if (this._gyroSmooth) {
       const now = performance.now();
       const dt = Math.min(Math.max(now - this._orientT, 1), 120);
       this._orientT = now;
       const tau = this._config.gyro.smoothMs ?? 80;
-      this._target = mod(
-        this._target + shortDelta(this._target, raw) * (1 - Math.exp(-dt / tau)),
-        360,
+      this._target = this._normAngle(
+        this._target + this._angleDelta(this._target, raw) * (1 - Math.exp(-dt / tau)),
       );
     } else {
       this._target = raw;

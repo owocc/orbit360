@@ -16,7 +16,7 @@
 
     Header: <4sIIIIIII>
       0  4B   magic  "ORB3"
-      4  4B   version（当前 1）
+      4  4B   version（major << 16 | minor，当前 1.2 = 0x00010002）
       8  4B   prefixLen = 32 + metaLen + indexLen
       12 4B   metaLen
       16 4B   indexLen
@@ -31,18 +31,20 @@ meta 是一个对象 + 一个数组：
 
     {
       "format": "orbit360.bundle",
-      "version": 1,
+      "version": 1.2,
       "title": "…",
       "canvas": { "width": 1920, "height": 1080 },
       "totalFrames": 240,
       "codec": "image/webp",
       "initialAngle": 0,
-      "orbit": { "spanDeg": 360, "direction": "cw" },
+      "orbit": { "axis": "x", "spanDeg": 360, "direction": "cw",
+                 "minAngle": -180, "maxAngle": 180 },
       "videos": [{
         "id": "v1",
         "rect": { "x": 0, "y": 0, "width": 960, "height": 1080 },
         "source": { "file": "a.mp4", "width": 3840, "height": 2160, … },
-        "orbit": { "spanDeg": 360, "direction": "cw" },
+        "orbit": { "axis": "x", "spanDeg": 360, "direction": "cw",
+                   "minAngle": -180, "maxAngle": 180 },
         "frames": { "count": 120, "width": 960, "height": 540, "fps": 12,
                     "indexStart": 0 }
       }]
@@ -52,6 +54,11 @@ meta 是一个对象 + 一个数组：
 多个视频时 canvas 由 --canvas 指定，或按一行排布自动取包围盒；
 每个视频的 rect 决定它画在画布上的位置与尺寸。
 文件里没有视频轨，只有帧。
+
+旋转轴（1.1 新增）：orbit.axis 为 "x" 或 "y"，一个场景只能有一个轴，
+每条视频记录也带同一个轴。旧版（version 1.0，无 axis）按 "x" 读取。
+角度（1.2 起）：orbit.minAngle / maxAngle 分别限制最小/最大角度，范围
+[-180, 180]，向右为正、向左为负；缺省 -180 / 180 表示整圈不限。
 """
 import argparse
 import json
@@ -63,7 +70,10 @@ import sys
 import tempfile
 
 MAGIC = b"ORB3"
-VERSION = 1
+VERSION_MAJOR, VERSION_MINOR = 1, 2
+VERSION = (VERSION_MAJOR << 16) | VERSION_MINOR   # 1.2 = 0x00010002
+LEGACY_VERSION = 1                                # 1.0 写成裸整数 1
+AXES = ("x", "y")
 HEADER = struct.Struct("<4sIIIIIII")
 INDEX = struct.Struct("<IIQ")          # video, length, offset
 FORMAT = "orbit360.bundle"
@@ -79,6 +89,18 @@ EXT_BY_MIME = {mime: ext for mime, ext, _ in CODECS.values()}
 def die(msg):
     print(f"错误: {msg}", file=sys.stderr)
     sys.exit(1)
+
+
+def version_text(raw):
+    """Header 里的 u32 版本号 → "1.2"；裸整数 1 视为 1.0。"""
+    if raw == LEGACY_VERSION:
+        return "1.0"
+    return f"{raw >> 16}.{raw & 0xFFFF}"
+
+
+def wrap_signed(deg):
+    """把任意角度归一到 -180..180。"""
+    return (deg + 180) % 360 - 180
 
 
 def have(binary):
@@ -236,7 +258,7 @@ def _layout(sizes, canvas, places):
 def build_meta(title, canvas, mime, total_frames, initial_angle, orbit, videos):
     return {
         "format": FORMAT,
-        "version": VERSION,
+        "version": float(f"{VERSION_MAJOR}.{VERSION_MINOR}"),
         "title": title,
         "canvas": {"width": canvas[0], "height": canvas[1]},
         "totalFrames": total_frames,
@@ -253,7 +275,15 @@ def _dump(meta):
 
 def pack(out, sources, canvas=None, places=None, fps=12.0, long_edge=1280,
          codec="webp", quality=80, title=None, initial_angle=0.0,
-         span_deg=360, direction="cw"):
+         span_deg=360, direction="cw", axis="x",
+         min_angle=-180, max_angle=180):
+    if axis not in AXES:
+        die(f"--axis 只能是 {' / '.join(AXES)}")
+    for name, value in (("minAngle", min_angle), ("maxAngle", max_angle)):
+        if not -180 <= value <= 180:
+            die(f"--{('min' if name == 'minAngle' else 'max')}-angle 必须在 -180..180: {value}")
+    if min_angle >= max_angle:
+        die(f"--min-angle 必须小于 --max-angle: {min_angle} / {max_angle}")
     if long_edge <= 0:
         die("--long-edge 必须为正")
     if fps <= 0:
@@ -264,7 +294,7 @@ def pack(out, sources, canvas=None, places=None, fps=12.0, long_edge=1280,
         die(f"不支持的编码: {codec}")
     check_encoder(codec)
     mime = CODECS[codec][0]
-    initial_angle = round(initial_angle % 360, 3)
+    initial_angle = round(min(max(wrap_signed(initial_angle), min_angle), max_angle), 3)
 
     tmp = tempfile.mkdtemp(prefix="orb-bundle-")
     try:
@@ -311,7 +341,8 @@ def pack(out, sources, canvas=None, places=None, fps=12.0, long_edge=1280,
                 "id": v["id"],
                 "rect": {"x": x, "y": y, "width": w, "height": h},
                 "source": v["source"],
-                "orbit": {"spanDeg": span_deg, "direction": direction},
+                "orbit": {"axis": axis, "spanDeg": span_deg, "direction": direction,
+                          "minAngle": min_angle, "maxAngle": max_angle},
                 "frames": {
                     "count": len(v["paths"]),
                     "width": v["width"],
@@ -323,7 +354,9 @@ def pack(out, sources, canvas=None, places=None, fps=12.0, long_edge=1280,
             first += len(v["paths"])
 
         meta = build_meta(title, (cw, ch), mime, total, initial_angle,
-                          {"spanDeg": span_deg, "direction": direction}, vmetas)
+                          {"axis": axis, "spanDeg": span_deg, "direction": direction,
+                           "minAngle": min_angle, "maxAngle": max_angle},
+                          vmetas)
         meta_bytes = _dump(meta)
         prefix = HEADER.size + len(meta_bytes) + index_len
 
@@ -368,6 +401,21 @@ def pack(out, sources, canvas=None, places=None, fps=12.0, long_edge=1280,
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _read_limits(orbit, who, default=(-180.0, 180.0)):
+    """读 orbit.minAngle / maxAngle；缺省继承 default（整圈 [-180, 180]）。"""
+    if not isinstance(orbit, dict):
+        return default
+    lo = orbit.get("minAngle", default[0])
+    hi = orbit.get("maxAngle", default[1])
+    if not isinstance(lo, (int, float)) or not isinstance(hi, (int, float)):
+        die(f"{who}: minAngle/maxAngle 必须是数字")
+    if not -180 <= lo <= 180 or not -180 <= hi <= 180:
+        die(f"{who}: minAngle/maxAngle 必须在 -180..180: {lo} / {hi}")
+    if lo >= hi:
+        die(f"{who}: minAngle 必须小于 maxAngle: {lo} / {hi}")
+    return float(lo), float(hi)
+
+
 def load(path):
     """只读 Header + Meta + Index（Range 请求所需的前 prefixLen 字节）。"""
     size = os.path.getsize(path)
@@ -377,8 +425,8 @@ def load(path):
             die("不是 .orb 场景包（magic 不是 ORB3）")
         magic, version, prefix, meta_len, index_len, count, entry_size, flags = \
             HEADER.unpack(head)
-        if version != VERSION:
-            die(f"不支持的版本: {version}")
+        if version not in (VERSION, 0x00010001, LEGACY_VERSION):
+            die(f"不支持的版本: {version_text(version)}（本工具支持 1.0 / 1.1 / 1.2）")
         if entry_size != INDEX.size:
             die(f"不支持的索引项大小: {entry_size}")
         if index_len != count * entry_size:
@@ -410,6 +458,11 @@ def load(path):
         die("meta.totalFrames 与 Header 不一致")
     if not isinstance(meta.get("codec"), str):
         die("meta 缺少 codec")
+    orbit = meta.get("orbit") or {}
+    axis = orbit.get("axis", "x") if isinstance(orbit, dict) else "x"
+    if axis not in AXES:
+        die(f"meta.orbit.axis 只能是 {' / '.join(AXES)}: {axis!r}")
+    min_angle, max_angle = _read_limits(orbit, "meta.orbit")
 
     for v in videos:
         for key in ("id", "rect", "frames"):
@@ -426,6 +479,17 @@ def load(path):
             die(f"{v['id']}: frames.count/indexStart 必须是整数")
         if f["count"] <= 0:
             die(f"{v['id']}: frames.count 非法")
+        v_orbit = v.get("orbit") or {}
+        v_axis = v_orbit.get("axis", axis) if isinstance(v_orbit, dict) else axis
+        if v_axis not in AXES:
+            die(f"{v['id']}: orbit.axis 只能是 {' / '.join(AXES)}: {v_axis!r}")
+        if v_axis != axis:
+            die(f"{v['id']}: 旋转轴是 {v_axis}，与场景的 {axis} 不一致"
+                "（一个场景只能用一个轴）")
+        v_min, v_max = _read_limits(v_orbit, v["id"], (min_angle, max_angle))
+        if (v_min, v_max) != (min_angle, max_angle):
+            die(f"{v['id']}: 角度限制 {v_min}..{v_max} 与场景的 "
+                f"{min_angle}..{max_angle} 不一致")
 
     entries = [INDEX.unpack_from(raw_index, i * INDEX.size) for i in range(count)]
     expected_off = prefix
@@ -458,8 +522,10 @@ def info(path, as_json=False):
     c = meta["canvas"]
     print(f"{path}  {c['width']}x{c['height']}  {meta['codec']}  "
           f"{meta['totalFrames']} 帧  {size / 1024 / 1024:.1f} MB")
+    orbit = meta.get("orbit") or {}
     print(f"title: {meta.get('title', '')}  initialAngle: {meta.get('initialAngle')}°  "
-          f"orbit: {meta.get('orbit', {}).get('direction')}")
+          f"axis: {orbit.get('axis', 'x')}  orbit: {orbit.get('direction')}  "
+          f"angle: {orbit.get('minAngle', -180)}..{orbit.get('maxAngle', 180)}°")
     print(f"prefix: {prefix} B（Header+Meta+Index）")
     for v in meta["videos"]:
         f, r = v["frames"], v["rect"]
@@ -594,6 +660,12 @@ def main():
     bp.add_argument("--orbit-span", type=float, default=360, help="meta.orbit.spanDeg（默认 360）")
     bp.add_argument("--orbit-dir", choices=["cw", "ccw"], default="cw",
                     help="meta.orbit.direction（默认 cw）")
+    bp.add_argument("--axis", choices=list(AXES), default="x",
+                    help="旋转轴：x（水平环绕）/ y（垂直环绕，默认 x）；一个场景只能有一个轴")
+    bp.add_argument("--min-angle", type=float, default=-180,
+                    help="最小角度 -180..180（默认 -180；向左为负）")
+    bp.add_argument("--max-angle", type=float, default=180,
+                    help="最大角度 -180..180（默认 180；与 --min-angle 分别限制）")
     bp.add_argument("--catalog", default=None,
                     help="构建后刷新示例清单，例如 catalog.json")
     bp.add_argument("--assets-root", default=None,
@@ -614,7 +686,8 @@ def main():
         meta = pack(args.out, args.videos, canvas=args.canvas, places=args.place,
                     fps=args.fps, long_edge=args.long_edge, codec=args.codec,
                     quality=args.quality, title=title, initial_angle=args.initial_angle,
-                    span_deg=args.orbit_span, direction=args.orbit_dir)
+                    span_deg=args.orbit_span, direction=args.orbit_dir, axis=args.axis,
+                    min_angle=args.min_angle, max_angle=args.max_angle)
         if args.catalog:
             root = args.assets_root or default_assets_root(args.out)
             out_dir = os.path.dirname(os.path.abspath(args.out))

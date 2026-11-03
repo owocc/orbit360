@@ -6,6 +6,7 @@ declare namespace OrbBundle {
   const VERSION: number;
 
   type OrbitDirection = 'cw' | 'ccw';
+  type OrbitAxis = 'x' | 'y';
 
   interface Point {
     x: number;
@@ -41,8 +42,11 @@ declare namespace OrbBundle {
     rect: Rect;
     source?: SourceInfo;
     orbit?: {
+      axis?: OrbitAxis;
       spanDeg?: number;
       direction?: OrbitDirection;
+      minAngle?: number;
+      maxAngle?: number;
     };
     frames: VideoFrames;
     [key: string]: unknown;
@@ -60,8 +64,11 @@ declare namespace OrbBundle {
     codec: string;
     initialAngle?: number;
     orbit?: {
+      axis?: OrbitAxis;
       spanDeg?: number;
       direction?: OrbitDirection;
+      minAngle?: number;
+      maxAngle?: number;
     };
     videos: Video[];
     [key: string]: unknown;

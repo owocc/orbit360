@@ -1,4 +1,5 @@
 export type OrbitDirection = 'cw' | 'ccw';
+export type OrbitAxis = 'x' | 'y';
 export type AutoState = 'off' | 'cw' | 'ccw';
 export type FitMode = 'contain' | 'cover';
 
@@ -15,8 +16,13 @@ export interface VideoConfig {
 }
 
 export interface OrbitConfig {
+  axis: OrbitAxis;
   spanDeg: number;
   direction: OrbitDirection;
+  /** 允许的最小角度（-180..180，默认 -180） */
+  minAngle: number;
+  /** 允许的最大角度（-180..180，默认 180） */
+  maxAngle: number;
 }
 
 export interface DragConfig {
@@ -112,6 +118,12 @@ export interface ClientState {
   title: string;
   angle: number;
   target: number;
+  axis: OrbitAxis;
+  limits: {
+    min: number;
+    max: number;
+    limited: boolean;
+  };
   velocity: number;
   frameIndex: number;
   frameCount: number;
@@ -144,6 +156,7 @@ export interface ClientState {
 export interface AngleEvent {
   angle: number;
   target: number;
+  axis: OrbitAxis;
   frameIndex: number;
 }
 

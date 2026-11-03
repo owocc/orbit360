@@ -1,7 +1,7 @@
 /* orb.js — ORB3 场景包解析（浏览器 / Node，无依赖）
  *
  *   var orb = await OrbBundle.fromBlob(file);   // File / Blob
- *   orb.meta                                    // JSON meta
+ *   orb.meta                                    // JSON meta（orbit.axis / minAngle / maxAngle）
  *   orb.frameBlob(videoIndex, frameIndex)       // 该帧的 Blob（按 offset/length 切片）
  *   orb.frameEntry(videoIndex, frameIndex)      // { video, length, offset }
  *
@@ -22,9 +22,16 @@
   var HEADER_SIZE = 32;
   var ENTRY_SIZE = 16;
   var FORMAT = 'orbit360.bundle';
-  var VERSION = 1;
+  // Header 版本 = major << 16 | minor；1.0 的旧文件写成裸整数 1。
+  var VERSION_MAJOR = 1;
+  var VERSION_MINOR = 2;
+  var VERSION = VERSION_MAJOR * 65536 + VERSION_MINOR;
 
   function fail(msg) { throw new Error('ORB3: ' + msg); }
+
+  function versionText(raw) {
+    return raw === 1 ? '1.0' : ((raw >>> 16) + '.' + (raw & 0xffff));
+  }
 
   function isInt(n) {
     return typeof n === 'number' && isFinite(n) && Math.floor(n) === n;
@@ -62,7 +69,9 @@
       indexEntrySize: dv.getUint32(24, true),
       flags: dv.getUint32(28, true),
     };
-    if (h.version !== VERSION) fail('不支持的版本 ' + h.version);
+    if (h.version !== VERSION && h.version !== 0x00010001 && h.version !== 1) {
+      fail('不支持的版本 ' + versionText(h.version) + '（支持 1.0 / 1.1 / 1.2）');
+    }
     if (h.indexEntrySize !== ENTRY_SIZE) fail('不支持的索引项大小 ' + h.indexEntrySize);
     if (h.indexLen !== h.frameCount * ENTRY_SIZE) fail('indexLen 与 frameCount 不一致');
     if (h.prefixLen !== HEADER_SIZE + h.metaLen + h.indexLen) fail('prefixLen 不一致');
@@ -88,6 +97,16 @@
     if (meta.totalFrames !== h.frameCount) fail('meta.totalFrames 与头部不一致');
     if (typeof meta.codec !== 'string' || !meta.codec) fail('meta 缺少 codec');
     if (!Array.isArray(meta.videos) || !meta.videos.length) fail('meta 缺少 videos 数组');
+    var sceneOrbit = meta.orbit || {};
+    var sceneAxis = sceneOrbit.axis !== undefined ? sceneOrbit.axis : 'x';
+    if (sceneAxis !== 'x' && sceneAxis !== 'y') fail('meta.orbit.axis 只能是 x / y');
+    var sceneMin = sceneOrbit.minAngle === undefined ? -180 : sceneOrbit.minAngle;
+    var sceneMax = sceneOrbit.maxAngle === undefined ? 180 : sceneOrbit.maxAngle;
+    if (typeof sceneMin !== 'number' || !isFinite(sceneMin) ||
+        typeof sceneMax !== 'number' || !isFinite(sceneMax) ||
+        sceneMin < -180 || sceneMax > 180 || sceneMin >= sceneMax) {
+      fail('meta.orbit.minAngle/maxAngle 必须在 -180..180 且 min < max');
+    }
 
     var sum = 0;
     var expectStart = 0;
@@ -97,6 +116,17 @@
       var f = v && v.frames;
       var r = v && v.rect;
       if (!v || !f || !r) fail('视频 ' + vi + ' 缺少 rect/frames');
+      var videoAxis = v.orbit && v.orbit.axis !== undefined ? v.orbit.axis : sceneAxis;
+      if (videoAxis !== 'x' && videoAxis !== 'y') fail('视频 ' + vi + ' 的 orbit.axis 只能是 x / y');
+      if (videoAxis !== sceneAxis) {
+        fail('视频 ' + vi + ' 的轴 ' + videoAxis + ' 与场景的 ' + sceneAxis + ' 不一致');
+      }
+      var vo = v.orbit || {};
+      var videoMin = vo.minAngle === undefined ? sceneMin : vo.minAngle;
+      var videoMax = vo.maxAngle === undefined ? sceneMax : vo.maxAngle;
+      if (videoMin !== sceneMin || videoMax !== sceneMax) {
+        fail('视频 ' + vi + ' 的角度限制与场景不一致');
+      }
       if (!isInt(f.count) || f.count <= 0) fail('视频 ' + vi + ' 的 frames.count 非法');
       if (f.indexStart !== expectStart) fail('视频 ' + vi + ' 的 indexStart 不连续');
       if (!isInt(r.x) || !isInt(r.y) || !isInt(r.width) || !isInt(r.height)) {
