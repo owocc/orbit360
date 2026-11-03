@@ -173,3 +173,8 @@ npm run build   # src/client.mjs → dist/orbit360-client.{js,mjs,cjs}
 
 完整格式说明、字段含义和生成方式见
 [orbit360 仓库](https://github.com/owocc/orbit360) 的「场景包」一节。
+
+## 许可
+
+[PolyForm Noncommercial License 1.0.0](../../LICENSE)：源码公开，非商业用途免费（个人学习、研究、教育、
+公益、政府机构），**商业用途需书面授权**。本包不是 OSI 开源包，商用前请先联系 `owocc`。

@@ -5,6 +5,9 @@
 
 默认演示素材是 `沙发少女`（`?e=maid`），另一段是 `环绕视角`（`?e=orbit`）。
 
+> 灵感来源：[monoradio（@monoradio102）2026-11-01 的一条帖子](https://x.com/monoradio102/status/2116746974716432602)
+> ——把环绕画面当帧序列、按手机倾斜切帧。详见 [CREDITS.md](CREDITS.md)。
+
 - `examples/anime-maid.mp4`（**3840×2160** / 24fps / 10s / 239 帧，首尾闭环 0.768，环回有一次可见跳变）
 - `examples/orbit-sample.mp4`（1280×720 / 24fps / 10s / 240 帧，首尾闭环 0.952）
 
@@ -492,6 +495,8 @@ iOS Safari 上逐帧切换 `ImageBitmap` 会不停上传/驱逐 GPU 纹理，画
 index.html          播放器（GitHub Pages 入口）
 legacy.html         旧系统版本（由脚本生成，不要手改）
 catalog.json        示例清单（default + items + orb + defaults）
+LICENSE             PolyForm Noncommercial 1.0.0（源码公开，禁止商用）
+CREDITS.md          致谢、独立实现声明、素材归属
 .nojekyll           GitHub Pages：关闭 Jekyll 处理
 assets/<id>/        发布产物，每个示例只放 scene.orb
   scene.orb         ORB3 二进制场景包（帧 + meta + 索引）
@@ -531,3 +536,30 @@ scripts/
 Canvas + `Image` + `ResizeObserver`。陀螺仪需要安全上下文
 （`https://` 或 `localhost`），iOS 需在用户手势内调用 `DeviceOrientationEvent.requestPermission()`；
 Android 优先使用 `deviceorientationabsolute` 的绝对朝向，无传感器时自动回退到拖拽。
+
+## 许可
+
+本仓库代码（`index.html`、`legacy.html`、`sdk/`、`scripts/`、`apps/` 等全部源码）采用
+[PolyForm Noncommercial License 1.0.0](LICENSE)：
+源码完整公开，可以自由阅读、修改、分发、自用，**但仅限非商业用途**。
+
+| 用途 | 是否需要授权 |
+| --- | --- |
+| 个人学习、研究、实验、业余项目、私人娱乐 | 直接可用 |
+| 学校、科研机构、慈善/公益组织、政府机构使用 | 直接可用 |
+| 改代码后仍用于上述非商业场景，并随附本许可证 | 直接可用 |
+| 商业产品、SaaS 服务、企业内部生产经营、付费交付、带广告或付费墙的站点 | **需书面商业授权** |
+| 把本 SDK 打包进商业项目 / 商业 App 分发 | **需书面商业授权** |
+
+商业授权：开 issue 或邮件联系仓库作者（`owocc`）。
+创意来源与素材归属见 [CREDITS.md](CREDITS.md)。
+
+两点说明：
+
+- **这不是 OSI 意义上的「开源许可证」**。禁止商用与 OSI 开源定义（不得歧视使用领域）冲突，
+  所以准确说法是「源码可用 / source-available」。PolyForm Noncommercial 是这类需求的标准做法，
+  由专业律师起草，比自写一份「禁止商用」条款更严谨（含专利授权、违约补救期、免责条款）。
+- **演示素材是作者用 AI 生成工具产出的**，不是第三方现成素材。AI 生成物的可版权性在各国不一致
+  （中国已有判决承认有独创性投入的 AI 内容构成作品，美国则要求人类作者），因此这批画面按现状提供，
+  作者只在其享有权利的范围内授权，用户需自行遵守生成工具的服务条款；画面若与任何现有角色、
+  人物形象或商标相似，不构成对这些形象的授权。详见 [CREDITS.md](CREDITS.md#素材)。

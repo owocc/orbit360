@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "ORB3 (.orb) scene bundle parser and web client for orbit360 — zero dependencies",
   "type": "commonjs",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "keywords": [
     "orbit360",
     "orb",
@@ -54,6 +55,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node --check orb.js && node --check src/client.mjs",
+    "prepack": "node -e \"require('fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
     "prepublishOnly": "npm run build && npm test"
   },
   "publishConfig": {
