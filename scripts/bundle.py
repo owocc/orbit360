@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""orbit360 多视频场景包（.orb）：抽帧 + meta + 索引表打进一个二进制文件。
+"""orbit360 场景包（.orb）：抽帧 + meta + 索引表打进一个二进制文件。
 
-    python3 scripts/bundle.py build scene.orb a.mp4 [b.mp4 ...] [--canvas WxH]
+    python3 scripts/bundle.py build assets/<id>/scene.orb a.mp4 [b.mp4 ...]
     python3 scripts/bundle.py info scene.orb [--json]
     python3 scripts/bundle.py extract scene.orb --out DIR [--video v1]
+
+这是项目里唯一的资产构建脚本：GUI（apps/gui）和命令行都调它，产物统一是 .orb。
 
 文件布局（小端）：
 
@@ -60,8 +62,6 @@ import subprocess
 import sys
 import tempfile
 
-from build import die, fit, probe
-
 MAGIC = b"ORB3"
 VERSION = 1
 HEADER = struct.Struct("<4sIIIIIII")
@@ -74,6 +74,52 @@ CODECS = {
     "avif": ("image/avif", "avif", "libaom-av1"),
 }
 EXT_BY_MIME = {mime: ext for mime, ext, _ in CODECS.values()}
+
+
+def die(msg):
+    print(f"错误: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def have(binary):
+    return shutil.which(binary) is not None
+
+
+def probe(path):
+    """用 ffprobe 读源视频的尺寸 / 帧率 / 时长 / 编码。"""
+    if not have("ffprobe"):
+        die("找不到 ffprobe，请先安装 ffmpeg")
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_format", "-show_streams", "-of", "json", path],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    data = json.loads(out)
+    v = next((s for s in data["streams"] if s.get("codec_type") == "video"), None)
+    a = next((s for s in data["streams"] if s.get("codec_type") == "audio"), None)
+    if v is None:
+        die("文件里没有视频轨")
+    num, den = (v.get("r_frame_rate") or "0/1").split("/")
+    fps = float(num) / float(den) if float(den) else 0.0
+    duration = float(data["format"].get("duration") or v.get("duration") or 0)
+    return {
+        "width": int(v["width"]),
+        "height": int(v["height"]),
+        "fps": round(fps, 3),
+        "frames": int(v.get("nb_frames") or round(fps * duration)),
+        "durationSec": round(duration, 3),
+        "codec": v.get("codec_name"),
+        "audio": (f"{a['codec_name']} {int(a.get('sample_rate', 0)) // 1000}kHz "
+                  f"{'stereo' if a.get('channels') == 2 else str(a.get('channels', 0)) + 'ch'}")
+        if a else None,
+        "bitRate": int(data["format"].get("bit_rate") or 0),
+        "size": int(data["format"].get("size") or 0),
+    }
+
+
+def fit(w, h, long_edge):
+    """等比缩放到长边 = long_edge，取偶数。"""
+    scale = long_edge / max(w, h)
+    return max(2, int(round(w * scale / 2)) * 2), max(2, int(round(h * scale / 2)) * 2)
 
 
 def parse_size(text):
@@ -450,6 +496,82 @@ def extract_frames_from_bundle(path, out_dir, video_id=None):
     return picked
 
 
+def read_meta(path):
+    """从 .orb 头部读 meta；文件不存在或格式不对时返回 None。"""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(HEADER.size)
+            if len(head) < HEADER.size or head[:4] != MAGIC:
+                return None
+            meta_len = HEADER.unpack(head)[3]
+            if meta_len <= 0:
+                return None
+            return json.loads(fh.read(meta_len).decode("utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None
+
+
+def default_assets_root(out):
+    """assets/<id>/scene.orb → assets；scene.orb 在根目录时退回它所在目录。"""
+    out_dir = os.path.dirname(os.path.abspath(out))
+    parent = os.path.dirname(out_dir)
+    return parent if parent and parent != out_dir else out_dir
+
+
+def write_catalog(root, path, default_id=None):
+    """扫描 root 下的 <id>/scene.orb，生成页面示例清单（只认 .orb）。"""
+    base = os.path.dirname(os.path.abspath(path))
+    old_default = None
+    old_items = {}
+    try:
+        old = json.load(open(path, encoding="utf-8"))
+        old_default = old.get("default")
+        old_items = {i.get("id"): i for i in old.get("items", []) if isinstance(i, dict)}
+    except (OSError, ValueError):
+        pass
+
+    items = []
+    try:
+        names = sorted(os.listdir(root))
+    except OSError:
+        die(f"找不到示例资产根目录: {root}")
+    for name in names:
+        item_dir = os.path.join(root, name)
+        orb = os.path.join(item_dir, "scene.orb")
+        if not os.path.isdir(item_dir) or not os.path.isfile(orb):
+            continue
+        meta = read_meta(orb) or {}
+        old_item = old_items.get(name, {})
+        videos = meta.get("videos") or []
+        source = (videos[0].get("source") if videos else None) or old_item.get("source") or {}
+        orbit = meta.get("orbit") or {}
+        defaults = dict(old_item.get("defaults") or {})
+        defaults["auto"] = {
+            "enabled": True,
+            "dir": "ccw" if orbit.get("direction") == "ccw" else "cw",
+        }
+        item = {
+            "id": name,
+            "title": meta.get("title") or old_item.get("title") or name,
+            "orb": os.path.relpath(orb, base).replace(os.sep, "/"),
+            "defaults": defaults,
+        }
+        if source:
+            item["source"] = {k: source.get(k) for k in
+                              ("width", "height", "frames", "durationSec")}
+        items.append(item)
+    if not items:
+        die(f"{root} 下没有可用的 scene.orb")
+    ids = [i["id"] for i in items]
+    default = default_id if default_id in ids else (old_default if old_default in ids else ids[0])
+    doc = {"default": default, "items": items}
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(doc, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    print(f"清单: {path}（{len(items)} 个示例: {', '.join(ids)}）")
+    return doc
+
+
 def main():
     ap = argparse.ArgumentParser(description="多视频帧 + meta + 索引打成 .orb")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -472,6 +594,10 @@ def main():
     bp.add_argument("--orbit-span", type=float, default=360, help="meta.orbit.spanDeg（默认 360）")
     bp.add_argument("--orbit-dir", choices=["cw", "ccw"], default="cw",
                     help="meta.orbit.direction（默认 cw）")
+    bp.add_argument("--catalog", default=None,
+                    help="构建后刷新示例清单，例如 catalog.json")
+    bp.add_argument("--assets-root", default=None,
+                    help="示例资产根目录（默认取输出目录的父目录）")
 
     ip = sub.add_parser("info", help="查看画布、视频与帧信息")
     ip.add_argument("bundle")
@@ -485,10 +611,18 @@ def main():
     args = ap.parse_args()
     if args.cmd == "build":
         title = args.title or os.path.splitext(os.path.basename(args.out))[0]
-        pack(args.out, args.videos, canvas=args.canvas, places=args.place,
-             fps=args.fps, long_edge=args.long_edge, codec=args.codec,
-             quality=args.quality, title=title, initial_angle=args.initial_angle,
-             span_deg=args.orbit_span, direction=args.orbit_dir)
+        meta = pack(args.out, args.videos, canvas=args.canvas, places=args.place,
+                    fps=args.fps, long_edge=args.long_edge, codec=args.codec,
+                    quality=args.quality, title=title, initial_angle=args.initial_angle,
+                    span_deg=args.orbit_span, direction=args.orbit_dir)
+        if args.catalog:
+            root = args.assets_root or default_assets_root(args.out)
+            out_dir = os.path.dirname(os.path.abspath(args.out))
+            default_id = os.path.basename(out_dir) if os.path.dirname(out_dir) == \
+                os.path.abspath(root) else None
+            write_catalog(root, args.catalog, default_id)
+        print(f"meta: title={meta.get('title')}  orbit={meta.get('orbit')}  "
+              f"codec={meta.get('codec')}")
     elif args.cmd == "info":
         info(args.bundle, args.json)
     else:

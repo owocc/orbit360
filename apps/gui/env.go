@@ -27,20 +27,20 @@ type settings struct {
 	FFmpeg        string  `json:"ffmpeg"`
 	Video         string  `json:"video"`
 	FPS           float64 `json:"fps"`
-	Std           float64 `json:"std"`
-	HD            float64 `json:"hd"`
-	UHD           float64 `json:"uhd"`
-	JPEGQuality   float64 `json:"jpegQuality"`
-	Quality       int     `json:"quality"`
-	AutoDir       int     `json:"autoDir"`
-	KeepRaw       bool    `json:"keepRaw"`
+	LongEdge      float64 `json:"longEdge"`
+	FrameQuality  float64 `json:"frameQuality"`
+	Codec         int     `json:"codec"`
+	OrbitSpan     float64 `json:"orbitSpan"`
+	OrbitDir      int     `json:"orbitDir"`
+	InitialAngle  float64 `json:"initialAngle"`
 	UpdateCatalog bool    `json:"updateCatalog"`
 }
 
 func newApp() *app {
 	a := &app{
-		fps: 12, std: 512, hd: 640, uhd: 1920, jpegQ: 6,
-		quality: 2, autoDir: 1, updateCatalog: true,
+		fps: 12, longEdge: defaultLongEdge, quality: 80,
+		codec: 0, orbitSpan: 360, orbitDir: 0, initialAngle: 0,
+		updateCatalog: true,
 	}
 	a.loadSettings()
 	if a.root == "" {
@@ -82,31 +82,26 @@ func (a *app) loadSettings() {
 	if s.FPS > 0 {
 		a.fps = s.FPS
 	}
-	if s.Std > 0 {
-		a.std = s.Std
+	if s.LongEdge > 0 {
+		a.longEdge = s.LongEdge
 	}
-	if s.HD > 0 {
-		a.hd = s.HD
+	if s.FrameQuality > 0 {
+		a.quality = s.FrameQuality
 	}
-	if s.UHD >= 0 && s.UHD != a.uhd {
-		a.uhd = s.UHD
-		if s.UHD != 1920 {
-			a.uhdTouched = true
-		}
+	a.codec, a.orbitDir = s.Codec, s.OrbitDir
+	if s.OrbitSpan > 0 {
+		a.orbitSpan = s.OrbitSpan
 	}
-	if s.JPEGQuality > 0 {
-		a.jpegQ = s.JPEGQuality
-	}
-	a.quality, a.autoDir = s.Quality, s.AutoDir
-	a.keepRaw, a.updateCatalog = s.KeepRaw, s.UpdateCatalog
+	a.initialAngle = s.InitialAngle
+	a.updateCatalog = s.UpdateCatalog
 }
 
 func (a *app) saveSettings() {
 	s := settings{
 		Root: a.root, Python: a.python, FFmpeg: a.ffmpeg, Video: a.video,
-		FPS: a.fps, Std: a.std, HD: a.hd, UHD: a.uhd, JPEGQuality: a.jpegQ,
-		Quality: a.quality, AutoDir: a.autoDir,
-		KeepRaw: a.keepRaw, UpdateCatalog: a.updateCatalog,
+		FPS: a.fps, LongEdge: a.longEdge, FrameQuality: a.quality,
+		Codec: a.codec, OrbitSpan: a.orbitSpan, OrbitDir: a.orbitDir,
+		InitialAngle: a.initialAngle, UpdateCatalog: a.updateCatalog,
 	}
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
@@ -115,7 +110,7 @@ func (a *app) saveSettings() {
 	os.WriteFile(settingsPath(), append(data, '\n'), 0o644)
 }
 
-// findRoot 从当前目录、可执行文件所在目录向上找带 scripts/build.py 的项目根目录。
+// findRoot 从当前目录、可执行文件所在目录向上找带 scripts/bundle.py 的项目根目录。
 func findRoot() string {
 	dirs := []string{}
 	if wd, err := os.Getwd(); err == nil {
@@ -126,7 +121,7 @@ func findRoot() string {
 	}
 	for _, d := range dirs {
 		for i := 0; i < 4 && d != "" && d != string(filepath.Separator); i++ {
-			if fileExists(filepath.Join(d, "scripts", "build.py")) {
+			if fileExists(filepath.Join(d, "scripts", "bundle.py")) {
 				return d
 			}
 			d = filepath.Dir(d)
@@ -188,7 +183,7 @@ func detectFFmpeg(current string) string {
 	return ""
 }
 
-// ffprobeFor 从 ffmpeg 的路径推出同目录的 ffprobe（scripts/build.py 两个都要）。
+// ffprobeFor 从 ffmpeg 的路径推出同目录的 ffprobe（scripts/bundle.py 两个都要）。
 func ffprobeFor(ffmpeg string) string {
 	name := "ffprobe"
 	if runtime.GOOS == "windows" {
@@ -469,7 +464,7 @@ func parseProbe(data []byte) (probeInfo, bool) {
 	return p, p.Width > 0 && p.Height > 0
 }
 
-// probeAsync 用 ffprobe 读源视频尺寸，并把超清档收到源的长边（除非用户自己改过）。
+// probeAsync 用 ffprobe 读源视频尺寸，并把每帧长边收窄到源的长边（除非用户自己改过）。
 func (a *app) probeAsync(path string) {
 	ffprobe := ffprobeFor(a.ffmpeg)
 	if !fileExists(ffprobe) {
@@ -493,8 +488,15 @@ func (a *app) probeAsync(path string) {
 		}
 		a.onUI(func() {
 			a.srcInfo = info.String()
-			if !a.uhdTouched && info.LongEdge() > 0 {
-				a.uhd = float64(info.LongEdge())
+			if !a.longEdgeTouched && info.LongEdge() > 0 {
+				edge := info.LongEdge()
+				if edge > defaultLongEdge {
+					edge = defaultLongEdge
+				}
+				if edge%2 != 0 && edge > 2 {
+					edge--
+				}
+				a.longEdge = float64(edge)
 			}
 		})
 	}()
@@ -519,7 +521,7 @@ func portOpen(port string) bool {
 	return true
 }
 
-// withPath 把 ffmpeg 所在目录放到 PATH 前面，scripts/build.py 调 ffmpeg/ffprobe 就能找到。
+// withPath 把 ffmpeg 所在目录放到 PATH 前面，scripts/bundle.py 调 ffmpeg/ffprobe 就能找到。
 func withPath(env []string, dir string) []string {
 	if dir == "" {
 		return env

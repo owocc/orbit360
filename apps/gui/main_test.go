@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,8 +15,8 @@ func TestViewRenders(t *testing.T) {
 		return &app{
 			root: "/tmp", python: "/usr/bin/python3", ffmpeg: "/opt/homebrew/bin/ffmpeg",
 			video: "/tmp/a.mp4", id: "gen", title: "生成视频",
-			fps: 12, std: 512, hd: 640, uhd: 752, jpegQ: 6,
-			quality: 2, autoDir: 1, updateCatalog: true,
+			fps: 12, longEdge: 1280, quality: 80, orbitSpan: 360, initialAngle: 0,
+			codec: 0, orbitDir: 0, updateCatalog: true,
 		}
 	}
 
@@ -30,7 +32,8 @@ func TestViewRenders(t *testing.T) {
 		{"finished", func(a *app) {
 			a.lastOut, a.lastID = "/tmp/assets/gen", "gen"
 			a.setStatus("完成，点「打开预览」看看", false)
-			a.appendLog("  std: 512x284 × 121 帧")
+			a.appendLog("场景包: /tmp/assets/gen/scene.orb  1280x710  webp  120 帧  2.4 MB")
+			a.appendLog("  v1: 120 帧 1280x710 @12fps 放在 (0,0) 1280x710  2.4 MB")
 			a.appendLog("错误：示例")
 		}},
 		{"failed", func(a *app) {
@@ -68,15 +71,38 @@ func TestBuildArgs(t *testing.T) {
 	a := &app{
 		root: "/repo", python: "/usr/bin/python3", ffmpeg: "/opt/homebrew/bin/ffmpeg",
 		video: "/tmp/a.mp4", id: "gen", title: "生成视频",
-		fps: 12, std: 512, hd: 640, uhd: 0, jpegQ: 6,
-		quality: 2, autoDir: 2, updateCatalog: true, keepRaw: true,
+		fps: 12, longEdge: 1280, quality: 80, orbitSpan: 360, initialAngle: 15,
+		codec: 2, orbitDir: 1, updateCatalog: true,
 	}
-	got := strings.Join(a.buildArgs("/repo/assets/gen"), " ")
-	want := "/repo/scripts/build.py /tmp/a.mp4 --out /repo/assets/gen --title 生成视频" +
-		" --fps 12 --std 512 --hd 640 --uhd 0 --quality 6" +
-		" --default-quality uhd --default-auto ccw --keep-raw --catalog /repo/catalog.json"
+	got := strings.Join(a.buildArgs("/repo/assets/gen/scene.orb"), " ")
+	want := "/repo/scripts/bundle.py build /repo/assets/gen/scene.orb /tmp/a.mp4" +
+		" --fps 12 --long-edge 1280 --codec jpeg --quality 80 --title 生成视频" +
+		" --initial-angle 15 --orbit-span 360 --orbit-dir ccw --catalog /repo/catalog.json"
 	if got != want {
 		t.Fatalf("参数不对\n got: %s\nwant: %s", got, want)
+	}
+	if a.outPath() != "/repo/assets/gen/scene.orb" {
+		t.Fatalf("产物路径不对: %s", a.outPath())
+	}
+}
+
+func TestBundleScriptReady(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bundle.py")
+	if err := os.WriteFile(path, []byte(`build --long-edge --codec --orbit-span --catalog`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !bundleScriptReady(path) {
+		t.Fatal("带全部参数的脚本应该通过")
+	}
+	if err := os.WriteFile(path, []byte(`build --long-edge --codec`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if bundleScriptReady(path) {
+		t.Fatal("缺参数的旧脚本应该被拦下")
+	}
+	if bundleScriptReady(filepath.Join(dir, "missing.py")) {
+		t.Fatal("缺文件应该判为不可用")
 	}
 }
 

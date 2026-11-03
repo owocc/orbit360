@@ -4,13 +4,9 @@
 # 自签证书
 certs/
 
-# 本地视频与构建中间产物：仓库只保留 maid / orbit 两个 .orb 示例
+# 本地视频与临时产物：仓库只保留 maid / orbit 两个 .orb 示例
 /assets/gen/
 /examples/generated-video.mp4
-/assets/*/packs/
-/assets/*/meta.json
-/assets/*/frames-*/
-/assets/*/atlas-*/
 
 # Python
 __pycache__/
