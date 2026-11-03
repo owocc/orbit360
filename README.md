@@ -67,7 +67,8 @@ GUI 只是 `build.py` 的壳，页面仍是 `index.html`，两边互不影响。
 
 ## 资源包（zip）
 
-每个示例按画质打包成独立的 zip，里面就是 `meta.json` + 图片，**不压缩（ZIP_STORED）**，
+页面默认加载每个示例的 `scene.orb`（见上一节）；zip 作为按画质分档的兼容路径保留，
+`?fmt=zip` 或任意 `?q=` 会切回 zip。zip 里就是 `meta.json` + 图片，**不压缩（ZIP_STORED）**，
 浏览器解包时不需要 inflate：
 
 ```
@@ -232,15 +233,18 @@ const head = OrbBundle.parse(prefixBuffer);   // 也可以只给前 prefixLen �
 ```json
 { "default": "maid",
   "items": [{ "id": "maid", "title": "沙发少女",
+              "orb": "assets/maid/scene.orb",
               "packs": { "std": "assets/maid/packs/std.zip", "hd": "...", "uhd": "..." },
               "defaults": { "quality": "uhd" } }] }
 ```
 
 - 右下角胶囊栏切换示例（当前项高亮，可横向滚动）；移动端它与面板合并成底部控制区，
   面板上移 68px 避让。切换时整页重载，上一套帧内存随之释放
-- 面板内 `标准/高清/超清` 按钮按升档顺序循环，选择记在 `localStorage`
-- URL 参数：`?e=maid&q=uhd`
-- 手机打开时即使 meta 推荐 `uhd` 也自动降为 `hd`（约 110 MB 解码），需要时手动切到超清
+- 默认加载 `item.orb`；`?fmt=zip` 或 `?q=` 时改用 `packs`，面板内的
+  `标准/高清/超清` 按钮只在 zip 模式出现，选择记在 `localStorage`
+- URL 参数：`?e=maid`（默认 `.orb`）、`?e=maid&fmt=zip&q=uhd`（zip 超清）
+- 手机打开 zip 时即使 meta 推荐 `uhd` 也自动降为 `hd`（约 110 MB 解码），需要时手动切到超清
+- `build.py --catalog` 扫描到 `<id>/scene.orb` 会自动写进 `item.orb`
 
 新增一个示例（源视频 → 三档 zip → 清单，`index.html` 不动）：
 

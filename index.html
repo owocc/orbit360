@@ -313,6 +313,7 @@ const S = {
   exampleId: null,
   base: '',
   quality: 'std',
+  format: 'zip',
   frameW: 1280,
   frameH: 720,
   canvasW: 0,
@@ -483,6 +484,7 @@ function pickQuality(entry) {
 }
 
 function syncQualityBtn() {
+  if (S.format !== 'zip') { el.hdBtn.hidden = true; return; }
   const avail = availableQualities(S.entry);
   el.hdBtn.hidden = avail.length < 2;
   if (avail.length < 2) return;
@@ -556,6 +558,7 @@ async function applyConfig(cfg, quality) {
 
 async function loadFromZipBlob(blob, qualityHint) {
   const entries = await readZipEntries(blob);
+  S.format = 'zip';
   const metaBlob = await zipFileBlob(entries, 'meta.json');
   if (!metaBlob) throw new Error('包里缺少 meta.json');
   const cfg = JSON.parse(await blobToText(metaBlob));
@@ -621,6 +624,7 @@ async function loadFromOrbBlob(blob, qualityHint) {
   if (typeof OrbBundle === 'undefined') throw new Error('缺少 orb.js，无法解析 .orb');
   const orb = await OrbBundle.fromBlob(blob);
   const meta = orb.meta;
+  S.format = 'orb';
 
   await applyConfig(meta, qualityHint || meta.codec || 'orb');
 
@@ -683,7 +687,8 @@ async function loadFromUrl(url, quality) {
 }
 
 async function boot() {
-  const orbUrl = new URLSearchParams(location.search).get('orb');
+  const params = new URLSearchParams(location.search);
+  const orbUrl = params.get('orb');
   if (orbUrl) {
     // 直接用 ?orb=<url> 打开 .orb，不依赖 catalog.json
     S.entry = null;
@@ -700,11 +705,14 @@ async function boot() {
     S.exampleId = entry ? entry.id : null;
     if (entry) buildExampleBar();
 
+    // 默认走 scene.orb；?fmt=zip 或 ?q= 强制回 zip 的按画质包
+    const forceZip = params.get('fmt') === 'zip' || params.has('q');
     const quality = pickQuality(entry);
-    const url = quality ? entry.packs[quality] : null;
+    const useOrb = !forceZip && !!(entry && entry.orb);
+    const url = useOrb ? entry.orb : (quality ? entry.packs[quality] : null);
     if (!url) throw new Error('找不到可用的示例包（catalog.json）');
 
-    await loadFromUrl(url, quality);
+    await loadFromUrl(url, useOrb ? null : quality);
   }
   syncQualityBtn();
 

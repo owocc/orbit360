@@ -268,13 +268,17 @@ def write_catalog(root, path, default_id=None):
                 packs[q] = os.path.relpath(p, base).replace(os.sep, "/")
         if not packs:
             continue
-        items.append({
+        item = {
             "id": name,
             "title": meta.get("title", name),
             "packs": packs,
             "defaults": meta.get("defaults", {}),
             "source": {k: meta.get("source", {}).get(k) for k in ("width", "height", "frames", "durationSec")},
-        })
+        }
+        orb = os.path.join(root, name, "scene.orb")
+        if os.path.isfile(orb):
+            item["orb"] = os.path.relpath(orb, base).replace(os.sep, "/")
+        items.append(item)
     if not items:
         die(f"{root} 下没有可用的示例包")
     ids = [i["id"] for i in items]

@@ -4,6 +4,7 @@
     {
       "id": "maid",
       "title": "沙发少女",
+      "orb": "assets/maid/scene.orb",
       "packs": {
         "std": "assets/maid/packs/std.zip",
         "hd": "assets/maid/packs/hd.zip",
@@ -26,6 +27,7 @@
     {
       "id": "orbit",
       "title": "环绕视角",
+      "orb": "assets/orbit/scene.orb",
       "packs": {
         "std": "assets/orbit/packs/std.zip",
         "hd": "assets/orbit/packs/hd.zip",
