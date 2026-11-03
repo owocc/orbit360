@@ -32,6 +32,9 @@ type settings struct {
 	Codec         int     `json:"codec"`
 	OrbitSpan     float64 `json:"orbitSpan"`
 	OrbitDir      int     `json:"orbitDir"`
+	OrbitAxis     int     `json:"orbitAxis"`
+	MinAngle      float64 `json:"minAngle"`
+	MaxAngle      float64 `json:"maxAngle"`
 	InitialAngle  float64 `json:"initialAngle"`
 	UpdateCatalog bool    `json:"updateCatalog"`
 }
@@ -39,7 +42,8 @@ type settings struct {
 func newApp() *app {
 	a := &app{
 		fps: 12, longEdge: defaultLongEdge, quality: 80,
-		codec: 0, orbitSpan: 360, orbitDir: 0, initialAngle: 0,
+		codec: 0, orbitSpan: 360, orbitDir: 0, orbitAxis: 0, initialAngle: 0,
+		minAngle: -180, maxAngle: 180,
 		updateCatalog: true,
 	}
 	a.loadSettings()
@@ -89,6 +93,10 @@ func (a *app) loadSettings() {
 		a.quality = s.FrameQuality
 	}
 	a.codec, a.orbitDir = s.Codec, s.OrbitDir
+	a.orbitAxis = s.OrbitAxis
+	if s.MinAngle < s.MaxAngle {
+		a.minAngle, a.maxAngle = s.MinAngle, s.MaxAngle
+	}
 	if s.OrbitSpan > 0 {
 		a.orbitSpan = s.OrbitSpan
 	}
@@ -101,6 +109,8 @@ func (a *app) saveSettings() {
 		Root: a.root, Python: a.python, FFmpeg: a.ffmpeg, Video: a.video,
 		FPS: a.fps, LongEdge: a.longEdge, FrameQuality: a.quality,
 		Codec: a.codec, OrbitSpan: a.orbitSpan, OrbitDir: a.orbitDir,
+		OrbitAxis: a.orbitAxis,
+		MinAngle:  a.minAngle, MaxAngle: a.maxAngle,
 		InitialAngle: a.initialAngle, UpdateCatalog: a.updateCatalog,
 	}
 	data, err := json.MarshalIndent(s, "", "  ")

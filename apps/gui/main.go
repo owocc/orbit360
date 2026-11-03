@@ -31,6 +31,8 @@ var (
 	codecLabels    = []string{"WebP", "AVIF", "JPEG"}
 	orbitDirKeys   = []string{"cw", "ccw"}
 	orbitDirLabels = []string{"顺时针", "逆时针"}
+	axisKeys       = []string{"x", "y"}
+	axisLabels     = []string{"X 轴（水平）", "Y 轴（垂直）"}
 )
 
 const (
@@ -53,7 +55,8 @@ type app struct {
 
 	// 参数（与 scripts/bundle.py build 一一对应）
 	fps, longEdge, quality, orbitSpan, initialAngle float64
-	codec, orbitDir                                 int
+	minAngle, maxAngle                              float64
+	codec, orbitDir, orbitAxis                      int
 	updateCatalog                                   bool
 	longEdgeTouched                                 bool // 用户改过长边后，不再随源视频自动调
 
@@ -189,11 +192,15 @@ func (a *app) params(c *ui.Context, t *ui.Theme) {
 						a.longEdgeTouched = true
 					}
 				})
-				a.num(c, t, "初始角度", &a.initialAngle, 0, 359, 15)
+				a.num(c, t, "初始角度", &a.initialAngle, -180, 180, 15)
 			})
 			ui.Row(c).Gap(16).AlignItems(ui.Center).Children(func() {
 				a.num(c, t, "帧质量", &a.quality, 0, 100, 5)
 				a.num(c, t, "环绕角度", &a.orbitSpan, 0, 360, 10)
+			})
+			ui.Row(c).Gap(16).AlignItems(ui.Center).Children(func() {
+				a.num(c, t, "最小角度", &a.minAngle, -180, 180, 5)
+				a.num(c, t, "最大角度", &a.maxAngle, -180, 180, 5)
 			})
 		})
 	})
@@ -204,6 +211,9 @@ func (a *app) params(c *ui.Context, t *ui.Theme) {
 		ui.Field(c, "环向", func() {
 			ui.Segmented(c, &a.orbitDir, orbitDirLabels...).Label("环向")
 		})
+		ui.Field(c, "旋转轴", func() {
+			ui.Segmented(c, &a.orbitAxis, axisLabels...).Label("旋转轴")
+		})
 		ui.Row(c).Gap(18).AlignItems(ui.Center).Padding(0, 0, 2, 0).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 				ui.Switch(c, &a.updateCatalog).Label("更新 catalog.json")
@@ -212,7 +222,9 @@ func (a *app) params(c *ui.Context, t *ui.Theme) {
 		})
 	})
 	ui.Text(c, "每帧按长边等比缩放，源视频更小时会放大，建议别超过源的长边。帧率是采样率，"+
-		"每帧角度 = 环绕角度 / 帧数。产物只有一个 assets/<id>/scene.orb，与命令行完全一致。").
+		"每帧角度 = 环绕角度 / 帧数。旋转轴只能是 X（水平环绕）或 Y（垂直环绕），一条视频只用一个轴。"+
+		"角度 -180..180，向右为正、向左为负；最小/最大角度分别限制，默认 -180/180 为整圈。"+
+		"产物只有一个 assets/<id>/scene.orb，与命令行完全一致。").
 		FontSize(11).TextColor(t.TextMuted)
 }
 
@@ -312,7 +324,7 @@ var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
 // bundleFlags 是 GUI 依赖的 bundle.py 参数。项目目录里的脚本太旧时提前报错，
 // 不至于跑起来才看到 argparse 的 unrecognized arguments。
-var bundleFlags = []string{"build", "--long-edge", "--codec", "--orbit-span", "--catalog"}
+var bundleFlags = []string{"build", "--long-edge", "--codec", "--orbit-span", "--axis", "--min-angle", "--max-angle", "--catalog"}
 
 func bundleScriptReady(path string) bool {
 	data, err := os.ReadFile(path)
@@ -343,6 +355,9 @@ func (a *app) validate() error {
 	}
 	if a.title == "" {
 		return errors.New("给示例填个标题")
+	}
+	if a.minAngle < -180 || a.maxAngle > 180 || a.minAngle >= a.maxAngle {
+		return errors.New("角度限制要是 -180..180，且最小角度小于最大角度")
 	}
 	if a.python == "" || !fileExists(a.python) {
 		return errors.New("找不到 python")
@@ -476,6 +491,9 @@ func (a *app) buildArgs(out string) []string {
 		"--initial-angle", trimNum(a.initialAngle),
 		"--orbit-span", trimNum(a.orbitSpan),
 		"--orbit-dir", orbitDirKeys[clampIndex(a.orbitDir, len(orbitDirKeys))],
+		"--axis", axisKeys[clampIndex(a.orbitAxis, len(axisKeys))],
+		"--min-angle", trimNum(a.minAngle),
+		"--max-angle", trimNum(a.maxAngle),
 	}
 	if a.updateCatalog {
 		args = append(args, "--catalog", filepath.Join(a.root, "catalog.json"))

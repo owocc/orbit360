@@ -1,0 +1,210 @@
+#panel {
+  position: fixed;
+  z-index: 4;
+  left: 14px;
+  left: max(14px, env(safe-area-inset-left));
+  bottom: 14px;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: 300px;
+  max-width: calc(100vw - 28px);
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(13, 15, 19, 0.74);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 12px;
+  align-items: center;
+  transition:
+    opacity 0.26s ease,
+    transform 0.26s ease,
+    visibility 0.26s;
+}
+
+body.ui-hidden #panel {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transform: translateY(12px) scale(0.98);
+}
+
+.p-sub {
+  font-size: 10.5px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.p-deg {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.p-deg small {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+#ring {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto;
+  grid-column: 1 / -1;
+}
+
+#ring .track {
+  stroke: rgba(255, 255, 255, 0.09);
+}
+
+#ring .tick {
+  stroke: rgba(255, 255, 255, 0.18);
+}
+
+#ring .arc {
+  stroke: var(--accent);
+  stroke-linecap: round;
+}
+
+#ring .needle {
+  stroke: var(--accent);
+}
+
+#ring text {
+  fill: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.p-sens {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  font-size: 10.5px;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+
+.p-sens span {
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.p-sens input {
+  flex: 1;
+  min-width: 0;
+  height: 16px;
+  accent-color: var(--accent);
+  background: transparent;
+  cursor: pointer;
+}
+
+.p-sens b {
+  font-weight: 600;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  min-width: 30px;
+  text-align: right;
+  margin-left: 8px;
+}
+
+.p-btns {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.p-toggles {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.p-toggles button {
+  font-size: 10.5px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+button {
+  font: inherit;
+  font-size: 11px;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 7px 4px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+button.on {
+  color: #06281e;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+button[hidden] {
+  display: none;
+}
+
+/* 横屏/矮屏：收紧面板，藏掉方位环 */
+@media (max-height: 560px) {
+  #ring {
+    display: none;
+  }
+
+  #panel {
+    width: 272px;
+    max-width: calc(100vw - 24px);
+    padding: 10px;
+    gap: 8px 10px;
+  }
+
+  .p-deg {
+    font-size: 20px;
+  }
+}
+
+/* 窄屏：藏掉方位环 */
+@media (max-width: 480px) and (min-height: 561px) {
+  #ring {
+    display: none;
+  }
+
+  #panel {
+    padding: 10px;
+    gap: 8px 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  #panel {
+    bottom: 68px;
+    bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+}

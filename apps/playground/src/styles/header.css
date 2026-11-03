@@ -1,0 +1,48 @@
+#topbar {
+  position: fixed;
+  z-index: 3;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 12px 18px 14px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  background: linear-gradient(to bottom, rgba(5, 6, 8, 0.62), rgba(5, 6, 8, 0));
+  pointer-events: none;
+  transition:
+    opacity 0.26s ease,
+    visibility 0.26s;
+}
+
+.top-title {
+  max-width: min(92vw, 920px);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#hint {
+  max-width: min(92vw, 920px);
+  color: var(--muted);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  text-align: center;
+  line-height: 1.45;
+  pointer-events: none;
+  transition: opacity 0.45s;
+}
+
+#hint.hide {
+  opacity: 0;
+}
+
+body.ui-hidden #topbar {
+  opacity: 0;
+  visibility: hidden;
+}

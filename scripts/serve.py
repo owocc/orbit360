@@ -7,11 +7,15 @@ import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8787
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SITE = os.path.join(ROOT, "dist")
+if not os.path.isfile(os.path.join(SITE, "index.html")):
+    print("找不到 dist/index.html：先运行 npm run build", file=sys.stderr)
+    sys.exit(1)
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
-        super().__init__(*a, directory=ROOT, **kw)
+        super().__init__(*a, directory=SITE, **kw)
 
     def log_message(self, *args):
         pass

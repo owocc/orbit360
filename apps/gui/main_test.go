@@ -72,12 +72,12 @@ func TestBuildArgs(t *testing.T) {
 		root: "/repo", python: "/usr/bin/python3", ffmpeg: "/opt/homebrew/bin/ffmpeg",
 		video: "/tmp/a.mp4", id: "gen", title: "生成视频",
 		fps: 12, longEdge: 1280, quality: 80, orbitSpan: 360, initialAngle: 15,
-		codec: 2, orbitDir: 1, updateCatalog: true,
+		codec: 2, orbitDir: 1, orbitAxis: 1, minAngle: -170, maxAngle: 170, updateCatalog: true,
 	}
 	got := strings.Join(a.buildArgs("/repo/assets/gen/scene.orb"), " ")
 	want := "/repo/scripts/bundle.py build /repo/assets/gen/scene.orb /tmp/a.mp4" +
 		" --fps 12 --long-edge 1280 --codec jpeg --quality 80 --title 生成视频" +
-		" --initial-angle 15 --orbit-span 360 --orbit-dir ccw --catalog /repo/catalog.json"
+		" --initial-angle 15 --orbit-span 360 --orbit-dir ccw --axis y --min-angle -170 --max-angle 170 --catalog /repo/catalog.json"
 	if got != want {
 		t.Fatalf("参数不对\n got: %s\nwant: %s", got, want)
 	}
@@ -89,7 +89,7 @@ func TestBuildArgs(t *testing.T) {
 func TestBundleScriptReady(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bundle.py")
-	if err := os.WriteFile(path, []byte(`build --long-edge --codec --orbit-span --catalog`), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(`build --long-edge --codec --orbit-span --axis --min-angle --max-angle --catalog`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if !bundleScriptReady(path) {
