@@ -1,2 +1,7 @@
+# 自签证书
 certs/
 .DS_Store
+
+# 自己玩的视频与产物：仓库只放代码和 maid / orbit 两个示例
+/assets/gen/
+/examples/generated-video.mp4
