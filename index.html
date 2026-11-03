@@ -247,7 +247,7 @@
 
 <div id="examples" class="ex-bar" hidden></div>
 
-<input id="importFile" type="file" accept=".zip,application/zip" hidden>
+<input id="importFile" type="file" accept=".zip,.orb,application/zip,application/octet-stream" hidden>
 
 <div id="loader">
   <div class="loadwrap">
@@ -256,6 +256,7 @@
   </div>
 </div>
 
+<script src="orb.js"></script>
 <script>
 'use strict';
 
@@ -314,7 +315,10 @@ const S = {
   quality: 'std',
   frameW: 1280,
   frameH: 720,
+  canvasW: 0,
+  canvasH: 0,
   frames: [],
+  layers: [],
   frameSet: null,
   count: 0,
   degPerFrame: 360 / 1,
@@ -603,6 +607,70 @@ async function loadFromZipBlob(blob, qualityHint) {
       return img ? { img, sx: 0, sy: 0, sw: pack.frameW, sh: pack.frameH } : null;
     });
   }
+
+  S.canvasW = pack.frameW;
+  S.canvasH = pack.frameH;
+  S.layers = [{
+    rect: { x: 0, y: 0, width: pack.frameW, height: pack.frameH },
+    frames: S.frames,
+    count: S.count,
+  }];
+}
+
+async function loadFromOrbBlob(blob, qualityHint) {
+  if (typeof OrbBundle === 'undefined') throw new Error('缺少 orb.js，无法解析 .orb');
+  const orb = await OrbBundle.fromBlob(blob);
+  const meta = orb.meta;
+
+  await applyConfig(meta, qualityHint || meta.codec || 'orb');
+
+  S.canvasW = meta.canvas.width;
+  S.canvasH = meta.canvas.height;
+  S.frameW = S.canvasW;
+  S.frameH = S.canvasH;
+  S.count = Math.max.apply(null, meta.videos.map(v => v.frames.count));
+  S.degPerFrame = 360 / S.count;
+  S.frameDeg = (meta.orbit?.spanDeg ?? 360) / S.count;
+  S.angle = S.target = mod(Number(meta.initialAngle) || 0, 360);
+
+  // 每视频一层；画布坐标由 meta.videos[].rect 决定
+  const layers = [];
+  const jobs = [];
+  meta.videos.forEach((v, vi) => {
+    const frames = new Array(v.frames.count);
+    layers.push({ rect: v.rect, frames, count: v.frames.count });
+    for (let fi = 0; fi < v.frames.count; fi++) {
+      jobs.push({ vi, fi, frames, w: v.frames.width, h: v.frames.height });
+    }
+  });
+
+  let done = 0;
+  let next = 0;
+  const CONCURRENCY = 6;
+  const worker = async () => {
+    while (next < jobs.length) {
+      const j = jobs[next++];
+      const b = orb.frameBlob(j.vi, j.fi);
+      const img = b ? await loadImageBlob(b) : null;
+      j.frames[j.fi] = img ? { img, sx: 0, sy: 0, sw: j.w, sh: j.h } : null;
+      done++;
+      S.loaded = done;
+      el.prog.style.width = (40 + (done / jobs.length) * 58).toFixed(1) + '%';
+    }
+  };
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  S.layers = layers;
+  S.frames = [];
+}
+
+async function loadFromBlob(blob, qualityHint) {
+  let head = null;
+  if (blob.size >= 4) {
+    head = new Uint8Array(await blobToBuffer(blob.slice(0, 4)));
+  }
+  const isOrb = head && head[0] === 0x4f && head[1] === 0x52 && head[2] === 0x42 && head[3] === 0x33;
+  if (isOrb) await loadFromOrbBlob(blob, qualityHint);
+  else await loadFromZipBlob(blob, qualityHint);
 }
 
 async function loadFromUrl(url, quality) {
@@ -611,28 +679,40 @@ async function loadFromUrl(url, quality) {
   if (!res.ok) throw new Error(`包下载失败（HTTP ${res.status}）`);
   const blob = await res.blob();
   el.prog.style.width = '38%';
-  await loadFromZipBlob(blob, quality);
+  await loadFromBlob(blob, quality);
 }
 
 async function boot() {
-  S.catalog = await fetch(CATALOG_URL, { cache: 'no-cache' })
-    .then(r => (r.ok ? r.json() : null))
-    .catch(() => null);
+  const orbUrl = new URLSearchParams(location.search).get('orb');
+  if (orbUrl) {
+    // 直接用 ?orb=<url> 打开 .orb，不依赖 catalog.json
+    S.entry = null;
+    S.exampleId = null;
+    el.examples.hidden = true;
+    await loadFromUrl(orbUrl, null);
+  } else {
+    S.catalog = await fetch(CATALOG_URL, { cache: 'no-cache' })
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null);
 
-  const entry = pickEntry(S.catalog);
-  S.entry = entry;
-  S.exampleId = entry ? entry.id : null;
-  if (entry) buildExampleBar();
+    const entry = pickEntry(S.catalog);
+    S.entry = entry;
+    S.exampleId = entry ? entry.id : null;
+    if (entry) buildExampleBar();
 
-  const quality = pickQuality(entry);
-  const url = quality ? entry.packs[quality] : null;
-  if (!url) throw new Error('找不到可用的示例包（catalog.json）');
+    const quality = pickQuality(entry);
+    const url = quality ? entry.packs[quality] : null;
+    if (!url) throw new Error('找不到可用的示例包（catalog.json）');
 
-  await loadFromUrl(url, quality);
+    await loadFromUrl(url, quality);
+  }
   syncQualityBtn();
 
   layout();
-  const missing = S.frames.filter(f => !f || !f.img).length;
+  let missing = 0;
+  S.layers.forEach(layer => {
+    layer.frames.forEach(f => { if (!f || !f.img) missing++; });
+  });
   if (missing) {
     el.hint.textContent = `${missing} 帧解码失败（${S.quality}）`;
     el.hint.classList.remove('hide');
@@ -696,13 +776,13 @@ function fillBackdrop() {
 function layout() {
   const cfg = S.cfg;
   if (!cfg || !viewW || !viewH) return;
-  const vw = S.frameW || cfg.video?.width || 1280;
-  const vh = S.frameH || cfg.video?.height || 720;
+  const vw = S.canvasW || S.frameW || cfg.video?.width || 1280;
+  const vh = S.canvasH || S.frameH || cfg.video?.height || 720;
   const cover = S.fitMode === 'cover';
   const base = cover
     ? Math.max(viewW / vw, viewH / vh)                     // 铺满：填满视口，裁掉多余
-    : Math.min(viewW / vw, viewH / vh) * (viewH > viewW ? (cfg.video.portraitScale ?? 1.25) : 1);
-  const scale = base * (cover ? 1 : (cfg.video.displayScale || 1));
+    : Math.min(viewW / vw, viewH / vh) * (viewH > viewW ? (cfg.video?.portraitScale ?? 1.25) : 1);
+  const scale = base * (cover ? 1 : (cfg.video?.displayScale || 1));
   dst.w = vw * scale;
   dst.h = vh * scale;
   dst.x = (viewW - dst.w) / 2;
@@ -711,26 +791,43 @@ function layout() {
   fillBackdrop();
   S.drawnIndex = -1;
   // 立即补画当前帧：否则清屏与下一帧 rAF 之间会出现一次空画面（视觉上是闪）
-  if (S.cfg && S.count && S.frames.length === S.count) paint();
+  if (S.cfg && S.count && S.layers.length) paint();
 }
 
 function frameIndex() {
+  if (!S.count) return 0;
   return mod(Math.round(mod(S.angle * S.dirSign, 360) / S.degPerFrame), S.count);
+}
+
+// 多视频时各层帧数可能不同：按全局帧号占整圈的比例取该层的帧
+function layerFrame(layer, idx) {
+  if (!layer.count) return null;
+  const i = layer.count === S.count ? idx
+    : mod(Math.floor(idx * layer.count / S.count), layer.count);
+  return layer.frames[i];
 }
 
 // 只在帧号变化时重绘：单帧硬切，无叠加过渡
 // 关键：不清屏，直接覆盖。这样任何一帧都不会出现「已清空、尚未绘制」的空窗，
 // 移动端 GPU 上传有延迟时也不会闪。
 function paint() {
-  if (!S.cfg) return;
+  if (!S.cfg || !S.layers.length) return;
   const idx = frameIndex();
   if (idx === S.drawnIndex) return;
   S.drawnIndex = idx;
 
-  const f = S.frames[idx];
-  if (f) {
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.drawImage(f.img, f.sx, f.sy, f.sw, f.sh, dst.x, dst.y, dst.w, dst.h);
+  const cw = S.canvasW || S.frameW || 1;
+  const ch = S.canvasH || S.frameH || 1;
+  const sx = dst.w / cw;
+  const sy = dst.h / ch;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (let i = 0; i < S.layers.length; i++) {
+    const layer = S.layers[i];
+    const f = layerFrame(layer, idx);
+    if (!f || !f.img) continue;
+    const r = layer.rect;
+    ctx.drawImage(f.img, f.sx, f.sy, f.sw, f.sh,
+      dst.x + r.x * sx, dst.y + r.y * sy, r.width * sx, r.height * sy);
   }
   el.meta.textContent = `帧 ${idx + 1} / ${S.count} · ${S.frameDeg.toFixed(2)}°/帧`;
 }
@@ -1189,14 +1286,14 @@ el.importFile.addEventListener('change', async () => {
   if (!file) return;
   try {
     flashHint('正在解析 ' + file.name, 4000);
-    await loadFromZipBlob(file, null);
+    await loadFromBlob(file, null);
     S.entry = null;                 // 导入模式没有示例清单，画质切换隐藏
     S.exampleId = null;
     const pills = el.examples.querySelectorAll('.ex-pill');
     for (let i = 0; i < pills.length; i++) pills[i].classList.remove('on');
     syncQualityBtn();
     layout();
-    flashHint(`已载入 ${S.cfg.title || file.name}（${S.quality}）`, 2400);
+    flashHint(`已载入 ${S.cfg.title || file.name}`, 2400);
   } catch (err) {
     flashHint('导入失败：' + err.message, 4000);
   }

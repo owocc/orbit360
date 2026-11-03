@@ -36,9 +36,11 @@ execFileSync(runner, [
 
 const built = readFileSync(out, 'utf8');
 const polyfill = readFileSync('legacy-polyfill.js', 'utf8');
+const orbSource = readFileSync('orb.js', 'utf8');
 
 const legacy = html
   .replace(block[0], `<script>\n${polyfill}\n${built}\n</script>`)
+  .replace('<script src="orb.js"></script>', () => `<script>\n${orbSource}\n</script>`)
   .replace('<html lang="zh-CN">', '<html lang="zh-CN" data-legacy="1">')
   .replace('<title>', '<title>兼容版 · ');
 

@@ -97,6 +97,134 @@ assets/maid/
 - `defaults.quality` 决定打开时用哪档；`defaults.auto` 决定是否自动旋转及方向
 - 页面对 DEFLATE 包会用 `DecompressionStream('deflate-raw')` 兜底，老浏览器只支持 STORED
 
+## 场景包（`.orb`，多视频）
+
+`bundle.py` 把 1~N 个视频抽成 WebP / AVIF / JPEG 帧，和 meta、帧索引一起打进**一个二进制文件**。
+文件里没有视频轨，只有帧；读取端先按 `prefixLen` 一次 Range 拿到头部，再按索引里的
+`offset/length` 按需取帧，不需要解析 zip。
+
+```bash
+# 单个视频：画布自动等于帧尺寸
+python3 bundle.py build scene.orb a.mp4 --fps 12 --long-edge 960 --codec webp
+
+# 多个视频：显式画布 + 每个视频的位置
+python3 bundle.py build wall.orb a.mp4 b.mp4 --canvas 1920x1080 \
+    --place 0,0,960,1080 --place 960,0,960,1080 --fps 12 --long-edge 960
+
+python3 bundle.py info scene.orb          # 画布 / 编码 / 每个视频的帧数、位置、prefix
+python3 bundle.py info scene.orb --json   # 完整 meta
+python3 bundle.py extract scene.orb --out /tmp/frames   # 每视频一个子目录
+```
+
+仓库里两个示例已经按 12fps / 1280 长边 / WebP q80 打好：
+
+```
+assets/maid/scene.orb   1280×720 ×120  image/webp  5.0 MB
+assets/orbit/scene.orb  1280×720 ×120  image/webp  5.5 MB
+```
+
+```bash
+python3 serve.py 8787
+# http://127.0.0.1:8787/?orb=assets/maid/scene.orb
+# http://127.0.0.1:8787/?orb=assets/orbit/scene.orb
+```
+
+重新生成（参数与上面文件一致）：
+
+```bash
+python3 bundle.py build assets/orbit/scene.orb examples/orbit-sample.mp4 \
+    --fps 12 --long-edge 1280 --codec webp --quality 80 --title "环绕视角"
+python3 bundle.py build assets/maid/scene.orb examples/anime-maid.mp4 \
+    --fps 12 --long-edge 1280 --codec webp --quality 80 --title "沙发少女"
+```
+
+容器布局（小端）：
+
+```
+Header  32B
+  0   4B  magic  "ORB3"
+  4   4B  version（当前 1）
+  8   4B  prefixLen = 32 + metaLen + indexLen
+  12  4B  metaLen
+  16  4B  indexLen
+  20  4B  frameCount
+  24  4B  indexEntrySize（当前 16）
+  28  4B  flags（保留，0）
+
+Meta    metaLen 字节，JSON（UTF-8）
+Index   indexLen 字节，每帧一条 16B 的 <IIQ>：
+          u32 videoIndex, u32 length, u64 absoluteOffset
+        顺序 = videos[] × frames，帧号在视频内按顺序隐含
+Payload 帧数据，从 prefixLen 开始，offset 指向这里
+```
+
+`prefixLen` 覆盖 Header + Meta + Index，所以一次
+`Range: bytes=0-<prefixLen-1>` 就能拿到全部元数据和每条索引；之后每帧再来一次
+`Range: bytes=<offset>-<offset+length-1>`。
+
+meta 是一个对象 + 一个数组，一个视频对应 `videos` 里的一项：
+
+```json
+{
+  "format": "orbit360.bundle", "version": 1, "title": "…",
+  "canvas": { "width": 1920, "height": 1080 },
+  "totalFrames": 240,
+  "codec": "image/webp",
+  "initialAngle": 0,
+  "orbit": { "spanDeg": 360, "direction": "cw" },
+  "videos": [{
+    "id": "v1",
+    "rect": { "x": 0, "y": 0, "width": 960, "height": 1080 },
+    "source": { "file": "a.mp4", "width": 3840, "height": 2160, "fps": 24,
+                "frames": 239, "durationSec": 9.963, "codec": "h264" },
+    "orbit": { "spanDeg": 360, "direction": "cw" },
+    "frames": { "count": 120, "width": 960, "height": 540, "fps": 12,
+                "indexStart": 0 }
+  }]
+}
+```
+
+- **单视频**：`canvas` 恒等于帧尺寸，`rect` 恒为 `(0, 0, w, h)`；给不同的
+  `--canvas` / `--place` 会直接报错
+- **多视频**：`rect` 是视频画到画布上的位置与尺寸（帧按 `rect` 缩放）；不给 `--place`
+  时按一行排开、整体在画布内居中，画布默认取这行的包围盒，给了 `--canvas` 则校验是否放得下
+- `frames.indexStart` 是该视频第一帧在 Index 区里的条目序号；`count` 可以各视频不同
+  （按各自时长 × `--fps` 抽帧），`totalFrames` 是全部帧数，与 Header 的 `frameCount` 一致
+- `videos[]` 的顺序就是画布上的绘制顺序（后面的盖在前面的上面）
+- `--codec` 支持 `webp`（默认）/ `avif` / `jpeg`，meta 里写成 `image/webp` 等 MIME；
+  `--quality` 统一为 0–100（越大越清晰），JPEG / AVIF 内部换算成 `-q:v` / CRF
+- 其他参数：`--fps` 采样帧率、`--long-edge` 每帧长边、`--initial-angle` 初始视角、
+  `--title`、`--orbit-span` / `--orbit-dir`（写进 `orbit`）
+
+### 网页里怎么用
+
+`orb.js` 是零依赖解析器，`index.html` 已经用 `<script src="orb.js">` 引入：
+
+- 面板「导入」同时接受 `.zip` 和 `.orb`，按文件头 magic 自动判断
+- 直接打开：`?orb=scene.orb`（不需要 `catalog.json`）
+- `.orb` 多视频按 `meta.canvas` 建画布，每个 `videos[]` 按其 `rect` 缩放绘制；
+  各视频帧数不同时按当前角度占整圈的比例取帧
+- 打开时角度取 `meta.initialAngle`，环绕方向取 `meta.orbit.direction`
+
+浏览器 / Node API：
+
+```js
+const orb = await OrbBundle.fromBlob(file);   // File / Blob
+orb.meta;                                     // JSON meta
+orb.prefixLen;                                // Header+Meta+Index 字节数
+orb.entries;                                  // [video, length, offset] 数组
+orb.frameEntry(0, 0);                         // { video, length, offset }
+orb.frameBlob(0, 0);                          // 该帧 Blob，可直接 <img>/createImageBitmap
+
+const whole = OrbBundle.parse(arrayBuffer);   // 整文件 ArrayBuffer
+const head = OrbBundle.parse(prefixBuffer);   // 也可以只给前 prefixLen 字节
+```
+
+`fromBlob()` 只先读 32B Header 和前 `prefixLen` 字节，帧在需要时才 `slice`，
+配合同样的 Range 服务端不会整包下载。
+
+`legacy.html` 由 `make-legacy.mjs` 把 `orb.js` 一并联内联，旧系统也能读 `.orb`。
+
 ## 示例与画质切换
 
 `catalog.json` 列出所有示例与各自可用的包：
@@ -126,11 +254,14 @@ python3 build.py my-video.mp4 --out assets/myid --title "我的示例" \
 
 ## 导入自定义包
 
-面板的 `导入` 按钮接受一个 zip（就是上面那种包），要求：
+面板的 `导入` 按钮接受 zip 包或 `.orb`（按 magic 自动区分）。zip 要求：
 
 1. 根目录有 `meta.json`，含 `pack.files` 与 `pack.frameW/frameH`
 2. `pack.files` 列出的图片都在包里
 3. 建议 STORED（不压缩），老浏览器才能解
+
+`.orb` 直接整体载入，多视频按 `meta.canvas` / `videos[].rect` 排布；帧格式由 `meta.codec`
+决定（WebP 兼容面最广，AVIF 需要较新的浏览器）。
 
 导入后立即生效，不写入服务器；示例下拉框与画质按钮会禁用（单包模式）。
 
@@ -291,8 +422,10 @@ iOS Safari 上逐帧切换 `ImageBitmap` 会不停上传/驱逐 GPU 纹理，画
 ## 目录
 
 ```
-index.html        播放器（无依赖，单文件；自带 zip 解析）
+index.html        播放器（自带 zip 解析；ORB3 走 orb.js）
+orb.js            ORB3 解析器（浏览器 / Node，零依赖；legacy 会内联）
 build.py          视频 → meta.json + packs/{std,hd,uhd}.zip
+bundle.py         多视频 → 单文件 .orb（帧 + meta + 索引表）
 serve.py          多线程静态服务
 serve_tls.py      HTTPS 服务（手机陀螺仪必需，自动生成自签证书）
 catalog.json      示例清单（default + items + packs + defaults）
@@ -304,6 +437,7 @@ examples/         示例源视频
   anime-maid.mp4     3840×2160 / 10s
 assets/<id>/      每个示例的发布产物
   meta.json         包外副本（catalog 读取默认配置）
+  scene.orb         ORB3 二进制示例（1280×720 WebP，见「场景包」）
   packs/std.zip     512×288 雪碧图包
   packs/hd.zip      640×360 雪碧图包
   packs/uhd.zip     1920×1080 序列帧包
