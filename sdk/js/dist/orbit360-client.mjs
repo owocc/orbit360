@@ -75,9 +75,14 @@ var require_orb = __commonJS({
       var HEADER_SIZE = 32;
       var ENTRY_SIZE = 16;
       var FORMAT = "orbit360.bundle";
-      var VERSION2 = 1;
+      var VERSION_MAJOR = 1;
+      var VERSION_MINOR = 2;
+      var VERSION2 = VERSION_MAJOR * 65536 + VERSION_MINOR;
       function fail(msg) {
         throw new Error("ORB3: " + msg);
+      }
+      function versionText(raw) {
+        return raw === 1 ? "1.0" : (raw >>> 16) + "." + (raw & 65535);
       }
       function isInt(n) {
         return typeof n === "number" && isFinite(n) && Math.floor(n) === n;
@@ -116,7 +121,9 @@ var require_orb = __commonJS({
           indexEntrySize: dv.getUint32(24, true),
           flags: dv.getUint32(28, true)
         };
-        if (h.version !== VERSION2) fail("\u4E0D\u652F\u6301\u7684\u7248\u672C " + h.version);
+        if (h.version !== VERSION2 && h.version !== 65537 && h.version !== 1) {
+          fail("\u4E0D\u652F\u6301\u7684\u7248\u672C " + versionText(h.version) + "\uFF08\u652F\u6301 1.0 / 1.1 / 1.2\uFF09");
+        }
         if (h.indexEntrySize !== ENTRY_SIZE) fail("\u4E0D\u652F\u6301\u7684\u7D22\u5F15\u9879\u5927\u5C0F " + h.indexEntrySize);
         if (h.indexLen !== h.frameCount * ENTRY_SIZE) fail("indexLen \u4E0E frameCount \u4E0D\u4E00\u81F4");
         if (h.prefixLen !== HEADER_SIZE + h.metaLen + h.indexLen) fail("prefixLen \u4E0D\u4E00\u81F4");
@@ -140,6 +147,14 @@ var require_orb = __commonJS({
         if (meta.totalFrames !== h.frameCount) fail("meta.totalFrames \u4E0E\u5934\u90E8\u4E0D\u4E00\u81F4");
         if (typeof meta.codec !== "string" || !meta.codec) fail("meta \u7F3A\u5C11 codec");
         if (!Array.isArray(meta.videos) || !meta.videos.length) fail("meta \u7F3A\u5C11 videos \u6570\u7EC4");
+        var sceneOrbit = meta.orbit || {};
+        var sceneAxis = sceneOrbit.axis !== void 0 ? sceneOrbit.axis : "x";
+        if (sceneAxis !== "x" && sceneAxis !== "y") fail("meta.orbit.axis \u53EA\u80FD\u662F x / y");
+        var sceneMin = sceneOrbit.minAngle === void 0 ? -180 : sceneOrbit.minAngle;
+        var sceneMax = sceneOrbit.maxAngle === void 0 ? 180 : sceneOrbit.maxAngle;
+        if (typeof sceneMin !== "number" || !isFinite(sceneMin) || typeof sceneMax !== "number" || !isFinite(sceneMax) || sceneMin < -180 || sceneMax > 180 || sceneMin >= sceneMax) {
+          fail("meta.orbit.minAngle/maxAngle \u5FC5\u987B\u5728 -180..180 \u4E14 min < max");
+        }
         var sum = 0;
         var expectStart = 0;
         var vi;
@@ -148,6 +163,17 @@ var require_orb = __commonJS({
           var f = v && v.frames;
           var r = v && v.rect;
           if (!v || !f || !r) fail("\u89C6\u9891 " + vi + " \u7F3A\u5C11 rect/frames");
+          var videoAxis = v.orbit && v.orbit.axis !== void 0 ? v.orbit.axis : sceneAxis;
+          if (videoAxis !== "x" && videoAxis !== "y") fail("\u89C6\u9891 " + vi + " \u7684 orbit.axis \u53EA\u80FD\u662F x / y");
+          if (videoAxis !== sceneAxis) {
+            fail("\u89C6\u9891 " + vi + " \u7684\u8F74 " + videoAxis + " \u4E0E\u573A\u666F\u7684 " + sceneAxis + " \u4E0D\u4E00\u81F4");
+          }
+          var vo = v.orbit || {};
+          var videoMin = vo.minAngle === void 0 ? sceneMin : vo.minAngle;
+          var videoMax = vo.maxAngle === void 0 ? sceneMax : vo.maxAngle;
+          if (videoMin !== sceneMin || videoMax !== sceneMax) {
+            fail("\u89C6\u9891 " + vi + " \u7684\u89D2\u5EA6\u9650\u5236\u4E0E\u573A\u666F\u4E0D\u4E00\u81F4");
+          }
           if (!isInt(f.count) || f.count <= 0) fail("\u89C6\u9891 " + vi + " \u7684 frames.count \u975E\u6CD5");
           if (f.indexStart !== expectStart) fail("\u89C6\u9891 " + vi + " \u7684 indexStart \u4E0D\u8FDE\u7EED");
           if (!isInt(r.x) || !isInt(r.y) || !isInt(r.width) || !isInt(r.height)) {
@@ -265,8 +291,11 @@ var DEFAULTS = {
     height: 720
   },
   orbit: {
+    axis: "x",
     spanDeg: 360,
-    direction: "cw"
+    direction: "cw",
+    minAngle: -180,
+    maxAngle: 180
   },
   drag: {
     degPerPx: 0.42,
@@ -292,12 +321,14 @@ var DEFAULTS = {
     smoothMs: 80
   },
   mouseFollow: {
-    enabled: true,
+    enabled: false,
     degPerPx: 0.3
   }
 };
 var mod = (a, n) => (a % n + n) % n;
 var shortDelta = (from, to) => mod(to - from + 180, 360) - 180;
+var wrapSigned = (deg) => mod(deg + 180, 360) - 180;
+var clampNum = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 function isPlainObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
@@ -444,6 +475,11 @@ function headingOf(e) {
   }
   return mod(Math.atan2(-vx, -vy) / RAD, 360);
 }
+function pitchOf(e) {
+  const b = e.beta;
+  if (typeof b !== "number" || Number.isNaN(b)) return null;
+  return mod(b, 360);
+}
 var Orbit360Client = class {
   /**
    * @param {HTMLCanvasElement} canvas
@@ -495,14 +531,20 @@ var Orbit360Client = class {
     this._vel = 0;
     this._dragging = false;
     this._lastPointerX = 0;
+    this._lastPointerY = 0;
     this._lastPointerT = 0;
     this._lastPointerType = "";
     this._hoverX = null;
+    this._hoverY = null;
     this._idleSince = typeof performance !== "undefined" ? performance.now() : Date.now();
     this._autoWeight = 0;
     this._orientT = 0;
     this._invert = false;
-    this._mouseFollow = true;
+    this._axis = "x";
+    this._minAngle = -180;
+    this._maxAngle = 180;
+    this._limited = false;
+    this._mouseFollow = false;
     this._inertia = true;
     this._fitMode = "contain";
     this._autoState = "off";
@@ -586,6 +628,7 @@ var Orbit360Client = class {
     this._emit("angle", {
       angle: this._angle,
       target: this._target,
+      axis: this._axis,
       frameIndex: this._frameIndex()
     });
   }
@@ -607,6 +650,19 @@ var Orbit360Client = class {
   _applyConfig() {
     const cfg = this._config;
     this._invert = !!cfg.drag.invert;
+    this._axis = cfg.orbit.axis === "y" ? "y" : "x";
+    const minAngle = Number(cfg.orbit.minAngle);
+    const maxAngle = Number(cfg.orbit.maxAngle);
+    let lo = clampNum(Number.isFinite(minAngle) ? minAngle : -180, -180, 180);
+    let hi = clampNum(Number.isFinite(maxAngle) ? maxAngle : 180, -180, 180);
+    if (lo > hi) [lo, hi] = [hi, lo];
+    this._minAngle = lo;
+    this._maxAngle = hi;
+    this._limited = lo > -180 || hi < 180;
+    if (this._limited) {
+      this._target = clampNum(this._target, lo, hi);
+      this._angle = clampNum(this._angle, lo, hi);
+    }
     this._gyroGain = Number(cfg.gyro.gain);
     this._gyroSmooth = cfg.gyro.smooth !== false;
     this._inertia = cfg.drag.inertia !== false;
@@ -619,9 +675,24 @@ var Orbit360Client = class {
     this._recalcFrames();
   }
   _recalcFrames() {
-    this._degPerFrame = 360 / Math.max(1, this._count);
+    this._degPerFrame = this._frameSpan() / Math.max(1, this._count);
+    this._frameDeg = this._degPerFrame;
+  }
+  // 帧序列覆盖的真实角度：spanDeg，限定在 (0, 360]。
+  _frameSpan() {
     const span = Number(this._config.orbit.spanDeg);
-    this._frameDeg = (Number.isFinite(span) ? span : 360) / Math.max(1, this._count);
+    if (!Number.isFinite(span) || span <= 0) return 360;
+    return Math.min(360, span);
+  }
+  // 有限区间直接钳制；整圈时按 -180..180 循环。
+  _normAngle(value) {
+    const v = Number(value);
+    if (!Number.isFinite(v)) return this._limited ? this._minAngle : 0;
+    if (this._limited) return clampNum(v, this._minAngle, this._maxAngle);
+    return wrapSigned(v);
+  }
+  _angleDelta(from, to) {
+    return this._limited ? to - from : shortDelta(from, to);
   }
   setConfig(partial) {
     this._userConfig = deepMerge(this._userConfig, partial || {});
@@ -655,8 +726,14 @@ var Orbit360Client = class {
       quality: this._quality,
       codec: this._codec,
       title: this._config.title || "\u73AF\u7ED5\u89C6\u89D2",
-      angle: mod(this._angle, 360),
-      target: mod(this._target, 360),
+      angle: this._normAngle(this._angle),
+      target: this._normAngle(this._target),
+      axis: this._axis,
+      limits: {
+        min: this._minAngle,
+        max: this._maxAngle,
+        limited: this._limited
+      },
       velocity: this._vel,
       frameIndex,
       frameCount: this._count,
@@ -714,10 +791,10 @@ var Orbit360Client = class {
     };
   }
   getAngle() {
-    return mod(this._angle, 360);
+    return this._normAngle(this._angle);
   }
   getTargetAngle() {
-    return mod(this._target, 360);
+    return this._normAngle(this._target);
   }
   getFrameIndex() {
     return this._frameIndex();
@@ -728,7 +805,7 @@ var Orbit360Client = class {
   setAngle(deg, options = {}) {
     const value = Number(deg);
     if (!Number.isFinite(value)) throw new Error("setAngle: deg \u5FC5\u987B\u662F\u6570\u5B57");
-    this._target = mod(value, 360);
+    this._target = this._normAngle(value);
     this._vel = 0;
     if (options.immediate) {
       this._angle = this._target;
@@ -742,13 +819,13 @@ var Orbit360Client = class {
   rotateBy(deg) {
     const value = Number(deg);
     if (!Number.isFinite(value)) throw new Error("rotateBy: deg \u5FC5\u987B\u662F\u6570\u5B57");
-    this._target = mod(this._target + value, 360);
+    this._target = this._normAngle(this._target + value);
     this._touchActivity();
     this._emitState();
     return this;
   }
   reset(angle = 0, options = {}) {
-    this._target = mod(Number(angle) || 0, 360);
+    this._target = this._normAngle(Number(angle) || 0);
     this._vel = 0;
     if (this._gyro) {
       this._gyroRef = null;
@@ -971,9 +1048,9 @@ var Orbit360Client = class {
       this._count = Math.max.apply(null, meta.videos.map((v) => v.frames.count));
       this._layers = layers;
       this._frames = [];
-      this._angle = this._target = mod(Number(meta.initialAngle) || 0, 360);
       this._config = this._resolveConfig();
       this._applyConfig();
+      this._angle = this._target = this._normAngle(Number(meta.initialAngle) || 0);
     });
   }
   _loadZip(blob, token, options) {
@@ -1037,9 +1114,9 @@ var Orbit360Client = class {
         frames,
         count
       }];
-      this._angle = this._target = mod(Number(meta.initialAngle) || 0, 360);
       this._config = this._resolveConfig();
       this._applyConfig();
+      this._angle = this._target = this._normAngle(Number(meta.initialAngle) || 0);
     });
   }
   _decodeJobs(jobs, token, from, to) {
@@ -1147,7 +1224,16 @@ var Orbit360Client = class {
   }
   _frameIndex() {
     if (!this._count) return 0;
-    return mod(Math.round(mod(this._angle * this._dirSign(), 360) / this._degPerFrame), this._count);
+    const angle = wrapSigned(this._angle * this._dirSign());
+    const span = this._frameSpan();
+    if (span >= 360) {
+      return mod(Math.round(mod(angle, 360) / this._degPerFrame), this._count);
+    }
+    const t = (angle + span / 2) / span;
+    return Math.min(
+      this._count - 1,
+      Math.max(0, Math.round(t * (this._count - 1)))
+    );
   }
   _dirSign() {
     return this._config.orbit.direction === "ccw" ? -1 : 1;
@@ -1193,7 +1279,9 @@ var Orbit360Client = class {
     this._lastT = t;
     if (!this._dragging) {
       if (this._inertia && !this._gyro && Math.abs(this._vel) > 5e-4) {
-        this._target += this._vel * dt;
+        const next2 = this._normAngle(this._target + this._vel * dt);
+        if (this._limited && next2 === this._target) this._vel = 0;
+        this._target = next2;
         this._vel *= Math.exp(-dt / ((_a = this._config.drag.inertiaMs) != null ? _a : 110));
         this._touchActivity();
       } else {
@@ -1202,13 +1290,13 @@ var Orbit360Client = class {
     }
     this._updateAuto(dt, t);
     const prev = this._angle;
-    const delta = shortDelta(this._angle, this._target);
+    const delta = this._angleDelta(this._angle, this._target);
     const tau = (_b = this._config.motion.smoothMs) != null ? _b : 62;
-    this._angle = mod(this._angle + delta * (1 - Math.exp(-dt / tau)), 360);
-    if (Math.abs(shortDelta(this._angle, this._target)) < 5e-4) {
-      this._angle = mod(this._target, 360);
+    const next = this._angle + delta * (1 - Math.exp(-dt / tau));
+    this._angle = this._limited ? clampNum(next, this._minAngle, this._maxAngle) : mod(next, 360);
+    if (Math.abs(this._angleDelta(this._angle, this._target)) < 5e-4) {
+      this._angle = this._target;
     }
-    this._target = mod(this._target, 360);
     this._paint();
     if (this._angle !== prev) this._emitAngle();
     this._raf = requestAnimationFrame(this._loop);
@@ -1224,7 +1312,9 @@ var Orbit360Client = class {
       return;
     }
     if (this._autoWeight <= 0) return;
-    this._target += this._autoDir * this._autoSpeed * this._autoWeight * dt / 1e3;
+    this._target = this._normAngle(
+      this._target + this._autoDir * this._autoSpeed * this._autoWeight * dt / 1e3
+    );
   }
   /* ---------- 指针 / 手势 ---------- */
   _touchActivity() {
@@ -1243,6 +1333,7 @@ var Orbit360Client = class {
     this._onPointerUp = (e) => this._handlePointerUp(e);
     this._onPointerLeave = () => {
       this._hoverX = null;
+      this._hoverY = null;
     };
     this._onDblClick = () => {
       if (this._lastPointerType === "touch") return;
@@ -1271,7 +1362,9 @@ var Orbit360Client = class {
     this._dragging = true;
     this._vel = 0;
     this._hoverX = null;
+    this._hoverY = null;
     this._lastPointerX = e.clientX;
+    this._lastPointerY = e.clientY;
     this._lastPointerT = e.timeStamp;
     this.dragTarget.classList.add(this.options.dragClass);
     try {
@@ -1305,29 +1398,36 @@ var Orbit360Client = class {
     if (this._suppressMove) return;
     if (!this._dragging) {
       if (this._mouseFollow && e.pointerType === "mouse" && e.buttons === 0) {
-        if (this._hoverX === null) {
+        if (this._hoverX === null || this._hoverY === null) {
           this._hoverX = e.clientX;
+          this._hoverY = e.clientY;
           return;
         }
         const mx = e.clientX - this._hoverX;
+        const my = e.clientY - this._hoverY;
         this._hoverX = e.clientX;
-        if (mx) {
-          const d = mx * ((_a = this._config.mouseFollow.degPerPx) != null ? _a : 0.3) * (this._invert ? -1 : 1);
-          this._target += d;
-          if (this._gyro) this._gyroBase = mod(this._gyroBase + d, 360);
+        this._hoverY = e.clientY;
+        const px2 = this._axis === "y" ? my : mx;
+        if (px2) {
+          const d = px2 * ((_a = this._config.mouseFollow.degPerPx) != null ? _a : 0.3) * (this._invert ? -1 : 1);
+          this._target = this._normAngle(this._target + d);
+          if (this._gyro) this._gyroBase = this._normAngle(this._gyroBase + d);
           this._touchActivity();
         }
       }
       return;
     }
     const dx = e.clientX - this._lastPointerX;
+    const dy = e.clientY - this._lastPointerY;
     const dt = Math.max(e.timeStamp - this._lastPointerT, 1);
-    const deg = dx * ((_b = this._config.drag.degPerPx) != null ? _b : 0.42) * (this._invert ? -1 : 1);
-    this._target += deg;
-    if (this._gyro) this._gyroBase = mod(this._gyroBase + deg, 360);
+    const px = this._axis === "y" ? dy : dx;
+    const deg = px * ((_b = this._config.drag.degPerPx) != null ? _b : 0.42) * (this._invert ? -1 : 1);
+    this._target = this._normAngle(this._target + deg);
+    if (this._gyro) this._gyroBase = this._normAngle(this._gyroBase + deg);
     const inst = dt > 90 ? 0 : deg / dt;
     this._vel = 0.6 * inst + 0.4 * this._vel;
     this._lastPointerX = e.clientX;
+    this._lastPointerY = e.clientY;
     this._lastPointerT = e.timeStamp;
     this._touchActivity();
   }
@@ -1337,6 +1437,7 @@ var Orbit360Client = class {
     this._pressTimer = null;
     this._pressStart = null;
     this._hoverX = null;
+    this._hoverY = null;
     this.dragTarget.classList.remove(this.options.dragClass);
     if (e && e.pointerId !== void 0 && ((_b = (_a = this.input).hasPointerCapture) == null ? void 0 : _b.call(_a, e.pointerId))) {
       try {
@@ -1457,7 +1558,7 @@ var Orbit360Client = class {
   }
   _handleOrientation(e, absolute) {
     var _a;
-    const heading = headingOf(e);
+    const heading = this._axis === "y" ? pitchOf(e) : headingOf(e);
     if (heading === null) return;
     if (absolute) this._hasAbsolute = true;
     else if (this._hasAbsolute) return;
@@ -1472,15 +1573,14 @@ var Orbit360Client = class {
     }
     const gain = this._gyroGain * (this._config.gyro.invert ? -1 : 1) * (this._invert ? -1 : 1);
     const delta = shortDelta(this._gyroRef, heading) * gain;
-    const raw = mod(this._gyroBase - delta, 360);
+    const raw = this._normAngle(this._gyroBase - delta);
     if (this._gyroSmooth) {
       const now = performance.now();
       const dt = Math.min(Math.max(now - this._orientT, 1), 120);
       this._orientT = now;
       const tau = (_a = this._config.gyro.smoothMs) != null ? _a : 80;
-      this._target = mod(
-        this._target + shortDelta(this._target, raw) * (1 - Math.exp(-dt / tau)),
-        360
+      this._target = this._normAngle(
+        this._target + this._angleDelta(this._target, raw) * (1 - Math.exp(-dt / tau))
       );
     } else {
       this._target = raw;

@@ -1,7 +1,7 @@
 {
   "name": "@orbit360/javascript",
   "version": "0.1.0",
-  "description": "ORB3 (.orb) scene bundle parser and web client for orbit360 — zero dependencies",
+  "description": "ORB3 (.orb) scene bundle parser and Canvas renderer for orbit360",
   "type": "commonjs",
   "license": "PolyForm-Noncommercial-1.0.0",
   "keywords": [
@@ -10,7 +10,6 @@
     "orb3",
     "360",
     "panorama",
-    "scene-bundle",
     "canvas",
     "web-client"
   ],
@@ -56,12 +55,12 @@
     "build": "node scripts/build.mjs",
     "test": "node --check orb.js && node --check src/client.mjs",
     "prepack": "node -e \"require('fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "pnpm build && pnpm test"
   },
   "publishConfig": {
     "access": "public"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "catalog:"
   }
 }

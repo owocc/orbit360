@@ -1,6 +1,6 @@
 # @orbit360/javascript
 
-ORB3（`.orb`）场景包解析器与 Web 渲染客户端。零依赖，浏览器 / Node 通用。
+ORB3（`.orb`）场景包解析器与 Canvas 渲染客户端。零依赖，浏览器 / Node 通用。
 
 ## 安装
 
@@ -27,6 +27,11 @@ const head = OrbBundle.parse(prefixBuffer);   // 也可以只给前 prefixLen �
 ```html
 <script src="node_modules/@orbit360/javascript/orb.js"></script>
 ```
+
+解析器接受 Header 版本 1.0（裸整数 1）、1.1（`0x00010001`）与 1.2（`0x00010002`）。
+`meta.orbit.axis` 为 `'x'` 或 `'y'`（缺省 `'x'`），每条 `videos[]` 的
+`orbit.axis` 必须与场景一致。1.2 起 `orbit.minAngle` / `maxAngle` 分别限制
+最小/最大角度（`-180..180`，缺省 `-180 / 180` 即整圈），每条视频的限制也要一致。
 
 ## Web client
 
@@ -98,7 +103,7 @@ client.unload();
 ```js
 client.setConfig({
   title: '沙发少女',
-  orbit: { spanDeg: 360, direction: 'cw' },
+  orbit: { axis: 'x', spanDeg: 360, direction: 'cw', minAngle: -180, maxAngle: 180 },
   video: { fit: 'contain', displayScale: 1, portraitScale: 1.25 },
   drag: { degPerPx: 0.42, invert: false, inertia: true, inertiaMs: 110 },
   motion: { smoothMs: 62 },
@@ -125,7 +130,7 @@ client.setConfig({
 | `setInertia(bool)` / `setInvert(bool)` | 惯性 / 反向 |
 | `setFit('contain'\|'cover')` | 自适应 / 铺满 |
 | `setMouseFollow(bool \| { enabled, degPerPx })` | 鼠标跟随 |
-| `setOrbitConfig({ spanDeg, direction })` | 环绕角度与方向 |
+| `setOrbitConfig({ axis, spanDeg, direction, minAngle, maxAngle })` | 环绕轴、角度覆盖范围与限制 |
 | `setVideoConfig({ fit, displayScale, portraitScale })` | 画面布局 |
 | `resize()` | 手动重排 |
 | `destroy()` | 移除监听并停止渲染 |
@@ -139,7 +144,8 @@ client.getState();
 主要字段：
 
 - `ready` / `loading` / `format` / `quality` / `codec` / `title`
-- `angle` / `target` / `velocity` / `frameIndex` / `frameCount` / `frameDeg`
+- `angle` / `target` / `axis` / `limits` / `velocity` / `frameIndex` / `frameCount` / `frameDeg`
+- 角度为 `-180..180`（向左为负），`limits` 为 `{ min, max, limited }`
 - `dragging` / `inertia` / `invert` / `fit` / `mouseFollow`
 - `auto.state` / `auto.direction` / `auto.speed` / `auto.weight`
 - `gyro.enabled` / `gyro.pending` / `gyro.absolute` / `gyro.gain`
@@ -164,12 +170,12 @@ off();
 ## 构建
 
 ```bash
-cd sdk/js
-npm install
-npm run build   # src/client.mjs → dist/orbit360-client.{js,mjs,cjs}
+pnpm install
+pnpm --filter @orbit360/javascript build
 ```
 
-`dist/orbit360-client.js` 是 IIFE，暴露 `window.Orbit360`，仓库内供 GitHub Pages 直接加载。
+产物在 `sdk/js/dist/`：`orbit360-client.{js,mjs,cjs}`。IIFE 版本暴露
+`window.Orbit360`。
 
 完整格式说明、字段含义和生成方式见
 [orbit360 仓库](https://github.com/owocc/orbit360) 的「场景包」一节。
