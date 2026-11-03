@@ -1,7 +1,24 @@
-# 自签证书
-certs/
+# 系统
 .DS_Store
 
-# 自己玩的视频与产物：仓库只放代码和 maid / orbit 两个示例
+# 自签证书
+certs/
+
+# 本地视频与构建中间产物：仓库只保留 maid / orbit 两个 .orb 示例
 /assets/gen/
 /examples/generated-video.mp4
+/assets/*/packs/
+/assets/*/meta.json
+/assets/*/frames-*/
+/assets/*/atlas-*/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Node / npm
+node_modules/
+*.tgz
+npm-debug.log*
+.npmrc

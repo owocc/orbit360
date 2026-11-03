@@ -256,12 +256,13 @@
   </div>
 </div>
 
-<script src="orb.js"></script>
+<script src="sdk/js/dist/orbit360-client.js"></script>
 <script>
 'use strict';
 
-const CFG_URL = 'config.json';
 const CATALOG_URL = 'catalog.json';
+const QUALITY_ORDER = ['std', 'hd', 'uhd'];
+const QUALITY_LABEL = { uhd: '超清', hd: '高清', std: '标准' };
 
 const el = {
   stage: document.getElementById('stage'),
@@ -294,10 +295,17 @@ const el = {
   needle: document.getElementById('needle'),
   ticks: document.getElementById('ticks'),
 };
-const ctx = el.canvas.getContext('2d', { alpha: false });
 
-const mod = (a, n) => ((a % n) + n) % n;
-const shortDelta = (from, to) => mod(to - from + 180, 360) - 180;
+const S = {
+  catalog: null,
+  entry: null,
+  exampleId: null,
+  quality: null,
+  loaded: false,
+  uiVisible: true,
+};
+
+const params = new URLSearchParams(location.search);
 
 function readPref(key) {
   try { return localStorage.getItem(key); } catch (_) { return null; }
@@ -306,145 +314,29 @@ function writePref(key, value) {
   try { localStorage.setItem(key, value); } catch (_) { /* 隐私模式 */ }
 }
 
-const S = {
-  cfg: null,
-  catalog: null,
-  entry: null,
-  exampleId: null,
-  base: '',
-  quality: 'std',
-  format: 'zip',
-  frameW: 1280,
-  frameH: 720,
-  canvasW: 0,
-  canvasH: 0,
-  frames: [],
-  layers: [],
-  frameSet: null,
-  count: 0,
-  degPerFrame: 360 / 1,
-  frameDeg: 1,
-  dirSign: 1,
+let uiHideTimer = null;
 
-  angle: 0,          // 渲染角度（平滑后）
-  target: 0,         // 目标角度
-  vel: 0,            // 惯性 deg/ms
-  dragging: false,
-  lastPointerX: 0,
-  lastPointerT: 0,
-  hoverX: null,
-  mouseFollow: true,
-  gyroSmooth: true,
-  inertia: true,
-  fitMode: 'contain',
-  orientT: 0,
-
-  auto: false,
-  autoState: 'off',
-  autoDir: 1,
-  autoSpeed: 14,
-  autoWeight: 0,
-  invert: false,
-  uiVisible: true,
-  lastPointerType: '',
-  gyro: false,
-  gyroSeen: false,
-  pendingGyro: false,
-  hasAbsolute: false,
-  gyroRef: null,
-  gyroBase: 0,
-  gyroGain: 1,
-  idleSince: 0,
-  loaded: 0,
-  drawnIndex: -1,
-  hudDeg: -1,
-};
-
-/* ---------- 加载 ---------- */
-
-/* ---------- 资源包（zip）读取 ---------- */
-
-// Safari 13 及更早没有 Blob.arrayBuffer()/text()，用 FileReader 兜底
-function blobToBuffer(blob) {
-  if (blob.arrayBuffer) return blob.arrayBuffer();
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error || new Error('读取失败'));
-    fr.readAsArrayBuffer(blob);
-  });
+function flashHint(text, ms = 2200) {
+  el.hint.textContent = text;
+  el.hint.classList.remove('hide');
+  setTimeout(() => el.hint.classList.add('hide'), ms);
 }
 
-function blobToText(blob) {
-  if (blob.text) return blob.text();
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error || new Error('读取失败'));
-    fr.readAsText(blob, 'utf-8');
-  });
+function setUI(visible) {
+  S.uiVisible = visible;
+  document.body.classList.toggle('ui-hidden', !visible);
 }
 
-// 只实现 STORED 与 DEFLATE：STORED 直接切片，DEFLATE 交给浏览器原生解压
-async function readZipEntries(blob) {
-  const buf = new Uint8Array(await blobToBuffer(blob));
-  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-  let eocd = -1;
-  const stop = Math.max(0, buf.length - 22 - 65535);
-  for (let i = buf.length - 22; i >= stop; i--) {
-    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-  }
-  if (eocd < 0) throw new Error('不是有效的 zip 文件');
-
-  const total = dv.getUint16(eocd + 10, true);
-  let off = dv.getUint32(eocd + 16, true);
-  const entries = new Map();
-
-  for (let i = 0; i < total; i++) {
-    if (dv.getUint32(off, true) !== 0x02014b50) throw new Error('zip 中央目录损坏');
-    const method = dv.getUint16(off + 10, true);
-    const compSize = dv.getUint32(off + 20, true);
-    const nameLen = dv.getUint16(off + 28, true);
-    const extraLen = dv.getUint16(off + 30, true);
-    const commentLen = dv.getUint16(off + 32, true);
-    const localOff = dv.getUint32(off + 42, true);
-    const name = new TextDecoder().decode(buf.subarray(off + 46, off + 46 + nameLen));
-    const lNameLen = dv.getUint16(localOff + 26, true);
-    const lExtraLen = dv.getUint16(localOff + 28, true);
-    const dataStart = localOff + 30 + lNameLen + lExtraLen;
-    entries.set(name, { method, data: buf.subarray(dataStart, dataStart + compSize) });
-    off += 46 + nameLen + extraLen + commentLen;
-  }
-  return entries;
+function toggleUI() {
+  setUI(!S.uiVisible);
 }
 
-async function zipFileBlob(entries, name) {
-  const e = entries.get(name);
-  if (!e) return null;
-  if (e.method === 0) return new Blob([e.data], { type: 'application/octet-stream' });
-  if (typeof DecompressionStream === 'function') {
-    const stream = new Blob([e.data]).stream()
-      .pipeThrough(new DecompressionStream('deflate-raw'));
-    return await new Response(stream).blob();
-  }
-  throw new Error(`${name} 使用了 deflate 压缩，当前浏览器无法解压`);
+function scheduleHide() {
+  clearTimeout(uiHideTimer);
+  uiHideTimer = setTimeout(() => {
+    if (!client.getState().dragging) setUI(false);
+  }, 3200);
 }
-
-function loadImageBlob(blob) {
-  return new Promise(resolve => {
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
-    img.src = url;
-  });
-}
-
-/* ---------- 示例与画质 ---------- */
-
-const QUALITY_ORDER = ['std', 'hd', 'uhd'];   // 按钮按升档顺序循环
-const QUALITY_LABEL = { uhd: '超清', hd: '高清', std: '标准' };
 
 function isMobileViewport() {
   return Math.min(window.innerWidth, screen?.width ?? 9999) <= 1100;
@@ -457,7 +349,7 @@ function availableQualities(entry) {
 
 function pickEntry(catalog) {
   if (!catalog || !Array.isArray(catalog.items) || !catalog.items.length) return null;
-  const want = new URLSearchParams(location.search).get('e');
+  const want = params.get('e');
   return catalog.items.find(i => i.id === want)
     || catalog.items.find(i => i.id === catalog.default)
     || catalog.items[0];
@@ -466,7 +358,6 @@ function pickEntry(catalog) {
 function pickQuality(entry) {
   const avail = availableQualities(entry);
   if (!avail.length) return null;
-  const params = new URLSearchParams(location.search);
   const urlQ = params.get('q');
   const pref = readPref('orbit360.quality');
   const dflt = entry.defaults?.quality;
@@ -475,22 +366,11 @@ function pickQuality(entry) {
   if (urlQ && avail.includes(urlQ)) return urlQ;
   if (pref && avail.includes(pref)) return pref;
   if (dflt && avail.includes(dflt)) {
-    // meta 推荐超清时，手机自动降一档（解码约 500MB），仍可手动切回
     if (mobile && dflt === 'uhd') return avail.includes('hd') ? 'hd' : dflt;
     return dflt;
   }
   return mobile ? (avail.includes('std') ? 'std' : avail[0])
     : (avail.includes('uhd') ? 'uhd' : avail[0]);
-}
-
-function syncQualityBtn() {
-  if (S.format !== 'zip') { el.hdBtn.hidden = true; return; }
-  const avail = availableQualities(S.entry);
-  el.hdBtn.hidden = avail.length < 2;
-  if (avail.length < 2) return;
-  el.hdBtn.textContent = QUALITY_LABEL[S.quality] || S.quality;
-  el.hdBtn.classList.toggle('on', S.quality !== 'std');
-  el.hdBtn.title = '当前 ' + (S.quality || '') + '，点击切换';
 }
 
 function buildExampleBar() {
@@ -503,7 +383,7 @@ function buildExampleBar() {
     b.className = 'ex-pill' + (it.id === S.exampleId ? ' on' : '');
     b.textContent = it.title || it.id;
     b.addEventListener('click', () => {
-      if (it.id === S.exampleId) { touchActivity(); return; }
+      if (it.id === S.exampleId) { scheduleHide(); return; }
       const url = new URL(location.href);
       url.searchParams.set('e', it.id);
       url.searchParams.delete('q');
@@ -516,382 +396,69 @@ function buildExampleBar() {
   if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 
-/* ---------- 载入资源包 ---------- */
-
-async function applyConfig(cfg, quality) {
-  S.cfg = cfg;
-  S.quality = quality;
-  S.dirSign = cfg.orbit?.direction === 'ccw' ? -1 : 1;
-  S.gyroGain = cfg.gyro?.gain ?? 1;
-  S.invert = !!cfg.drag?.invert;
-
-  // 自动旋转：用户偏好 > 包内 defaults > 包配置
-  const autoPref = readPref('orbit360.auto');
-  const dp = cfg.defaults?.auto;
-  S.autoState = autoPref || (dp ? (dp.enabled ? (dp.dir === 'ccw' ? 'ccw' : 'cw') : 'off')
-    : (cfg.auto?.enabled ? (cfg.auto?.dir === 'ccw' ? 'ccw' : 'cw') : 'off'));
-  S.autoDir = S.autoState === 'ccw' ? -1 : 1;
-  S.auto = S.autoState !== 'off';
-
-  const speedPref = parseFloat(readPref('orbit360.autoSpeed'));
-  S.autoSpeed = Number.isFinite(speedPref) ? speedPref : (cfg.auto?.degPerSec ?? 14);
-  el.autoSpeed.value = String(S.autoSpeed);
-  el.autoSpeedVal.textContent = Math.round(S.autoSpeed) + '°/s';
-  syncAutoBtn();
-
-  S.mouseFollow = cfg.mouseFollow?.enabled ?? true;
-  el.mouseBtn.classList.toggle('on', S.mouseFollow);
-  S.gyroSmooth = cfg.gyro?.smooth ?? true;
-  el.gyroSmoothBtn.classList.toggle('on', S.gyroSmooth);
-  S.inertia = cfg.drag?.inertia ?? true;
-  el.inertiaBtn.classList.toggle('on', S.inertia);
-  S.fitMode = cfg.video?.fit === 'cover' ? 'cover' : 'contain';
-  el.fitBtn.classList.toggle('on', S.fitMode === 'cover');
-  el.fitBtn.textContent = S.fitMode === 'cover' ? '铺满' : '自适应';
-  el.gain.value = String(S.gyroGain);
-  el.gainVal.textContent = S.gyroGain.toFixed(1) + '×';
-
-  el.title.textContent = cfg.title || '环绕视角';
-  document.title = cfg.title || '环绕视角';
-  buildRing();
-}
-
-async function loadFromZipBlob(blob, qualityHint) {
-  const entries = await readZipEntries(blob);
-  S.format = 'zip';
-  const metaBlob = await zipFileBlob(entries, 'meta.json');
-  if (!metaBlob) throw new Error('包里缺少 meta.json');
-  const cfg = JSON.parse(await blobToText(metaBlob));
-  const pack = cfg.pack;
-  if (!pack || !Array.isArray(pack.files) || !pack.files.length) throw new Error('meta 缺少 pack.files');
-
-  await applyConfig(cfg, qualityHint || cfg.quality || 'std');
-
-  S.count = pack.count || pack.files.length;
-  S.degPerFrame = 360 / S.count;
-  S.frameDeg = (cfg.orbit?.spanDeg ?? 360) / S.count;
-  S.frameW = pack.frameW;
-  S.frameH = pack.frameH;
-
-  // 解出所有图片
-  const imgs = new Map();
-  let done = 0;
-  let next = 0;
-  const CONCURRENCY = 6;
-  const worker = async () => {
-    while (next < pack.files.length) {
-      const name = pack.files[next++];
-      const b = await zipFileBlob(entries, name);
-      imgs.set(name, b ? await loadImageBlob(b) : null);
-      done++;
-      S.loaded = done;
-      el.prog.style.width = (40 + (done / pack.files.length) * 58).toFixed(1) + '%';
-    }
-  };
-  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-
-  if (pack.type === 'atlas') {
-    const per = pack.cols * pack.rows;
-    S.frames = Array.from({ length: S.count }, (_, i) => {
-      const img = imgs.get(pack.files[Math.floor(i / per)]);
-      if (!img) return null;
-      const k = i % per;
-      return {
-        img,
-        sx: (k % pack.cols) * pack.frameW,
-        sy: Math.floor(k / pack.cols) * pack.frameH,
-        sw: pack.frameW,
-        sh: pack.frameH,
-      };
-    });
-  } else {
-    S.frames = Array.from({ length: S.count }, (_, i) => {
-      const img = imgs.get(pack.files[i]);
-      return img ? { img, sx: 0, sy: 0, sw: pack.frameW, sh: pack.frameH } : null;
-    });
+function syncQualityBtn(state) {
+  if (!state || state.format !== 'zip' || !S.entry || !availableQualities(S.entry).length) {
+    el.hdBtn.hidden = true;
+    return;
   }
-
-  S.canvasW = pack.frameW;
-  S.canvasH = pack.frameH;
-  S.layers = [{
-    rect: { x: 0, y: 0, width: pack.frameW, height: pack.frameH },
-    frames: S.frames,
-    count: S.count,
-  }];
+  const avail = availableQualities(S.entry);
+  el.hdBtn.hidden = avail.length < 2;
+  if (avail.length < 2) return;
+  const quality = state.quality || S.quality;
+  el.hdBtn.textContent = QUALITY_LABEL[quality] || quality;
+  el.hdBtn.classList.toggle('on', quality !== 'std');
+  el.hdBtn.title = '当前 ' + (quality || '') + '，点击切换';
 }
 
-async function loadFromOrbBlob(blob, qualityHint) {
-  if (typeof OrbBundle === 'undefined') throw new Error('缺少 orb.js，无法解析 .orb');
-  const orb = await OrbBundle.fromBlob(blob);
-  const meta = orb.meta;
-  S.format = 'orb';
+function syncUI(state) {
+  if (!state) return;
+  S.quality = state.quality || S.quality;
+  S.loaded = state.ready;
+  el.title.textContent = state.title || '环绕视角';
+  document.title = state.title || '环绕视角';
 
-  await applyConfig(meta, qualityHint || meta.codec || 'orb');
+  const gain = Number(state.config.gyro.gain);
+  el.gain.value = String(gain);
+  el.gainVal.textContent = gain.toFixed(1) + '×';
 
-  S.canvasW = meta.canvas.width;
-  S.canvasH = meta.canvas.height;
-  S.frameW = S.canvasW;
-  S.frameH = S.canvasH;
-  S.count = Math.max.apply(null, meta.videos.map(v => v.frames.count));
-  S.degPerFrame = 360 / S.count;
-  S.frameDeg = (meta.orbit?.spanDeg ?? 360) / S.count;
-  S.angle = S.target = mod(Number(meta.initialAngle) || 0, 360);
+  const speed = Number(state.config.auto.degPerSec);
+  el.autoSpeed.value = String(speed);
+  el.autoSpeedVal.textContent = Math.round(speed) + '°/s';
 
-  // 每视频一层；画布坐标由 meta.videos[].rect 决定
-  const layers = [];
-  const jobs = [];
-  meta.videos.forEach((v, vi) => {
-    const frames = new Array(v.frames.count);
-    layers.push({ rect: v.rect, frames, count: v.frames.count });
-    for (let fi = 0; fi < v.frames.count; fi++) {
-      jobs.push({ vi, fi, frames, w: v.frames.width, h: v.frames.height });
-    }
-  });
+  el.gyroBtn.textContent = state.gyro.enabled ? '陀螺仪已开'
+    : (state.gyro.pending ? '待授权' : '陀螺仪');
+  el.gyroBtn.classList.toggle('on', state.gyro.enabled);
+  el.calBtn.disabled = !state.gyro.enabled;
 
-  let done = 0;
-  let next = 0;
-  const CONCURRENCY = 6;
-  const worker = async () => {
-    while (next < jobs.length) {
-      const j = jobs[next++];
-      const b = orb.frameBlob(j.vi, j.fi);
-      const img = b ? await loadImageBlob(b) : null;
-      j.frames[j.fi] = img ? { img, sx: 0, sy: 0, sw: j.w, sh: j.h } : null;
-      done++;
-      S.loaded = done;
-      el.prog.style.width = (40 + (done / jobs.length) * 58).toFixed(1) + '%';
-    }
-  };
-  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-  S.layers = layers;
-  S.frames = [];
+  el.mouseBtn.classList.toggle('on', state.mouseFollow.enabled);
+  el.gyroSmoothBtn.classList.toggle('on', state.config.gyro.smooth);
+  el.inertiaBtn.classList.toggle('on', state.inertia);
+  el.fitBtn.classList.toggle('on', state.fit === 'cover');
+  el.fitBtn.textContent = state.fit === 'cover' ? '铺满' : '自适应';
+  el.invBtn.classList.toggle('on', state.invert);
+
+  el.autoBtn.textContent = state.auto.state === 'off' ? '自动环绕'
+    : (state.auto.state === 'cw' ? '顺时针' : '逆时针');
+  el.autoBtn.classList.toggle('on', state.auto.state !== 'off');
+
+  syncQualityBtn(state);
 }
 
-async function loadFromBlob(blob, qualityHint) {
-  let head = null;
-  if (blob.size >= 4) {
-    head = new Uint8Array(await blobToBuffer(blob.slice(0, 4)));
-  }
-  const isOrb = head && head[0] === 0x4f && head[1] === 0x52 && head[2] === 0x42 && head[3] === 0x33;
-  if (isOrb) await loadFromOrbBlob(blob, qualityHint);
-  else await loadFromZipBlob(blob, qualityHint);
-}
-
-async function loadFromUrl(url, quality) {
-  el.prog.style.width = '10%';
-  const res = await fetch(url, { cache: 'default' });
-  if (!res.ok) throw new Error(`包下载失败（HTTP ${res.status}）`);
-  const blob = await res.blob();
-  el.prog.style.width = '38%';
-  await loadFromBlob(blob, quality);
-}
-
-async function boot() {
-  const params = new URLSearchParams(location.search);
-  const orbUrl = params.get('orb');
-  if (orbUrl) {
-    // 直接用 ?orb=<url> 打开 .orb，不依赖 catalog.json
-    S.entry = null;
-    S.exampleId = null;
-    el.examples.hidden = true;
-    await loadFromUrl(orbUrl, null);
-  } else {
-    S.catalog = await fetch(CATALOG_URL, { cache: 'no-cache' })
-      .then(r => (r.ok ? r.json() : null))
-      .catch(() => null);
-
-    const entry = pickEntry(S.catalog);
-    S.entry = entry;
-    S.exampleId = entry ? entry.id : null;
-    if (entry) buildExampleBar();
-
-    // 默认走 scene.orb；?fmt=zip 或 ?q= 强制回 zip 的按画质包
-    const forceZip = params.get('fmt') === 'zip' || params.has('q');
-    const quality = pickQuality(entry);
-    const useOrb = !forceZip && !!(entry && entry.orb);
-    const url = useOrb ? entry.orb : (quality ? entry.packs[quality] : null);
-    if (!url) throw new Error('找不到可用的示例包（catalog.json）');
-
-    await loadFromUrl(url, useOrb ? null : quality);
-  }
-  syncQualityBtn();
-
-  layout();
-  let missing = 0;
-  S.layers.forEach(layer => {
-    layer.frames.forEach(f => { if (!f || !f.img) missing++; });
-  });
-  if (missing) {
-    el.hint.textContent = `${missing} 帧解码失败（${S.quality}）`;
-    el.hint.classList.remove('hide');
-  }
-  el.loader.classList.add('done');
-  setTimeout(() => el.loader.remove(), 600);
-  setUI(true);
-  uiHideTimer = setTimeout(() => {
-    if (!S.dragging) setUI(false);
-  }, 3200);
-  requestAnimationFrame(loop);
-}
-
-/* ---------- 画布 ---------- */
-
-let viewW = 0, viewH = 0, dpr = 1;
-const dst = { x: 0, y: 0, w: 0, h: 0 };
-
-function resize() {
-  // clientWidth 在 canvas 属性尺寸参与布局的瞬间可能还没更新，取容器尺寸更稳
-  const w = el.stage.clientWidth || window.innerWidth;
-  const h = el.stage.clientHeight || window.innerHeight;
-  const ndpr = Math.min(window.devicePixelRatio || 1, 2);
-  dpr = ndpr;
-  viewW = w;
-  viewH = h;
-  const bw = Math.round(w * ndpr);
-  const bh = Math.round(h * ndpr);
-  if (el.canvas.width !== bw) el.canvas.width = bw;
-  if (el.canvas.height !== bh) el.canvas.height = bh;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'medium';
-  layout();
-}
-
-let resizeQueued = false;
-function queueResize() {
-  if (resizeQueued) return;
-  resizeQueued = true;
-  requestAnimationFrame(() => {
-    resizeQueued = false;
-    resize();
-  });
-}
-addEventListener('resize', queueResize);
-addEventListener('orientationchange', queueResize);
-new ResizeObserver(queueResize).observe(el.stage);
-
-function fillBackdrop() {
-  const g = ctx.createRadialGradient(
-    viewW * 0.5, viewH * 0.42, 0,
-    viewW * 0.5, viewH * 0.42, Math.max(viewW, viewH) * 0.78,
-  );
-  g.addColorStop(0, '#1b1f27');
-  g.addColorStop(0.62, '#0a0b0e');
-  g.addColorStop(1, '#050608');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, viewW, viewH);
-}
-
-function layout() {
-  const cfg = S.cfg;
-  if (!cfg || !viewW || !viewH) return;
-  const vw = S.canvasW || S.frameW || cfg.video?.width || 1280;
-  const vh = S.canvasH || S.frameH || cfg.video?.height || 720;
-  const cover = S.fitMode === 'cover';
-  const base = cover
-    ? Math.max(viewW / vw, viewH / vh)                     // 铺满：填满视口，裁掉多余
-    : Math.min(viewW / vw, viewH / vh) * (viewH > viewW ? (cfg.video?.portraitScale ?? 1.25) : 1);
-  const scale = base * (cover ? 1 : (cfg.video?.displayScale || 1));
-  dst.w = vw * scale;
-  dst.h = vh * scale;
-  dst.x = (viewW - dst.w) / 2;
-  dst.y = (viewH - dst.h) / 2;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  fillBackdrop();
-  S.drawnIndex = -1;
-  // 立即补画当前帧：否则清屏与下一帧 rAF 之间会出现一次空画面（视觉上是闪）
-  if (S.cfg && S.count && S.layers.length) paint();
-}
-
-function frameIndex() {
-  if (!S.count) return 0;
-  return mod(Math.round(mod(S.angle * S.dirSign, 360) / S.degPerFrame), S.count);
-}
-
-// 多视频时各层帧数可能不同：按全局帧号占整圈的比例取该层的帧
-function layerFrame(layer, idx) {
-  if (!layer.count) return null;
-  const i = layer.count === S.count ? idx
-    : mod(Math.floor(idx * layer.count / S.count), layer.count);
-  return layer.frames[i];
-}
-
-// 只在帧号变化时重绘：单帧硬切，无叠加过渡
-// 关键：不清屏，直接覆盖。这样任何一帧都不会出现「已清空、尚未绘制」的空窗，
-// 移动端 GPU 上传有延迟时也不会闪。
-function paint() {
-  if (!S.cfg || !S.layers.length) return;
-  const idx = frameIndex();
-  if (idx === S.drawnIndex) return;
-  S.drawnIndex = idx;
-
-  const cw = S.canvasW || S.frameW || 1;
-  const ch = S.canvasH || S.frameH || 1;
-  const sx = dst.w / cw;
-  const sy = dst.h / ch;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  for (let i = 0; i < S.layers.length; i++) {
-    const layer = S.layers[i];
-    const f = layerFrame(layer, idx);
-    if (!f || !f.img) continue;
-    const r = layer.rect;
-    ctx.drawImage(f.img, f.sx, f.sy, f.sw, f.sh,
-      dst.x + r.x * sx, dst.y + r.y * sy, r.width * sx, r.height * sy);
-  }
-  el.meta.textContent = `帧 ${idx + 1} / ${S.count} · ${S.frameDeg.toFixed(2)}°/帧`;
-}
-
-/* ---------- 主循环 ---------- */
-
-// 静止后渐入自动旋转；任何交互都以更快的速度渐出，避免启停顿挫
-function updateAuto(dt, t) {
-  const want = (S.auto && !S.gyro && !S.dragging
-    && (t - S.idleSince) > (S.cfg?.auto?.idleDelayMs ?? 2200)) ? 1 : 0;
-  const tau = want
-    ? (S.cfg?.auto?.rampInMs ?? 700)
-    : (S.dragging ? 120 : (S.cfg?.auto?.rampOutMs ?? 280));
-
-  S.autoWeight += (want - S.autoWeight) * (1 - Math.exp(-dt / tau));
-  if (want === 0 && S.autoWeight < 0.004) { S.autoWeight = 0; return; }
-  if (S.autoWeight <= 0) return;
-
-  S.target += S.autoDir * S.autoSpeed * S.autoWeight * dt / 1000;
-}
-
-let lastT = 0;
-function loop(t) {
-  const dt = Math.min(t - (lastT || t), 64);
-  lastT = t;
-
-  if (!S.dragging) {
-    if (S.inertia && !S.gyro && Math.abs(S.vel) > 0.0005) {
-      S.target += S.vel * dt;
-      S.vel *= Math.exp(-dt / (S.cfg.drag?.inertiaMs ?? 110));
-      touchActivity();
-    } else {
-      S.vel = 0;
-    }
-  }
-  updateAuto(dt, t);
-
-  const d = shortDelta(S.angle, S.target);
-  const tau = S.cfg.motion?.smoothMs ?? 62;
-  S.angle = mod(S.angle + d * (1 - Math.exp(-dt / tau)), 360);
-  if (Math.abs(shortDelta(S.angle, S.target)) < 0.0005) S.angle = mod(S.target, 360);
-  S.target = mod(S.target, 360);
-
-  paint();
-  updateHUD();
-  requestAnimationFrame(loop);
-}
-
-function updateHUD() {
-  const deg = Math.round(mod(S.angle, 360));
-  if (deg === S.hudDeg) return;
-  S.hudDeg = deg;
+function updateHUD(angle) {
+  const deg = Math.round(((angle % 360) + 360) % 360);
   el.deg.textContent = deg.toString();
-  el.needle.setAttribute('transform', `rotate(${mod(S.angle, 360).toFixed(1)} 66 66)`);
-  const r = 52, c = 2 * Math.PI * r;
+  el.needle.setAttribute('transform', `rotate(${angle.toFixed(1)} 66 66)`);
+  const r = 52;
+  const c = 2 * Math.PI * r;
   el.arc.setAttribute('stroke-dasharray', `${(c * deg / 360).toFixed(2)} ${c.toFixed(2)}`);
+}
+
+function updateFrameMeta(e) {
+  if (!e || !e.count) {
+    el.meta.textContent = '— / —';
+    return;
+  }
+  el.meta.textContent = `帧 ${e.index + 1} / ${e.count} · ${e.frameDeg.toFixed(2)}°/帧`;
 }
 
 function buildRing() {
@@ -907,261 +474,90 @@ function buildRing() {
   el.ticks.innerHTML = s;
 }
 
-/* ---------- 拖拽 & UI ---------- */
-
-const LONG_PRESS_MS = 420;
-let pressTimer = null;
-let pressStart = null;
-let suppressMove = false;
-let uiHideTimer = null;
-
-function touchActivity() {
-  S.idleSince = performance.now();
+if (!window.Orbit360 || typeof window.Orbit360.Client !== 'function') {
+  throw new Error('缺少 web client：sdk/js/dist/orbit360-client.js');
 }
 
-function setUI(visible) {
-  S.uiVisible = visible;
-  document.body.classList.toggle('ui-hidden', !visible);
+const userConfig = {};
+const autoPref = readPref('orbit360.auto');
+if (autoPref) {
+  userConfig.auto = {
+    enabled: autoPref !== 'off',
+    dir: autoPref === 'ccw' ? 'ccw' : 'cw',
+  };
+}
+const speedPref = parseFloat(readPref('orbit360.autoSpeed'));
+if (Number.isFinite(speedPref)) {
+  userConfig.auto = { ...(userConfig.auto || {}), degPerSec: speedPref };
 }
 
-function toggleUI() {
-  setUI(!S.uiVisible);
-}
+const client = new window.Orbit360.Client(el.canvas, {
+  container: el.stage,
+  input: el.stage,
+  config: userConfig,
+  autoStartGyro: true,
+});
 
-el.stage.addEventListener('pointerdown', e => {
-  if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
-  S.lastPointerType = e.pointerType;
-  if (S.pendingGyro) {          // iOS：首次手势内申请权限并自动开启
-    S.pendingGyro = false;
-    enableGyro();
+client.on('progress', p => {
+  if (el.prog) el.prog.style.width = (p.progress * 100).toFixed(1) + '%';
+});
+
+client.on('ready', () => {
+  const state = client.getState();
+  syncUI(state);
+  updateHUD(state.angle);
+  updateFrameMeta({
+    index: state.frameIndex,
+    count: state.frameCount,
+    frameDeg: state.frameDeg,
+  });
+  if (state.missingFrames) {
+    flashHint(`${state.missingFrames} 帧解码失败（${state.quality || state.codec || state.format}）`);
   }
-  S.dragging = true;
-  S.vel = 0;
-  S.hoverX = null;
-  S.lastPointerX = e.clientX;
-  S.lastPointerT = e.timeStamp;
-  el.stage.classList.add('dragging');
-  try { el.stage.setPointerCapture(e.pointerId); } catch (_) { /* 合成事件无活动指针 */ }
-  touchActivity();
-  el.hint.classList.add('hide');
+  if (el.loader) {
+    el.loader.classList.add('done');
+    setTimeout(() => el.loader.remove(), 600);
+  }
+  setUI(true);
+  scheduleHide();
+});
 
-  clearTimeout(pressTimer);
-  pressTimer = null;
-  pressStart = { x: e.clientX, y: e.clientY };
-  if (e.pointerType !== 'mouse') {
-    pressTimer = setTimeout(() => {
-      pressTimer = null;
-      suppressMove = true;
-      S.dragging = false;
-      S.vel = 0;
-      el.stage.classList.remove('dragging');
-      toggleUI();
-      navigator.vibrate?.(8);
-    }, LONG_PRESS_MS);
+client.on('state', syncUI);
+client.on('angle', e => updateHUD(e.angle));
+client.on('frame', updateFrameMeta);
+
+client.on('error', err => {
+  console.error(err);
+  if (!S.loaded) {
+    if (el.prog) el.prog.style.background = '#f87171';
+    const label = el.loader && el.loader.querySelector('p');
+    if (label) label.textContent = '加载失败：' + err.message + '（需 HTTP 服务，勿用 file://）';
+  } else {
+    flashHint('加载失败：' + err.message, 4000);
   }
 });
 
-el.stage.addEventListener('pointermove', e => {
-  if (pressStart && Math.hypot(e.clientX - pressStart.x, e.clientY - pressStart.y) > 8) {
-    clearTimeout(pressTimer);
-    pressTimer = null;
-    pressStart = null;           // 动了就算拖拽，取消长按
+client.on('gyrochange', e => {
+  syncUI(client.getState());
+  if (e.reason === 'enabled') flashHint('转动身体环视 · 仍可拖拽微调', 3200);
+  else if (e.reason === 'no-readings') flashHint('未检测到方向传感器，请用拖拽', 2600);
+  else if (e.reason === 'denied' || e.reason === 'unsupported' || e.reason === 'error') {
+    flashHint('陀螺仪被拒绝或需 HTTPS，桌面请用拖拽', 2600);
   }
-  if (suppressMove) return;
-
-  if (!S.dragging) {
-    // 鼠标悬停即可转向，无需按住
-    if (S.mouseFollow && e.pointerType === 'mouse' && e.buttons === 0) {
-      if (S.hoverX === null) { S.hoverX = e.clientX; return; }
-      const mx = e.clientX - S.hoverX;
-      S.hoverX = e.clientX;
-      if (mx) {
-        const d = mx * (S.cfg?.mouseFollow?.degPerPx ?? 0.3) * (S.invert ? -1 : 1);
-        S.target += d;
-        if (S.gyro) S.gyroBase = mod(S.gyroBase + d, 360);
-        touchActivity();
-      }
-    }
-    return;
-  }
-  const dx = e.clientX - S.lastPointerX;
-  const dt = Math.max(e.timeStamp - S.lastPointerT, 1);
-  const deg = dx * (S.cfg?.drag?.degPerPx ?? 0.42) * (S.invert ? -1 : 1);
-  S.target += deg;
-  if (S.gyro) S.gyroBase = mod(S.gyroBase + deg, 360);
-  const inst = dt > 90 ? 0 : deg / dt;
-  S.vel = 0.6 * inst + 0.4 * S.vel;
-  S.lastPointerX = e.clientX;
-  S.lastPointerT = e.timeStamp;
-  touchActivity();
 });
 
-function endDrag(e) {
-  clearTimeout(pressTimer);
-  pressTimer = null;
-  pressStart = null;
-  S.hoverX = null;
-  el.stage.classList.remove('dragging');
-  if (e && e.pointerId !== undefined && el.stage.hasPointerCapture?.(e.pointerId)) {
-    try { el.stage.releasePointerCapture(e.pointerId); } catch (_) {}
-  }
-  if (suppressMove) {
-    suppressMove = false;
-    S.dragging = false;
-    S.vel = 0;
-    return;
-  }
-  if (!S.dragging) return;
-  S.dragging = false;
-  if (performance.now() - S.lastPointerT > 90) S.vel = 0;
-  S.vel = Math.max(-0.55, Math.min(0.55, S.vel));
-  touchActivity();
-}
-el.stage.addEventListener('pointerup', endDrag);
-el.stage.addEventListener('pointercancel', endDrag);
-el.stage.addEventListener('pointerleave', () => { S.hoverX = null; });
-
-// PC：双击显示/隐藏 UI；触屏走长按
-el.stage.addEventListener('dblclick', () => {
-  if (S.lastPointerType === 'touch') return;
+client.on('longpress', () => {
   clearTimeout(uiHideTimer);
-  toggleUI();
+  setUI(!S.uiVisible);
+  navigator.vibrate?.(8);
 });
 
-el.stage.addEventListener('contextmenu', e => e.preventDefault());
+client.on('doubletap', () => {
+  clearTimeout(uiHideTimer);
+  setUI(!S.uiVisible);
+});
 
-/* ---------- 陀螺仪 ---------- */
-
-const RAD = Math.PI / 180;
-
-function screenAngle() {
-  const so = screen.orientation;
-  if (so && typeof so.angle === 'number') return mod(so.angle, 360);
-  return typeof window.orientation === 'number' ? mod(window.orientation, 360) : 0;
-}
-
-// 由设备姿态解出水平方位角（yaw）：与握持倾斜、横竖屏都无关
-function headingOf(e) {
-  if (typeof e.webkitCompassHeading === 'number' && !Number.isNaN(e.webkitCompassHeading) && e.webkitCompassHeading >= 0) {
-    return e.webkitCompassHeading;               // iOS：直接提供绝对朝向
-  }
-  const a = e.alpha, b = e.beta, g = e.gamma;
-  if (typeof a !== 'number') return null;
-  if (typeof b !== 'number' || typeof g !== 'number') return mod(360 - a, 360);
-
-  const A = a * RAD, B = b * RAD, G = g * RAD;
-  // 设备 z 轴（屏幕法线）在世界坐标中的方向：R = Rz(alpha)·Rx(beta)·Ry(gamma)
-  const vx = Math.sin(G) * Math.cos(A) + Math.cos(G) * Math.sin(B) * Math.sin(A);
-  const vy = Math.sin(G) * Math.sin(A) - Math.cos(G) * Math.sin(B) * Math.cos(A);
-  const horizontal = Math.hypot(vx, vy);
-
-  if (horizontal < 0.25) {
-    // 手机接近平放（z 轴几乎竖直）只能退回 alpha；横屏时屏幕转了 90°，方向相反
-    const sa = screenAngle();
-    return (sa === 90 || sa === 270) ? mod(a, 360) : mod(360 - a, 360);
-  }
-  return mod(Math.atan2(-vx, -vy) / RAD, 360);
-}
-
-function onOrient(e) {
-  const h = headingOf(e);
-  if (h === null) return;
-  S.gyroSeen = true;
-  if (S.dragging) return;      // 拖拽期间让手势优先，避免互相拉扯
-  if (S.gyroRef === null) {
-    S.gyroRef = h;
-    S.gyroBase = S.target;
-    return;
-  }
-  const gain = S.gyroGain * (S.cfg?.gyro?.invert ? -1 : 1) * (S.invert ? -1 : 1);
-  const d = shortDelta(S.gyroRef, h) * gain;
-  const raw = mod(S.gyroBase - d, 360);
-
-  if (S.gyroSmooth) {
-    // 低通滤波：传感器噪声被压掉，代价是约 smoothMs 的延迟
-    const now = performance.now();
-    const dt = Math.min(Math.max(now - S.orientT, 1), 120);
-    S.orientT = now;
-    const tau = S.cfg?.gyro?.smoothMs ?? 80;
-    S.target = mod(S.target + shortDelta(S.target, raw) * (1 - Math.exp(-dt / tau)), 360);
-  } else {
-    S.target = raw;
-  }
-  touchActivity();
-}
-
-function onAbsolute(e) {
-  if (headingOf(e) === null) return;   // 空读数的 absolute 事件不能锁死相对事件
-  S.hasAbsolute = true;
-  onOrient(e);
-}
-
-function onRelative(e) {
-  if (S.hasAbsolute) return;   // 已有绝对朝向，相对 alpha 会跳变
-  onOrient(e);
-}
-
-function isTouchDevice() {
-  return matchMedia('(pointer: coarse)').matches
-    || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-}
-
-// 移动端默认申请并开启陀螺仪；iOS 需要首次手势，此时先挂起
-function initAutoGyro() {
-  if (!isTouchDevice()) return;
-  if (typeof DeviceOrientationEvent === 'undefined') return;
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    S.pendingGyro = true;
-    el.gyroBtn.textContent = '待授权';
-  } else {
-    enableGyro();
-  }
-}
-
-async function enableGyro() {
-  if (S.gyro) return;
-  try {
-    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-      const p = await DeviceOrientationEvent.requestPermission();
-      if (p !== 'granted') throw new Error('permission denied');
-    }
-    if (typeof DeviceOrientationEvent === 'undefined') throw new Error('unsupported');
-    addEventListener('deviceorientationabsolute', onAbsolute, true);
-    addEventListener('deviceorientation', onRelative, true);
-    S.gyro = true;
-    S.gyroSeen = false;
-    S.hasAbsolute = false;
-    S.gyroRef = null;
-    el.gyroBtn.classList.add('on');
-    el.gyroBtn.textContent = '陀螺仪已开';
-    el.calBtn.disabled = false;
-    el.hint.textContent = '转动身体环视 · 仍可拖拽微调';
-    el.hint.classList.remove('hide');
-    setTimeout(() => el.hint.classList.add('hide'), 3200);
-
-    // 没有传感器读数（桌面/无权限）时自动回退
-    setTimeout(() => {
-      if (S.gyroSeen) return;
-      removeEventListener('deviceorientationabsolute', onAbsolute, true);
-      removeEventListener('deviceorientation', onRelative, true);
-      S.gyro = false;
-      S.gyroRef = null;
-      el.gyroBtn.classList.remove('on');
-      el.gyroBtn.textContent = '重试陀螺仪';
-      el.calBtn.disabled = true;
-      el.hint.textContent = '未检测到方向传感器，请用拖拽';
-      el.hint.classList.remove('hide');
-      setTimeout(() => el.hint.classList.add('hide'), 2600);
-    }, 2200);
-  } catch (err) {
-    el.gyroBtn.textContent = '重试陀螺仪';
-    el.hint.textContent = '陀螺仪被拒绝或需 HTTPS，桌面请用拖拽';
-    el.hint.classList.remove('hide');
-  }
-}
-
-/* ---------- 全屏 ---------- */
+/* ---------- 全屏（UI） ---------- */
 
 const fsRoot = document.documentElement;
 const fsSupported = !!(fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen);
@@ -1189,101 +585,83 @@ async function toggleFullscreen() {
     flashHint('全屏被浏览器拒绝');
   }
   syncFsBtn();
-  queueResize();
+  client.resize();
 }
 
-function flashHint(text, ms = 2200) {
-  el.hint.textContent = text;
-  el.hint.classList.remove('hide');
-  setTimeout(() => el.hint.classList.add('hide'), ms);
-}
-
-document.addEventListener('fullscreenchange', () => { syncFsBtn(); queueResize(); });
-document.addEventListener('webkitfullscreenchange', () => { syncFsBtn(); queueResize(); });
+document.addEventListener('fullscreenchange', () => { syncFsBtn(); client.resize(); });
+document.addEventListener('webkitfullscreenchange', () => { syncFsBtn(); client.resize(); });
 el.fsBtn.addEventListener('click', toggleFullscreen);
 if (!fsSupported) el.fsBtn.hidden = true;
 
-/* ---------- 重置 ---------- */
+/* ---------- 控件（全部走 client API） ---------- */
+
+el.gyroBtn.addEventListener('click', async () => {
+  const state = client.getState();
+  if (state.gyro.enabled) {
+    client.disableGyro();
+    flashHint('陀螺仪已关闭', 1600);
+  } else {
+    await client.enableGyro();
+  }
+});
+
+el.calBtn.addEventListener('click', () => client.calibrateGyro());
 
 el.resetBtn.addEventListener('click', () => {
-  S.target = 0;
-  S.vel = 0;
-  if (S.gyro) {
-    S.gyroRef = null;      // 重新取基准，当前朝向即 0°
-    S.gyroBase = 0;
-  }
-  touchActivity();
+  client.reset();
   flashHint('已重置到 0°', 1400);
 });
 
-el.gyroBtn.addEventListener('click', enableGyro);
-
-el.calBtn.addEventListener('click', () => {
-  S.gyroRef = null;
-});
-
 el.invBtn.addEventListener('click', () => {
-  S.invert = !S.invert;
-  el.invBtn.classList.toggle('on', S.invert);
+  const state = client.getState();
+  client.setInvert(!state.invert);
+  flashHint(state.invert ? '方向已恢复' : '方向已反向', 1400);
 });
 
 el.gain.addEventListener('input', () => {
-  S.gyroGain = parseFloat(el.gain.value) || 1;
-  el.gainVal.textContent = S.gyroGain.toFixed(1) + '×';
+  const gain = parseFloat(el.gain.value) || 1;
+  client.setGyroConfig({ gain });
 });
 
 el.mouseBtn.addEventListener('click', () => {
-  S.mouseFollow = !S.mouseFollow;
-  el.mouseBtn.classList.toggle('on', S.mouseFollow);
-  S.hoverX = null;
-  touchActivity();
-  flashHint(S.mouseFollow ? '鼠标移动即可转向' : '鼠标跟随已关闭', 1600);
+  const state = client.getState();
+  const enabled = !state.mouseFollow.enabled;
+  client.setMouseFollow(enabled);
+  flashHint(enabled ? '鼠标移动即可转向' : '鼠标跟随已关闭', 1600);
 });
 
 el.gyroSmoothBtn.addEventListener('click', () => {
-  S.gyroSmooth = !S.gyroSmooth;
-  el.gyroSmoothBtn.classList.toggle('on', S.gyroSmooth);
-  S.orientT = 0;
-  flashHint(S.gyroSmooth ? '陀螺仪平滑已开' : '陀螺仪原始跟随（会有抖动）', 1600);
+  const state = client.getState();
+  const smooth = !state.config.gyro.smooth;
+  client.setGyroConfig({ smooth });
+  flashHint(smooth ? '陀螺仪平滑已开' : '陀螺仪原始跟随（会有抖动）', 1600);
 });
 
 el.inertiaBtn.addEventListener('click', () => {
-  S.inertia = !S.inertia;
-  el.inertiaBtn.classList.toggle('on', S.inertia);
-  if (!S.inertia) S.vel = 0;
-  flashHint(S.inertia ? '松手惯性已开' : '松手即停', 1600);
+  const state = client.getState();
+  const inertia = !state.inertia;
+  client.setInertia(inertia);
+  flashHint(inertia ? '松手惯性已开' : '松手即停', 1600);
 });
 
 el.fitBtn.addEventListener('click', () => {
-  S.fitMode = S.fitMode === 'cover' ? 'contain' : 'cover';
-  el.fitBtn.classList.toggle('on', S.fitMode === 'cover');
-  el.fitBtn.textContent = S.fitMode === 'cover' ? '铺满' : '自适应';
-  layout();
-  touchActivity();
+  const state = client.getState();
+  const fit = state.fit === 'cover' ? 'contain' : 'cover';
+  client.setFit(fit);
+  flashHint(fit === 'cover' ? '铺满视口' : '自适应显示', 1400);
 });
 
-function syncAutoBtn() {
-  el.autoBtn.textContent = S.autoState === 'off' ? '自动环绕'
-    : (S.autoState === 'cw' ? '顺时针' : '逆时针');
-  el.autoBtn.classList.toggle('on', S.autoState !== 'off');
-}
-
 el.autoBtn.addEventListener('click', () => {
-  S.autoState = S.autoState === 'off' ? 'cw' : (S.autoState === 'cw' ? 'ccw' : 'off');
-  S.auto = S.autoState !== 'off';
-  S.autoDir = S.autoState === 'ccw' ? -1 : 1;
-  writePref('orbit360.auto', S.autoState);
-  syncAutoBtn();
-  touchActivity();
-  flashHint(S.autoState === 'off' ? '自动旋转已关闭'
-    : (S.autoState === 'cw' ? '顺时针自动旋转' : '逆时针自动旋转'), 1400);
+  const next = client.cycleAuto();
+  writePref('orbit360.auto', next);
+  flashHint(next === 'off' ? '自动旋转已关闭'
+    : (next === 'cw' ? '顺时针自动旋转' : '逆时针自动旋转'), 1400);
 });
 
 el.autoSpeed.addEventListener('input', () => {
-  S.autoSpeed = parseFloat(el.autoSpeed.value) || 14;
-  el.autoSpeedVal.textContent = Math.round(S.autoSpeed) + '°/s';
-  writePref('orbit360.autoSpeed', String(S.autoSpeed));
-  touchActivity();
+  const speed = parseFloat(el.autoSpeed.value) || 14;
+  client.setAutoSpeed(speed);
+  writePref('orbit360.autoSpeed', String(speed));
 });
 
 el.importBtn.addEventListener('click', () => el.importFile.click());
@@ -1294,18 +672,19 @@ el.importFile.addEventListener('change', async () => {
   if (!file) return;
   try {
     flashHint('正在解析 ' + file.name, 4000);
-    await loadFromBlob(file, null);
-    S.entry = null;                 // 导入模式没有示例清单，画质切换隐藏
+    S.entry = null;
     S.exampleId = null;
     const pills = el.examples.querySelectorAll('.ex-pill');
     for (let i = 0; i < pills.length; i++) pills[i].classList.remove('on');
-    syncQualityBtn();
-    layout();
-    flashHint(`已载入 ${S.cfg.title || file.name}`, 2400);
+    await client.load(file, { quality: null });
+    syncQualityBtn(client.getState());
+    flashHint(`已载入 ${client.getState().title || file.name}`, 2400);
   } catch (err) {
     flashHint('导入失败：' + err.message, 4000);
   }
 });
+
+/* ---------- 示例 / 画质（catalog 仍由页面管理） ---------- */
 
 el.hdBtn.addEventListener('click', () => {
   const avail = availableQualities(S.entry);
@@ -1319,25 +698,76 @@ el.hdBtn.addEventListener('click', () => {
   location.href = url.toString();
 });
 
-/* ---------- 键盘 ---------- */
+/* ---------- 键盘（UI 快捷键） ---------- */
 
 addEventListener('keydown', e => {
   const step = e.shiftKey ? 15 : 3;
-  if (e.key === 'ArrowRight') { S.target += step; touchActivity(); e.preventDefault(); }
-  else if (e.key === 'ArrowLeft') { S.target -= step; touchActivity(); e.preventDefault(); }
-  else if (e.key === ' ') { el.autoBtn.click(); e.preventDefault(); }
-  else if (e.key === 'h' || e.key === 'H') { clearTimeout(uiHideTimer); toggleUI(); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { client.rotateBy(step); scheduleHide(); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { client.rotateBy(-step); scheduleHide(); e.preventDefault(); }
+  else if (e.key === ' ') {
+    const next = client.cycleAuto();
+    writePref('orbit360.auto', next);
+    flashHint(next === 'off' ? '自动旋转已关闭'
+      : (next === 'cw' ? '顺时针自动旋转' : '逆时针自动旋转'), 1400);
+    e.preventDefault();
+  } else if (e.key === 'h' || e.key === 'H') {
+    clearTimeout(uiHideTimer);
+    toggleUI();
+    e.preventDefault();
+  }
 });
 
 /* ---------- 启动 ---------- */
 
-resize();
-S.idleSince = performance.now();
+async function boot() {
+  const orbUrl = params.get('orb');
+  let loadUrl = null;
+  let quality = null;
+  let useOrb = false;
+
+  if (orbUrl) {
+    S.entry = null;
+    S.exampleId = null;
+    el.examples.hidden = true;
+    loadUrl = orbUrl;
+    useOrb = true;
+  } else {
+    S.catalog = await fetch(CATALOG_URL, { cache: 'no-cache' })
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null);
+
+    const entry = pickEntry(S.catalog);
+    S.entry = entry;
+    S.exampleId = entry ? entry.id : null;
+    if (entry) buildExampleBar();
+
+    const forceZip = params.get('fmt') === 'zip' || params.has('q');
+    quality = pickQuality(entry);
+    useOrb = !forceZip && !!(entry && entry.orb);
+    loadUrl = useOrb ? entry.orb : (quality ? entry.packs[quality] : null);
+    if (!loadUrl) throw new Error('找不到可用的示例包（catalog.json）');
+  }
+
+  S.quality = useOrb ? null : quality;
+  await client.load(loadUrl, { quality: useOrb ? null : quality });
+  syncUI(client.getState());
+  syncQualityBtn(client.getState());
+}
+
+buildRing();
+syncUI(client.getState());
 boot().catch(err => {
-  el.prog.style.background = '#f87171';
-  el.loader.querySelector('p').textContent = '加载失败：' + err.message + '（需 HTTP 服务，勿用 file://）';
   console.error(err);
+  if (el.prog) el.prog.style.background = '#f87171';
+  const label = el.loader && el.loader.querySelector('p');
+  if (label) label.textContent = '加载失败：' + err.message + '（需 HTTP 服务，勿用 file://）';
 });
+
+if (params.has('debug')) {
+  window.__orbit = { client, S, el, setUI, flashHint };
+}
+
 </script>
+
 </body>
 </html>

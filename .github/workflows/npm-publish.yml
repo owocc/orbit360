@@ -1,0 +1,81 @@
+name: SDK · npm
+
+# 发布前在仓库 Settings → Secrets and variables → Actions 里添加：
+#   NPM_TOKEN = npm 的 Automation / Granular Access Token（勾选 @orbit360 包写权限）
+# 然后创建 GitHub Release，或手动运行本工作流并关闭 dry_run。
+
+on:
+  pull_request:
+    paths:
+      - "sdk/js/**"
+      - ".github/workflows/npm-publish.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "只校验 / 打包，不执行 npm publish"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: 校验 SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - name: 安装构建依赖
+        run: npm ci
+      - name: 构建 dist
+        run: npm run build
+      - name: 语法检查
+        run: npm test
+      - name: 校验 web client 包
+        run: >-
+          node -e "const m=require('./dist/orbit360-client.cjs');
+          if(typeof m.Orbit360Client!=='function'||m.Orbit360Client.name!=='Orbit360Client')process.exit(1);
+          console.log('web client',m.VERSION);"
+      - name: 解析示例 .orb
+        run: >-
+          node -e "const fs=require('fs');const O=require('./orb.js');
+          const b=fs.readFileSync('../../assets/maid/scene.orb');
+          const o=O.parse(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));
+          if(!o.meta||o.meta.totalFrames!==o.entries.length)process.exit(1);
+          console.log(o.meta.title,o.meta.totalFrames,'frames');"
+      - name: 检查发布内容
+        run: npm pack --dry-run
+
+  publish:
+    name: 发布 @orbit360/javascript
+    needs: verify
+    if: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: sdk/js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+      - name: 安装构建依赖
+        run: npm ci
+      - name: 发布到 npm
+        run: npm publish --access public --provenance
+        env:
+          # 占位：填入仓库 Secrets 里的 NPM_TOKEN 后即可发布
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

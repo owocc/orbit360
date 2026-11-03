@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """HTTPS 静态服务器（陀螺仪在手机上必须走安全上下文）。
 
-用法: python3 serve_tls.py [port]
+用法: python3 scripts/serve_tls.py [port]
 首次运行会用 openssl 生成自签证书 ./certs/dev.{crt,key}，SAN 覆盖本机局域网 IP。
 手机首次访问会提示"不安全"，选择继续访问即可。
 """
@@ -14,7 +14,7 @@ import subprocess
 import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8443
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CERT_DIR = os.path.join(ROOT, "certs")
 CRT = os.path.join(CERT_DIR, "dev.crt")
 KEY = os.path.join(CERT_DIR, "dev.key")

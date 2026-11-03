@@ -5,13 +5,7 @@
       "id": "maid",
       "title": "沙发少女",
       "orb": "assets/maid/scene.orb",
-      "packs": {
-        "std": "assets/maid/packs/std.zip",
-        "hd": "assets/maid/packs/hd.zip",
-        "uhd": "assets/maid/packs/uhd.zip"
-      },
       "defaults": {
-        "quality": "uhd",
         "auto": {
           "enabled": true,
           "dir": "cw"
@@ -28,13 +22,7 @@
       "id": "orbit",
       "title": "环绕视角",
       "orb": "assets/orbit/scene.orb",
-      "packs": {
-        "std": "assets/orbit/packs/std.zip",
-        "hd": "assets/orbit/packs/hd.zip",
-        "uhd": "assets/orbit/packs/uhd.zip"
-      },
       "defaults": {
-        "quality": "uhd",
         "auto": {
           "enabled": true,
           "dir": "cw"

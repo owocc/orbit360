@@ -72,7 +72,7 @@ func TestBuildArgs(t *testing.T) {
 		quality: 2, autoDir: 2, updateCatalog: true, keepRaw: true,
 	}
 	got := strings.Join(a.buildArgs("/repo/assets/gen"), " ")
-	want := "/repo/build.py /tmp/a.mp4 --out /repo/assets/gen --title 生成视频" +
+	want := "/repo/scripts/build.py /tmp/a.mp4 --out /repo/assets/gen --title 生成视频" +
 		" --fps 12 --std 512 --hd 640 --uhd 0 --quality 6" +
 		" --default-quality uhd --default-auto ccw --keep-raw --catalog /repo/catalog.json"
 	if got != want {

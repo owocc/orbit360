@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""静态服务器：多线程，允许局域网手机访问。用法: python3 serve.py [port]"""
+"""静态服务器：多线程，允许局域网手机访问。用法: python3 scripts/serve.py [port]"""
 import http.server
+import os
 import socketserver
 import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8787
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *a, **kw):
+        super().__init__(*a, directory=ROOT, **kw)
+
     def log_message(self, *args):
         pass
 
