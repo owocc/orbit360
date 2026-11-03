@@ -18,6 +18,53 @@ python3 serve_tls.py 8443        # 手机 https://<本机IP>:8443/（自签证�
 
 仓库里已经带了两个示例（`assets/orbit/`、`assets/maid/`），开箱即用。
 
+自己的视频：一条命令出 zip 并挂进示例清单，页面不用改——
+
+```bash
+python3 build.py <视频路径> --out assets/<id> --title "标题" --catalog catalog.json
+```
+
+参数、分档与调试选项见 [重新生成资产](#重新生成资产)。
+
+## GUI（原生窗口）
+
+不想敲命令行就用 `gui/`：一个 [MyGo](https://github.com/egoist/mygo) 的原生窗口，
+Go 自己画界面，没有 webview、没有前端构建；里面只是给 `build.py` 套了一层表单。
+
+```bash
+cd gui
+go run .              # 直接跑
+go tool mygo dev      # 改 .go 自动重启
+go tool mygo build    # 打包成 Orbit360.app / .exe / .deb
+```
+
+需要 Go 1.27+、Python 3（跑 `build.py`）、ffmpeg。ffmpeg 和 Python 都不用自己折腾：
+窗口会自动在 `PATH`、Homebrew 常见位置里找，找不到就点「下载」（macOS 从
+[evermeet.cx](https://evermeet.cx/ffmpeg/) 取 ffmpeg + ffprobe 静态构建，Windows 取
+gyan.dev 的 essentials 包，解到配置目录的 `bin/`）；Linux 走包管理器，窗口只给提示。
+
+| 位置 | 作用 |
+|---|---|
+| 源视频 | `选择…` 后自动用 ffprobe 读尺寸，并把「超清长边」收到源的长边（不放大） |
+| 示例 id / 标题 | `id` 决定 `assets/<id>/`，并写进 `catalog.json` |
+| 帧率 + 三档长边 | 就是 `--fps` / `--std` / `--hd` / `--uhd`（超清填 0 关掉该档） |
+| 默认画质 / 默认自动环绕 | `--default-quality` / `--default-auto` |
+| 保留中间帧 / 更新 catalog | `--keep-raw` / `--catalog` |
+| 开始生成 | 起 `python3 build.py`，日志实时贴在下半屏，可中途停止 |
+| 打开预览 | 没在跑就先起 `serve.py 8787`，再打开 `http://127.0.0.1:8787/?e=<id>` |
+| 打开输出目录 | 在 Finder / 资源管理器里定位 `assets/<id>` |
+
+设置（上一次的视频、路径、参数）存在 `~/Library/Application Support/orbit360-gui/settings.json`
+（Linux 在 `$XDG_CONFIG_HOME`，Windows 在 `%AppData%`）。
+
+界面本身可以不开窗口渲成图片，方便调布局：
+
+```bash
+go run . -shot shot.png
+```
+
+GUI 只是 `build.py` 的壳，页面仍是 `index.html`，两边互不影响。
+
 ## 资源包（zip）
 
 每个示例按画质打包成独立的 zip，里面就是 `meta.json` + 图片，**不压缩（ZIP_STORED）**，
@@ -67,12 +114,15 @@ assets/maid/
 - URL 参数：`?e=maid&q=uhd`
 - 手机打开时即使 meta 推荐 `uhd` 也自动降为 `hd`（约 110 MB 解码），需要时手动切到超清
 
-新增一个示例：
+新增一个示例（源视频 → 三档 zip → 清单，`index.html` 不动）：
 
 ```bash
 python3 build.py my-video.mp4 --out assets/myid --title "我的示例" \
     --default-quality uhd --default-auto cw --catalog catalog.json
 ```
+
+源分辨率低于超清档长边时把 `--uhd` 压到源的长边，否则只是无意义放大：
+`--uhd 752`（源 752×416）、`--uhd 1280`（源 1280×720）。完整参数见 [重新生成资产](#重新生成资产)。
 
 ## 导入自定义包
 
@@ -174,18 +224,51 @@ UI 集中在左下角面板，进入 3.2 秒后自动隐藏，画面全屏沉浸
 
 ## 重新生成资产
 
+`build.py` 把「视频 → 可转的 3D 模型」这条链全包了：读源 meta、算闭环、抽帧、
+拼雪碧图、打 zip、刷新 `catalog.json`。仓库里每个 `assets/<id>/` 都是它一次跑出来的。
+
 ```bash
-python3 build.py <video> --out assets/<id> [--title 标题] [--catalog catalog.json]
-                  [--fps 12] [--std 512] [--hd 640] [--uhd 1920]
-                  [--default-quality uhd] [--default-auto cw|ccw|off] [--quality 6]
+python3 build.py <视频路径> --out assets/<id> [--title 标题] [--catalog catalog.json]
+                  [--fps 12] [--std 512] [--hd 640] [--uhd 1920] [--quality 6]
+                  [--default-quality uhd] [--default-auto cw|ccw|off] [--assets-root DIR]
+                  [--keep-raw] [--frames-only [--frames-dir DIR]]
 ```
 
-`--uhd 0` 可关掉超清档；`--keep-raw` 会保留解包出来的中间帧目录（调试用）。
+常见用法：
+
+```bash
+# 4K 源
+python3 build.py examples/anime-maid.mp4 --out assets/maid --title "沙发少女" --catalog catalog.json
+
+# 低分辨率源（752×416）：超清档给到原生 752 长边，不放大
+python3 build.py ~/Downloads/my-video.mp4 --out assets/gen --title "生成视频" \
+    --uhd 752 --default-quality uhd --catalog catalog.json
+
+# 只想看看抽出来的帧，不打包
+python3 build.py ~/Downloads/my-video.mp4 --frames-only --frames-dir /tmp/frames
 ```
+
+| 参数 | 作用 |
+|---|---|
+| `--out` | 产物目录（默认脚本目录）：`meta.json` + `packs/{std,hd,uhd}.zip` |
+| `--fps` | 标准/高清档采样帧率，默认 12（10 秒 → 120 帧，3°/帧） |
+| `--std` / `--hd` | 雪碧图档长边，默认 512 / 640 |
+| `--uhd` | 超清档长边，默认 1920，帧数减半；`0` 关掉该档；源更小时按源的长边给 |
+| `--quality` | JPEG 质量 2–31，越小越清晰（默认 6） |
+| `--catalog` | 构建完刷新示例清单，新 `<id>` 自动写进去并成为 `default` |
+| `--assets-root` | 清单扫描的根目录，默认 `--out` 的父目录 |
+| `--keep-raw` | 中间产物留着：`out/frames-<std\|hd\|uhd>/`（序列帧）、`out/atlas-<std\|hd>/`（雪碧图） |
+| `--frames-only` | 只抽帧不建 zip、不写 meta（长边/帧率取 `--std`/`--fps`） |
+| `--frames-dir` | 配合 `--frames-only` 指定落地目录，默认 `out/frames` |
+
+流程要点：
 
 - 用 `ffprobe` 读源 meta，用 32×18 灰度缩略图算首尾 ZNCC 闭环相似度（过差会警告）
-- 抽四套帧：桌面标准 1280、桌面超清 1920（帧数减半）、移动标准 512、移动高清 640
-- 帧数按 `--fps` 采样，默认 12fps → 10 秒视频 120 帧（3°/帧）
+- 三档都从同一个源解码：`std`/`hd` 合并成 6×10 雪碧图（`pack.type = atlas`），
+  `uhd` 输出逐帧序列（`pack.type = sequence`）；长边按 `fit()` 等比缩放并取偶数
+- 帧在临时目录里解码，构建完成即删；需要帧就显式加 `--keep-raw` 或 `--frames-only`
+- 已有 `meta.json` 里的 `drag / motion / auto / gyro / orbit / video / title` 会被沿用，
+  重建不会冲掉手调过的参数
 
 ## 移动端为什么不闪
 
@@ -213,6 +296,9 @@ build.py          视频 → meta.json + packs/{std,hd,uhd}.zip
 serve.py          多线程静态服务
 serve_tls.py      HTTPS 服务（手机陀螺仪必需，自动生成自签证书）
 catalog.json      示例清单（default + items + packs + defaults）
+gui/              原生窗口 GUI（MyGo native UI，Go + build.py）
+  main.go           界面与构建流程
+  env.go            路径检测、ffmpeg 下载、设置持久化
 examples/         示例源视频
   orbit-sample.mp4   1280×720 / 10s
   anime-maid.mp4     3840×2160 / 10s

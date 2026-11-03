@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """从一段环绕视频生成 orbit360 页面所需的全部资产。
 
-    python3 build.py ../Camera_orbiting_frozen_subject_xxx.mp4
+    python3 build.py <视频> --out assets/<id> --title "标题" --catalog catalog.json
 
-产物（默认写到本脚本所在目录）：
-    source.mp4        原始视频副本
-    frames/           桌面帧集（长边 800）
-    frames-small/     移动帧集（长边 512）
-    config.json       源视频 meta + 环绕/手感配置
+产物（写到 --out）：
+    meta.json            包外副本，供 catalog 读取 defaults
+    packs/std.zip        雪碧图档（长边 --std，默认 512）
+    packs/hd.zip         雪碧图档（长边 --hd，默认 640）
+    packs/uhd.zip        序列帧档（长边 --uhd，默认 1920，帧数减半；--uhd 0 关掉）
+
+只想要帧不打包：--frames-only --frames-dir DIR
+构建时保留中间产物：--keep-raw → frames-<档>/ 与 atlas-<档>/
 
 需要 ffmpeg / ffprobe 在 PATH 中。
 """
@@ -194,14 +197,16 @@ def write_pack(path, meta, entries):
 
 
 def build_atlas_pack(src, out_zip, quality_tag, long_edge, fps, jpeg_q, count, base_meta,
-                     cols=6, rows=10):
+                     cols=6, rows=10, frames_out=None, atlas_out=None):
+    """frames_out / atlas_out 给定时中间产物留在该目录（--keep-raw），否则随临时目录删掉。"""
     tmp = tempfile.mkdtemp(prefix="orbit-atlas-")
     try:
+        frames_dir = frames_out or os.path.join(tmp, "frames")
+        atlas_dir = atlas_out or os.path.join(tmp, "atlas")
         fw, fh = fit(base_meta["source"]["width"], base_meta["source"]["height"], long_edge)
-        n = extract(src, os.path.join(tmp, "frames"), fw, fh, fps, jpeg_q, count)
-        sheets, sw, sh = make_atlas(os.path.join(tmp, "frames"), os.path.join(tmp, "atlas"),
-                                    cols, rows, fw, fh, n, jpeg_q)
-        entries = [(f"sheet{i:02d}.jpg", os.path.join(tmp, "atlas", f"sheet{i:02d}.jpg"))
+        n = extract(src, frames_dir, fw, fh, fps, jpeg_q, count)
+        sheets, sw, sh = make_atlas(frames_dir, atlas_dir, cols, rows, fw, fh, n, jpeg_q)
+        entries = [(f"sheet{i:02d}.jpg", os.path.join(atlas_dir, f"sheet{i:02d}.jpg"))
                    for i in range(1, sheets + 1)]
         meta = dict(base_meta)
         meta["quality"] = quality_tag
@@ -216,11 +221,12 @@ def build_atlas_pack(src, out_zip, quality_tag, long_edge, fps, jpeg_q, count, b
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def build_sequence_pack(src, out_zip, quality_tag, long_edge, fps, jpeg_q, count, base_meta):
+def build_sequence_pack(src, out_zip, quality_tag, long_edge, fps, jpeg_q, count, base_meta,
+                        frames_out=None):
     tmp = tempfile.mkdtemp(prefix="orbit-seq-")
     try:
         fw, fh = fit(base_meta["source"]["width"], base_meta["source"]["height"], long_edge)
-        frames_dir = os.path.join(tmp, "frames")
+        frames_dir = frames_out or os.path.join(tmp, "frames")
         n = extract(src, frames_dir, fw, fh, fps, jpeg_q, count)
         names = sorted(x for x in os.listdir(frames_dir) if x.endswith(".jpg"))
         entries = [(name, os.path.join(frames_dir, name)) for name in names]
@@ -235,6 +241,12 @@ def build_sequence_pack(src, out_zip, quality_tag, long_edge, fps, jpeg_q, count
         return meta["pack"], size, None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def source_ref(src, out):
+    """meta.source.file 用相对 --out 的路径；源视频离得远时退回文件名，别塞一串 ../../..。"""
+    rel = os.path.relpath(src, out).replace(os.sep, "/")
+    return os.path.basename(src) if rel.count("..") > 2 else rel
 
 
 def write_catalog(root, path, default_id=None):
@@ -292,7 +304,12 @@ def main():
     ap.add_argument("--catalog", help="构建后生成示例清单，例如 catalog.json")
     ap.add_argument("--assets-root", default=None,
                     help="示例资产根目录（默认取 --out 的父目录）")
-    ap.add_argument("--keep-raw", action="store_true", help="保留解包出来的原始帧目录")
+    ap.add_argument("--keep-raw", action="store_true",
+                    help="把中间帧留在 out/frames-<档>、雪碧图留在 out/atlas-<档>")
+    ap.add_argument("--frames-dir", default=None,
+                    help="配合 --frames-only：只抽帧到这个目录，不打包")
+    ap.add_argument("--frames-only", action="store_true",
+                    help="只抽帧不生成 zip（长边/帧率取 --std/--fps）")
     args = ap.parse_args()
 
     if not os.path.exists(args.video):
@@ -316,6 +333,13 @@ def main():
           + ("" if seam is not None and adjacent is not None and seam >= adjacent - 0.12
              else "  ⚠ 首尾不闭合，环回会有一次跳变"))
 
+    if args.frames_only:
+        fw, fh = fit(meta["width"], meta["height"], args.std)
+        frames_dir = args.frames_dir or os.path.join(out, "frames")
+        n = extract(src, frames_dir, fw, fh, fps, min(31, args.quality + 1), count)
+        print(f"帧: {frames_dir}  {fw}x{fh} × {n} 帧  {360 / max(1, n):.2f}°/帧")
+        return
+
     meta_path = os.path.join(out, "meta.json")
     ui = load_ui_defaults(meta_path)
     if args.title:
@@ -324,7 +348,7 @@ def main():
     base_meta = {
         "title": ui["title"],
         "source": {
-            "file": os.path.relpath(src, out),
+            "file": source_ref(src, out),
             "width": meta["width"],
             "height": meta["height"],
             "fps": meta["fps"],
@@ -353,34 +377,32 @@ def main():
 
     packs_dir = os.path.join(out, "packs")
     built = {}
+    keep = args.keep_raw
 
     spec_std, size_std, _ = build_atlas_pack(
         src, os.path.join(packs_dir, "std.zip"), "std", args.std, fps,
-        min(31, args.quality + 1), count, base_meta)
+        min(31, args.quality + 1), count, base_meta,
+        frames_out=os.path.join(out, "frames-std") if keep else None,
+        atlas_out=os.path.join(out, "atlas-std") if keep else None)
     built["std"] = (spec_std, size_std)
 
     spec_hd, size_hd, _ = build_atlas_pack(
         src, os.path.join(packs_dir, "hd.zip"), "hd", args.hd, fps,
-        min(31, args.quality + 1), count, base_meta)
+        min(31, args.quality + 1), count, base_meta,
+        frames_out=os.path.join(out, "frames-hd") if keep else None,
+        atlas_out=os.path.join(out, "atlas-hd") if keep else None)
     built["hd"] = (spec_hd, size_hd)
 
     if args.uhd:
         spec_uhd, size_uhd, _ = build_sequence_pack(
             src, os.path.join(packs_dir, "uhd.zip"), "uhd", args.uhd,
-            max(fps / 2, 1), args.quality, max(1, count // 2), base_meta)
+            max(fps / 2, 1), args.quality, max(1, count // 2), base_meta,
+            frames_out=os.path.join(out, "frames-uhd") if keep else None)
         built["uhd"] = (spec_uhd, size_uhd)
 
     with open(meta_path, "w", encoding="utf-8") as fh:
         json.dump(base_meta, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
-
-    if not args.keep_raw:
-        for d in ("frames", "frames-small", "frames-hd", "atlas", "atlas-hd", "config.json"):
-            p = os.path.join(out, d)
-            if os.path.isdir(p):
-                shutil.rmtree(p, ignore_errors=True)
-            elif os.path.isfile(p):
-                os.remove(p)
 
     if args.catalog:
         root = args.assets_root or os.path.dirname(out.rstrip(os.sep))
@@ -389,6 +411,8 @@ def main():
     for q, (spec, size) in built.items():
         print(f"  {q:>4}: {spec['frameW']}x{spec['frameH']} × {spec['count']} 帧  "
               f"{spec['type']:8}  {size/1024/1024:.1f} MB  packs/{q}.zip")
+    if keep:
+        print(f"原始帧: {out}/frames-<std|hd|uhd>   雪碧图: {out}/atlas-<std|hd>")
     print(f"meta: {meta_path}")
     print(f"角度: {360 / max(1, built['std'][0]['count']):.2f}°/帧（标准档）")
     print("启动: python3 serve.py 8787    或    python3 serve_tls.py 8443（手机陀螺仪）")
