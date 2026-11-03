@@ -5,10 +5,13 @@
 ```
 sdk/
   js/
-    package.json  npm 包 @orbit360/javascript
-    orb.js       浏览器 / Node 通用（UMD，零依赖）
-    orb.d.ts     TypeScript 类型
-    README.md    npm 包说明
+    package.json      npm 包 @orbit360/javascript
+    orb.js            ORB3 解析器（UMD，零依赖）
+    orb.d.ts          解析器类型
+    src/client.mjs    Web client 源码（渲染核心，不含 UI）
+    dist/             构建产物：IIFE / ESM / CJS
+    web-client.d.ts   Web client 类型
+    README.md         npm 包说明
 ```
 
 ## JavaScript
@@ -19,37 +22,41 @@ npm：
 npm install @orbit360/javascript
 ```
 
+解析 `.orb`：
+
 ```js
 const OrbBundle = require('@orbit360/javascript');
-
-const orb = await OrbBundle.fromBlob(file);   // File / Blob，只读取 Header + Meta + Index
-orb.meta;                                     // 场景 meta
-orb.frameEntry(videoIndex, frameIndex);       // { video, length, offset }
-orb.frameBlob(videoIndex, frameIndex);        // 该帧 Blob
-
-const whole = OrbBundle.parse(arrayBuffer);   // 整文件
-const head = OrbBundle.parse(prefixBuffer);   // 也可以只给前 prefixLen 字节
+const orb = await OrbBundle.fromBlob(file);
 ```
 
-ESM / TypeScript：
+Web 渲染客户端（不包含 UI，所有控制项通过 API）：
 
-```ts
-import OrbBundle from '@orbit360/javascript';
+```js
+import { Orbit360Client } from '@orbit360/javascript/web-client';
+
+const client = new Orbit360Client(canvas, { container: stage, input: stage });
+await client.load('assets/maid/scene.orb');
+client.setAutoRotate('cw');
+client.setFit('cover');
+console.log(client.getAngle(), client.getState());
 ```
 
-浏览器里也可以直接引入，挂到 `window.OrbBundle`：
+浏览器全局版：
 
 ```html
-<script src="sdk/js/orb.js"></script>
+<script src="sdk/js/dist/orbit360-client.js"></script>
+<script>
+  const client = new Orbit360.Client(canvas, { container: stage, input: stage });
+</script>
 ```
 
-完整格式说明、字段含义和生成方式见仓库根目录 [README](../README.md) 的「场景包」一节。
+完整 API、配置和事件见 [sdk/js/README.md](js/README.md)。
 
 ## 发布
 
 npm 包信息在 `sdk/js/package.json`，发布由 `.github/workflows/npm-publish.yml` 负责：
 
-- PR / 手动运行：只做语法检查和 `npm pack --dry-run`
+- PR / 手动运行：安装依赖、构建 `dist`、校验 web client、`npm pack --dry-run`
 - GitHub Release：校验后执行 `npm publish --access public --provenance`
 - 手动运行且关闭 `dry_run`：同样执行发布
 

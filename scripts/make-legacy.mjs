@@ -22,7 +22,7 @@ const src = join(tmpdir(), 'orbit-legacy-src.js');
 const out = join(tmpdir(), 'orbit-legacy-built.js');
 const debugTail = `
 if (/(^|[?&])debug(=|&|$)/.test(location.search)) {
-  window.__orbit = { S: S, el: el, paint: paint, layout: layout, setUI: setUI, headingOf: headingOf };
+  window.__orbit = { client: client, S: S, el: el, setUI: setUI, flashHint: flashHint };
 }`;
 writeFileSync(src, block[1] + debugTail);
 
@@ -37,11 +37,11 @@ execFileSync(runner, [
 
 const built = readFileSync(out, 'utf8');
 const polyfill = readFileSync(join(here, 'legacy-polyfill.js'), 'utf8');
-const orbSource = readFileSync(join(root, 'sdk/js/orb.js'), 'utf8');
+const clientSource = readFileSync(join(root, 'sdk/js/dist/orbit360-client.js'), 'utf8');
 
 const legacy = html
   .replace(block[0], `<script>\n${polyfill}\n${built}\n</script>`)
-  .replace('<script src="sdk/js/orb.js"></script>', () => `<script>\n${orbSource}\n</script>`)
+  .replace('<script src="sdk/js/dist/orbit360-client.js"></script>', () => `<script>\n${clientSource}\n</script>`)
   .replace('<html lang="zh-CN">', '<html lang="zh-CN" data-legacy="1">')
   .replace('<title>', '<title>兼容版 · ');
 

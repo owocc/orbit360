@@ -1,7 +1,7 @@
 {
   "name": "@orbit360/javascript",
   "version": "0.1.0",
-  "description": "ORB3 (.orb) scene bundle parser for orbit360 — browser and Node, zero dependencies",
+  "description": "ORB3 (.orb) scene bundle parser and web client for orbit360 — zero dependencies",
   "type": "commonjs",
   "keywords": [
     "orbit360",
@@ -9,7 +9,9 @@
     "orb3",
     "360",
     "panorama",
-    "scene-bundle"
+    "scene-bundle",
+    "canvas",
+    "web-client"
   ],
   "homepage": "https://github.com/owocc/orbit360#readme",
   "repository": {
@@ -29,11 +31,20 @@
       "require": "./orb.js",
       "import": "./orb.js",
       "default": "./orb.js"
-    }
+    },
+    "./web-client": {
+      "types": "./web-client.d.ts",
+      "import": "./dist/orbit360-client.mjs",
+      "require": "./dist/orbit360-client.cjs",
+      "default": "./dist/orbit360-client.mjs"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "orb.js",
     "orb.d.ts",
+    "dist",
+    "web-client.d.ts",
     "README.md"
   ],
   "sideEffects": false,
@@ -41,9 +52,14 @@
     "node": ">=16"
   },
   "scripts": {
-    "test": "node --check orb.js"
+    "build": "node scripts/build.mjs",
+    "test": "node --check orb.js && node --check src/client.mjs",
+    "prepublishOnly": "npm run build && npm test"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

@@ -34,8 +34,17 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
+      - name: 安装构建依赖
+        run: npm ci
+      - name: 构建 dist
+        run: npm run build
       - name: 语法检查
         run: npm test
+      - name: 校验 web client 包
+        run: >-
+          node -e "const m=require('./dist/orbit360-client.cjs');
+          if(typeof m.Orbit360Client!=='function'||m.Orbit360Client.name!=='Orbit360Client')process.exit(1);
+          console.log('web client',m.VERSION);"
       - name: 解析示例 .orb
         run: >-
           node -e "const fs=require('fs');const O=require('./orb.js');
@@ -63,6 +72,8 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
+      - name: 安装构建依赖
+        run: npm ci
       - name: 发布到 npm
         run: npm publish --access public --provenance
         env:

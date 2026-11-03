@@ -204,8 +204,53 @@ meta 是一个对象 + 一个数组，一个视频对应 `videos` 里的一项�
 
 ### 网页里怎么用
 
-`sdk/js/orb.js` 是零依赖解析器，`index.html` 已经用 `<script src="sdk/js/orb.js">` 引入。
-SDK 按语言分目录，其他语言实现放在 `sdk/<lang>/`，说明见 [sdk/README.md](sdk/README.md)。
+页面渲染由 Web client 负责，UI 只负责按钮、滑杆与 HUD。`index.html` 加载
+`sdk/js/dist/orbit360-client.js`，然后创建一个客户端：
+
+```html
+<script src="sdk/js/dist/orbit360-client.js"></script>
+<script>
+  const client = new Orbit360.Client(document.querySelector('canvas'), {
+    container: document.querySelector('#stage'),
+    input: document.querySelector('#stage'),
+  });
+
+  client.load('assets/maid/scene.orb').then(() => {
+    console.log(client.getState());
+  });
+</script>
+```
+
+核心 API：
+
+```js
+client.load(urlOrBlob);                       // .orb / 旧版 zip
+client.setAngle(90);                          // 目标角度
+client.rotateBy(3);
+client.setAutoRotate('cw');                   // off / cw / ccw
+client.setAutoSpeed(20);
+client.setGyroConfig({ gain: 1.4, smooth: true });
+client.setInvert(false);
+client.setFit('cover');                       // contain / cover
+client.setMouseFollow({ enabled: true });
+client.setConfig({ drag: { degPerPx: 0.5 } });
+client.getAngle();                            // 当前角度
+client.getConfig();                           // 当前完整配置
+client.getState();                            // 角度 / 帧号 / 自动旋转 / 陀螺仪 / 进度 / meta
+client.on('angle', ({ angle, frameIndex }) => {});
+client.on('state', state => {});
+```
+
+完整配置项、状态字段、事件与方法见 [sdk/js/README.md](sdk/js/README.md)。
+SDK 按语言分目录，其他语言实现放在 `sdk/<lang>/`，约定见 [sdk/README.md](sdk/README.md)。
+
+修改 `sdk/js/src/client.mjs` 后重新构建，并同步旧版页面：
+
+```bash
+cd sdk/js && npm install && npm run build && cd ../..
+node scripts/make-legacy.mjs
+```
+
 JavaScript SDK 也发布到 npm：`@orbit360/javascript`（含 TypeScript 类型）。
 
 ```bash
@@ -218,7 +263,7 @@ npm install @orbit360/javascript
   各视频帧数不同时按当前角度占整圈的比例取帧
 - 打开时角度取 `meta.initialAngle`，环绕方向取 `meta.orbit.direction`
 
-浏览器 / Node API：
+底层解析器仍可单独使用（`@orbit360/javascript`）：
 
 ```js
 const orb = await OrbBundle.fromBlob(file);   // File / Blob
@@ -235,7 +280,8 @@ const head = OrbBundle.parse(prefixBuffer);   // 也可以只给前 prefixLen �
 `fromBlob()` 只先读 32B Header 和前 `prefixLen` 字节，帧在需要时才 `slice`，
 配合同样的 Range 服务端不会整包下载。
 
-`legacy.html` 由 `scripts/make-legacy.mjs` 把 `sdk/js/orb.js` 一并联内联，旧系统也能读 `.orb`。
+`legacy.html` 由 `scripts/make-legacy.mjs` 把 Web client 构建产物与页面脚本一起内联，
+旧系统也能运行。
 
 ## 示例
 
@@ -298,7 +344,8 @@ node scripts/make-legacy.mjs        # 读 index.html → esbuild 降到 ES2015 �
 ESBUILD=npx node scripts/make-legacy.mjs   # 没有 bunx 时换用 npx
 ```
 
-改动 `index.html` 后要重跑一次。降级只处理语法与缺失 API：
+`make-legacy.mjs` 会同时内联 `sdk/js/dist/orbit360-client.js` 与页面脚本。
+改动 `index.html` 或 Web client 后要重跑一次。降级只处理语法与缺失 API：
 
 - `?.` / `??` / `async` / 对象展开 → ES2015
 - 无 Pointer Events 的内核：`scripts/legacy-polyfill.js` 用 touch/mouse 合成 pointerdown/move/up/cancel/leave，
@@ -455,9 +502,12 @@ sdk/                多语言 SDK
   README.md          SDK 约定、npm 发布与新增语言说明
   js/                JavaScript SDK
     package.json     npm 包 @orbit360/javascript
-    orb.js           ORB3 解析器（浏览器 / Node，零依赖；legacy 会内联）
-    orb.d.ts         TypeScript 类型
-    README.md        npm 包说明
+    orb.js           ORB3 解析器（浏览器 / Node，零依赖）
+    orb.d.ts         解析器类型
+    src/client.mjs   Web client 源码（渲染核心，不含 UI）
+    dist/            IIFE / ESM / CJS 构建产物（GitHub Pages 用 IIFE）
+    web-client.d.ts  Web client 类型
+    README.md        npm 包说明与完整 API
 apps/
   gui/              原生窗口 GUI（MyGo native UI，Go + scripts/build.py）
     main.go           界面与构建流程
@@ -478,6 +528,6 @@ scripts/
 
 ## 兼容性
 
-Canvas + `createImageBitmap` + `ResizeObserver`。陀螺仪需要安全上下文
+Canvas + `Image` + `ResizeObserver`。陀螺仪需要安全上下文
 （`https://` 或 `localhost`），iOS 需在用户手势内调用 `DeviceOrientationEvent.requestPermission()`；
 Android 优先使用 `deviceorientationabsolute` 的绝对朝向，无传感器时自动回退到拖拽。
