@@ -1,0 +1,17 @@
+{
+  "name": "orbit360",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm build:sdk && pnpm --filter @orbit360/playground dev",
+    "build": "pnpm build:sdk && pnpm --filter @orbit360/playground build",
+    "preview": "pnpm --filter @orbit360/playground preview",
+    "test": "pnpm --filter @orbit360/javascript test",
+    "build:sdk": "pnpm --filter @orbit360/javascript build"
+  }
+}

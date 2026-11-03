@@ -15,6 +15,7 @@ import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8443
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SITE = os.path.join(ROOT, "dist")
 CERT_DIR = os.path.join(ROOT, "certs")
 CRT = os.path.join(CERT_DIR, "dev.crt")
 KEY = os.path.join(CERT_DIR, "dev.key")
@@ -57,7 +58,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
     def __init__(self, *a, **kw):
-        super().__init__(*a, directory=ROOT, **kw)
+        super().__init__(*a, directory=SITE, **kw)
 
 
 class Server(socketserver.ThreadingTCPServer):
@@ -65,6 +66,10 @@ class Server(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
     request_queue_size = 128
 
+
+if not os.path.isfile(os.path.join(SITE, "index.html")):
+    print("找不到 dist/index.html：先运行 npm run build", file=sys.stderr)
+    sys.exit(1)
 
 ensure_cert()
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

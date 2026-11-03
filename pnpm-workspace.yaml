@@ -1,0 +1,13 @@
+packages:
+  - apps/playground
+  - sdk/js
+
+allowBuilds:
+  esbuild: true
+
+catalog:
+  react: ^19.3.1
+  react-dom: ^19.3.1
+  vite: ^7.3.7
+  '@vitejs/plugin-react': ^5.2.0
+  esbuild: ^0.28.2
