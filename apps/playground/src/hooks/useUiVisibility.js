@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** UI 自动隐藏、手动切换；拖动中不自动隐藏。 */
 export function useUiVisibility() {
@@ -20,7 +20,7 @@ export function useUiVisibility() {
 
   const toggle = useCallback(() => {
     clearTimer();
-    setVisible(value => !value);
+    setVisible((value) => !value);
   }, []);
 
   const reveal = useCallback(() => {
@@ -29,8 +29,8 @@ export function useUiVisibility() {
   }, []);
 
   useEffect(() => {
-    document.body.classList.toggle('ui-hidden', !visible);
-    return () => document.body.classList.remove('ui-hidden');
+    document.body.classList.toggle("ui-hidden", !visible);
+    return () => document.body.classList.remove("ui-hidden");
   }, [visible]);
 
   useEffect(() => clearTimer, []);

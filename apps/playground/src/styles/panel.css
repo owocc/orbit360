@@ -18,7 +18,10 @@
   grid-template-columns: 1fr auto;
   gap: 10px 12px;
   align-items: center;
-  transition: opacity 0.26s ease, transform 0.26s ease, visibility 0.26s;
+  transition:
+    opacity 0.26s ease,
+    transform 0.26s ease,
+    visibility 0.26s;
 }
 
 body.ui-hidden #panel {
@@ -141,7 +144,10 @@ button {
   border-radius: 9px;
   padding: 7px 4px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

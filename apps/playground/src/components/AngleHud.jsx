@@ -1,4 +1,4 @@
-import { displayAngle, ringGeometry, ringLabelForAxis } from '../lib/format.js';
+import { displayAngle, ringGeometry, ringLabelForAxis } from "../lib/format.js";
 
 const TICKS = Array.from({ length: 72 }, (_, index) => {
   const major = index % 6 === 0;
@@ -57,8 +57,10 @@ export function AngleHud({ angle, axis }) {
           strokeWidth="2"
           transform={`rotate(${ring.needle.toFixed(1)} 66 66)`}
         />
-        <circle cx="66" cy="66" r="3.2" fill="currentColor" style={{ color: 'var(--accent)' }} />
-        <text x="66" y="124" textAnchor="middle">{ringLabelForAxis(axis)}</text>
+        <circle cx="66" cy="66" r="3.2" fill="currentColor" style={{ color: "var(--accent)" }} />
+        <text x="66" y="124" textAnchor="middle">
+          {ringLabelForAxis(axis)}
+        </text>
       </svg>
     </>
   );

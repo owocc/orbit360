@@ -1,27 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ControlPanel } from './components/ControlPanel.jsx';
-import { ExampleBar } from './components/ExampleBar.jsx';
-import { Loader } from './components/Loader.jsx';
-import { Stage } from './components/Stage.jsx';
-import { TopBar } from './components/TopBar.jsx';
-import { useFullscreen } from './hooks/useFullscreen.js';
-import { useHint } from './hooks/useHint.js';
-import { useOrbitClient } from './hooks/useOrbitClient.js';
-import { useUiVisibility } from './hooks/useUiVisibility.js';
-import {
-  QUALITY_LABEL,
-  availableQualities,
-  resolveCatalogSource,
-} from './lib/catalog.js';
-import { hintForAxis } from './lib/format.js';
-import {
-  readQualityPref,
-  readUserConfig,
-  writeAutoPref,
-  writeQualityPref,
-} from './lib/prefs.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ControlPanel } from "./components/ControlPanel.jsx";
+import { ExampleBar } from "./components/ExampleBar.jsx";
+import { Loader } from "./components/Loader.jsx";
+import { Stage } from "./components/Stage.jsx";
+import { TopBar } from "./components/TopBar.jsx";
+import { useFullscreen } from "./hooks/useFullscreen.js";
+import { useHint } from "./hooks/useHint.js";
+import { useOrbitClient } from "./hooks/useOrbitClient.js";
+import { useUiVisibility } from "./hooks/useUiVisibility.js";
+import { QUALITY_LABEL, availableQualities, resolveCatalogSource } from "./lib/catalog.js";
+import { hintForAxis } from "./lib/format.js";
+import { readQualityPref, readUserConfig, writeAutoPref, writeQualityPref } from "./lib/prefs.js";
 
-const CATALOG_URL = 'catalog.json';
+const CATALOG_URL = "catalog.json";
 
 export default function App() {
   const params = useMemo(() => new URLSearchParams(location.search), []);
@@ -29,7 +20,7 @@ export default function App() {
   const importFileRef = useRef(null);
 
   const ui = useUiVisibility();
-  const [axis, setAxis] = useState('x');
+  const [axis, setAxis] = useState("x");
   const hints = useHint(hintForAxis(axis));
 
   const [loader, setLoader] = useState({ done: false, hidden: false, error: null });
@@ -43,8 +34,8 @@ export default function App() {
 
   const orbit = useOrbitClient({
     config: initialConfig,
-    onReady: next => {
-      setAxis(next.axis || 'x');
+    onReady: (next) => {
+      setAxis(next.axis || "x");
       ui.scheduleHide(isDragging);
       if (next.missingFrames) {
         hints.flashHint(
@@ -53,17 +44,15 @@ export default function App() {
       }
     },
     onGyroChange: (event, next) => {
-      if (event.reason === 'enabled') {
+      if (event.reason === "enabled") {
         hints.flashHint(
-          next.axis === 'y'
-            ? '前后倾斜手机环视 · 仍可上下拖拽微调'
-            : '转动身体环视 · 仍可拖拽微调',
+          next.axis === "y" ? "前后倾斜手机环视 · 仍可上下拖拽微调" : "转动身体环视 · 仍可拖拽微调",
           3200,
         );
-      } else if (event.reason === 'no-readings') {
-        hints.flashHint('未检测到方向传感器，请用拖拽', 2600);
-      } else if (['denied', 'unsupported', 'error'].includes(event.reason)) {
-        hints.flashHint('陀螺仪被拒绝或需 HTTPS，桌面请用拖拽', 2600);
+      } else if (event.reason === "no-readings") {
+        hints.flashHint("未检测到方向传感器，请用拖拽", 2600);
+      } else if (["denied", "unsupported", "error"].includes(event.reason)) {
+        hints.flashHint("陀螺仪被拒绝或需 HTTPS，桌面请用拖拽", 2600);
       }
     },
     onLongpress: () => {
@@ -79,7 +68,7 @@ export default function App() {
   });
 
   const state = orbit.state;
-  const title = state?.title || '环绕视角';
+  const title = state?.title || "环绕视角";
 
   useEffect(() => {
     document.title = title;
@@ -90,14 +79,14 @@ export default function App() {
   }, [state?.dragging]);
 
   useEffect(() => {
-    if (state?.axis) setAxis(state.axis === 'y' ? 'y' : 'x');
+    if (state?.axis) setAxis(state.axis === "y" ? "y" : "x");
   }, [state?.axis]);
 
   useEffect(() => {
     if (!orbit.ready) return undefined;
-    setLoader(current => ({ ...current, done: true }));
+    setLoader((current) => ({ ...current, done: true }));
     const timer = setTimeout(() => {
-      setLoader(current => ({ ...current, hidden: true }));
+      setLoader((current) => ({ ...current, hidden: true }));
     }, 600);
     return () => clearTimeout(timer);
   }, [orbit.ready]);
@@ -106,7 +95,7 @@ export default function App() {
     let cancelled = false;
 
     async function boot() {
-      const orbUrl = params.get('orb');
+      const orbUrl = params.get("orb");
       if (orbUrl) {
         setEntry(null);
         setExampleId(null);
@@ -114,7 +103,7 @@ export default function App() {
         return;
       }
 
-      const response = await fetch(CATALOG_URL, { cache: 'no-cache' });
+      const response = await fetch(CATALOG_URL, { cache: "no-cache" });
       const nextCatalog = response.ok ? await response.json() : null;
       if (cancelled) return;
 
@@ -128,10 +117,10 @@ export default function App() {
       await orbit.load(source.url, { quality: source.quality });
     }
 
-    boot().catch(err => {
+    boot().catch((err) => {
       console.error(err);
       if (!cancelled) {
-        setLoader(current => ({ ...current, error: err.message }));
+        setLoader((current) => ({ ...current, error: err.message }));
       }
     });
 
@@ -143,39 +132,38 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const onKeyDown = event => {
+    const onKeyDown = (event) => {
       const client = orbit.clientRef.current;
       if (!client) return;
       const step = event.shiftKey ? 15 : 3;
-      if (event.key === 'ArrowRight') {
+      if (event.key === "ArrowRight") {
         client.rotateBy(step);
         ui.scheduleHide(isDragging);
         event.preventDefault();
-      } else if (event.key === 'ArrowLeft') {
+      } else if (event.key === "ArrowLeft") {
         client.rotateBy(-step);
         ui.scheduleHide(isDragging);
         event.preventDefault();
-      } else if (event.key === ' ') {
+      } else if (event.key === " ") {
         const next = client.cycleAuto();
         writeAutoPref(next, client.getConfig().auto.degPerSec);
         hints.flashHint(
-          next === 'off' ? '自动旋转已关闭'
-            : (next === 'cw' ? '顺时针自动旋转' : '逆时针自动旋转'),
+          next === "off" ? "自动旋转已关闭" : next === "cw" ? "顺时针自动旋转" : "逆时针自动旋转",
           1400,
         );
         event.preventDefault();
-      } else if (event.key === 'h' || event.key === 'H') {
+      } else if (event.key === "h" || event.key === "H") {
         ui.toggle();
         event.preventDefault();
       }
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [orbit.clientRef, hints.flashHint, ui.scheduleHide, ui.toggle, isDragging]);
 
   useEffect(() => {
-    if (!params.has('debug')) return;
+    if (!params.has("debug")) return;
     window.__orbit = {
       client: orbit.clientRef.current,
       state,
@@ -186,14 +174,14 @@ export default function App() {
     };
   }, [params, orbit.clientRef, state, catalog, entry, hints.flashHint, ui.toggle]);
 
-  const handleExample = item => {
+  const handleExample = (item) => {
     if (item.id === exampleId) {
       ui.scheduleHide(isDragging);
       return;
     }
     const url = new URL(location.href);
-    url.searchParams.set('e', item.id);
-    url.searchParams.delete('q');
+    url.searchParams.set("e", item.id);
+    url.searchParams.delete("q");
     location.href = url.toString();
   };
 
@@ -202,7 +190,7 @@ export default function App() {
     if (!client) return;
     if (client.getState().gyro.enabled) {
       client.disableGyro();
-      hints.flashHint('陀螺仪已关闭', 1600);
+      hints.flashHint("陀螺仪已关闭", 1600);
     } else {
       await client.enableGyro();
     }
@@ -213,7 +201,7 @@ export default function App() {
     if (!client) return;
     const next = !client.getState().invert;
     client.setInvert(next);
-    hints.flashHint(next ? '方向已反向' : '方向已恢复', 1400);
+    hints.flashHint(next ? "方向已反向" : "方向已恢复", 1400);
   };
 
   const handleToggleMouseFollow = () => {
@@ -221,7 +209,7 @@ export default function App() {
     if (!client) return;
     const enabled = !client.getState().mouseFollow.enabled;
     client.setMouseFollow(enabled);
-    hints.flashHint(enabled ? '鼠标移动即可转向' : '鼠标跟随已关闭', 1600);
+    hints.flashHint(enabled ? "鼠标移动即可转向" : "鼠标跟随已关闭", 1600);
   };
 
   const handleToggleGyroSmooth = () => {
@@ -229,7 +217,7 @@ export default function App() {
     if (!client) return;
     const smooth = !client.getState().config.gyro.smooth;
     client.setGyroConfig({ smooth });
-    hints.flashHint(smooth ? '陀螺仪平滑已开' : '陀螺仪原始跟随（会有抖动）', 1600);
+    hints.flashHint(smooth ? "陀螺仪平滑已开" : "陀螺仪原始跟随（会有抖动）", 1600);
   };
 
   const handleToggleInertia = () => {
@@ -237,15 +225,15 @@ export default function App() {
     if (!client) return;
     const inertia = !client.getState().inertia;
     client.setInertia(inertia);
-    hints.flashHint(inertia ? '松手惯性已开' : '松手即停', 1600);
+    hints.flashHint(inertia ? "松手惯性已开" : "松手即停", 1600);
   };
 
   const handleToggleFit = () => {
     const client = orbit.clientRef.current;
     if (!client) return;
-    const fit = client.getState().fit === 'cover' ? 'contain' : 'cover';
+    const fit = client.getState().fit === "cover" ? "contain" : "cover";
     client.setFit(fit);
-    hints.flashHint(fit === 'cover' ? '铺满视口' : '自适应显示', 1400);
+    hints.flashHint(fit === "cover" ? "铺满视口" : "自适应显示", 1400);
   };
 
   const handleAuto = () => {
@@ -254,35 +242,34 @@ export default function App() {
     const next = client.cycleAuto();
     writeAutoPref(next, client.getConfig().auto.degPerSec);
     hints.flashHint(
-      next === 'off' ? '自动旋转已关闭'
-        : (next === 'cw' ? '顺时针自动旋转' : '逆时针自动旋转'),
+      next === "off" ? "自动旋转已关闭" : next === "cw" ? "顺时针自动旋转" : "逆时针自动旋转",
       1400,
     );
   };
 
-  const handleAutoSpeed = speed => {
+  const handleAutoSpeed = (speed) => {
     const client = orbit.clientRef.current;
     if (!client) return;
     client.setAutoSpeed(speed);
     writeAutoPref(client.getState().auto.state, speed);
   };
 
-  const handleGain = gain => {
+  const handleGain = (gain) => {
     orbit.clientRef.current?.setGyroConfig({ gain });
   };
 
   const handleReset = () => {
     orbit.clientRef.current?.reset();
-    hints.flashHint('已重置到 0°', 1400);
+    hints.flashHint("已重置到 0°", 1400);
   };
 
   const handleCalibrate = () => {
     orbit.clientRef.current?.calibrateGyro();
   };
 
-  const handleImportFile = async event => {
+  const handleImportFile = async (event) => {
     const file = event.target.files?.[0];
-    event.target.value = '';
+    event.target.value = "";
     if (!file) return;
     hints.flashHint(`正在解析 ${file.name}`, 4000);
     setEntry(null);
@@ -300,8 +287,8 @@ export default function App() {
   const qualities = availableQualities(entry);
   const stateQuality = state?.quality || quality;
   const qualityButton = {
-    visible: state?.format === 'zip' && !!entry && qualities.length > 1,
-    active: stateQuality !== 'std',
+    visible: state?.format === "zip" && !!entry && qualities.length > 1,
+    active: stateQuality !== "std",
     label: QUALITY_LABEL[stateQuality] || stateQuality,
   };
 
@@ -312,7 +299,7 @@ export default function App() {
     if (!next || next === stateQuality) return;
     writeQualityPref(next);
     const url = new URL(location.href);
-    url.searchParams.set('q', next);
+    url.searchParams.set("q", next);
     location.href = url.toString();
   };
 
@@ -351,11 +338,7 @@ export default function App() {
       <ExampleBar items={catalog?.items} currentId={exampleId} onSelect={handleExample} />
 
       {!loader.hidden && (
-        <Loader
-          progress={orbit.progress.progress}
-          error={loader.error}
-          done={loader.done}
-        />
+        <Loader progress={orbit.progress.progress} error={loader.error} done={loader.done} />
       )}
     </>
   );

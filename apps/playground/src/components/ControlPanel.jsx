@@ -1,9 +1,9 @@
-import { AngleHud } from './AngleHud.jsx';
-import { frameLabel } from '../lib/format.js';
+import { AngleHud } from "./AngleHud.jsx";
+import { frameLabel } from "../lib/format.js";
 
 function autoLabel(state) {
-  if (state === 'off') return '自动环绕';
-  return state === 'ccw' ? '逆时针' : '顺时针';
+  if (state === "off") return "自动环绕";
+  return state === "ccw" ? "逆时针" : "顺时针";
 }
 
 export function ControlPanel({
@@ -35,7 +35,7 @@ export function ControlPanel({
   const gain = Number(config?.gyro?.gain ?? 1);
   const autoSpeed = Number(config?.auto?.degPerSec ?? 14);
   const gyroOn = !!state?.gyro?.enabled;
-  const gyroText = gyroOn ? '陀螺仪已开' : (state?.gyro?.pending ? '待授权' : '陀螺仪');
+  const gyroText = gyroOn ? "陀螺仪已开" : state?.gyro?.pending ? "待授权" : "陀螺仪";
 
   return (
     <div id="panel">
@@ -52,7 +52,7 @@ export function ControlPanel({
           step="0.1"
           value={gain}
           aria-label="陀螺仪灵敏度"
-          onChange={event => onGain(Number.parseFloat(event.target.value) || 1)}
+          onChange={(event) => onGain(Number.parseFloat(event.target.value) || 1)}
         />
         <b>{gain.toFixed(1)}×</b>
       </label>
@@ -66,7 +66,7 @@ export function ControlPanel({
           step="1"
           value={autoSpeed}
           aria-label="自动旋转速度"
-          onChange={event => onAutoSpeed(Number.parseFloat(event.target.value) || 14)}
+          onChange={(event) => onAutoSpeed(Number.parseFloat(event.target.value) || 14)}
         />
         <b>{Math.round(autoSpeed)}°/s</b>
       </label>
@@ -74,66 +74,72 @@ export function ControlPanel({
       <div className="p-btns">
         <button
           type="button"
-          className={fullscreen ? 'on' : undefined}
+          className={fullscreen ? "on" : undefined}
           hidden={!fullscreenSupported}
           onClick={onToggleFullscreen}
         >
-          {fullscreen ? '退出全屏' : '全屏'}
+          {fullscreen ? "退出全屏" : "全屏"}
         </button>
-        <button type="button" className={gyroOn ? 'on' : undefined} onClick={onToggleGyro}>
+        <button type="button" className={gyroOn ? "on" : undefined} onClick={onToggleGyro}>
           {gyroText}
         </button>
-        <button type="button" onClick={onReset}>重置</button>
-        <button type="button" disabled={!gyroOn} onClick={onCalibrate}>校准</button>
-        <button type="button" className={state?.invert ? 'on' : undefined} onClick={onToggleInvert}>
+        <button type="button" onClick={onReset}>
+          重置
+        </button>
+        <button type="button" disabled={!gyroOn} onClick={onCalibrate}>
+          校准
+        </button>
+        <button type="button" className={state?.invert ? "on" : undefined} onClick={onToggleInvert}>
           反向
         </button>
         <button
           type="button"
-          className={state?.mouseFollow?.enabled ? 'on' : undefined}
+          className={state?.mouseFollow?.enabled ? "on" : undefined}
           onClick={onToggleMouseFollow}
         >
           鼠标跟随
         </button>
         <button
           type="button"
-          className={state?.auto?.state !== 'off' ? 'on' : undefined}
+          className={state?.auto?.state !== "off" ? "on" : undefined}
           onClick={onAuto}
         >
-          {autoLabel(state?.auto?.state ?? 'off')}
+          {autoLabel(state?.auto?.state ?? "off")}
         </button>
-        <button type="button" onClick={onImport}>导入</button>
+        <button type="button" onClick={onImport}>
+          导入
+        </button>
       </div>
 
       <div className="p-toggles">
         <button
           type="button"
-          className={config?.gyro?.smooth !== false ? 'on' : undefined}
+          className={config?.gyro?.smooth !== false ? "on" : undefined}
           onClick={onToggleGyroSmooth}
         >
           陀螺仪平滑
         </button>
         <button
           type="button"
-          className={state?.inertia !== false ? 'on' : undefined}
+          className={state?.inertia !== false ? "on" : undefined}
           onClick={onToggleInertia}
         >
           惯性
         </button>
         <button
           type="button"
-          className={state?.fit === 'cover' ? 'on' : undefined}
+          className={state?.fit === "cover" ? "on" : undefined}
           onClick={onToggleFit}
         >
-          {state?.fit === 'cover' ? '铺满' : '自适应'}
+          {state?.fit === "cover" ? "铺满" : "自适应"}
         </button>
         <button
           type="button"
-          className={qualityButton?.active ? 'on' : undefined}
+          className={qualityButton?.active ? "on" : undefined}
           hidden={!qualityButton?.visible}
           onClick={onQuality}
         >
-          {qualityButton?.label || '标准'}
+          {qualityButton?.label || "标准"}
         </button>
       </div>
 

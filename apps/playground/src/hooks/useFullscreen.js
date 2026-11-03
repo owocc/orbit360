@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 function fullscreenElement() {
   return document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -18,11 +18,11 @@ export function useFullscreen({ onChange, onError }) {
       setActive(next);
       callbacks.current.onChange?.();
     };
-    document.addEventListener('fullscreenchange', sync);
-    document.addEventListener('webkitfullscreenchange', sync);
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener("webkitfullscreenchange", sync);
     return () => {
-      document.removeEventListener('fullscreenchange', sync);
-      document.removeEventListener('webkitfullscreenchange', sync);
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener("webkitfullscreenchange", sync);
     };
   }, []);
 
@@ -36,7 +36,7 @@ export function useFullscreen({ onChange, onError }) {
         await request?.call(root);
       }
     } catch {
-      callbacks.current.onError?.('全屏被浏览器拒绝');
+      callbacks.current.onError?.("全屏被浏览器拒绝");
     }
   }, [root]);
 

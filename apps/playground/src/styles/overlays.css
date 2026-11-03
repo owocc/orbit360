@@ -19,7 +19,10 @@
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  transition: opacity 0.26s ease, transform 0.26s ease, visibility 0.26s;
+  transition:
+    opacity 0.26s ease,
+    transform 0.26s ease,
+    visibility 0.26s;
 }
 
 .ex-bar::-webkit-scrollbar {
@@ -43,7 +46,9 @@ body.ui-hidden .ex-bar {
   padding: 7px 13px;
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .ex-pill:hover {

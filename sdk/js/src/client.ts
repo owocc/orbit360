@@ -4,29 +4,36 @@
  * 鼠标跟随、陀螺仪、自适应/铺满布局。所有控制项通过 API 配置，状态通过 API / 事件读取。
  */
 
-import OrbBundle from '../orb.js';
+import OrbBundle from "./orb";
 
-const VERSION = '0.1.0';
+const VERSION = "0.1.0";
 const RAD = Math.PI / 180;
-const HEADER_SIZE = 32;
 const CONFIG_KEYS = [
-  'title', 'video', 'orbit', 'drag', 'motion', 'auto', 'gyro',
-  'mouseFollow', 'defaults', 'quality',
+  "title",
+  "video",
+  "orbit",
+  "drag",
+  "motion",
+  "auto",
+  "gyro",
+  "mouseFollow",
+  "defaults",
+  "quality",
 ];
 
 const DEFAULTS = {
-  title: '',
+  title: "",
   video: {
     displayScale: 1,
     portraitScale: 1.25,
-    fit: 'contain',
+    fit: "contain",
     width: 1280,
     height: 720,
   },
   orbit: {
-    axis: 'x',
+    axis: "x",
     spanDeg: 360,
-    direction: 'cw',
+    direction: "cw",
     minAngle: -180,
     maxAngle: 180,
   },
@@ -41,7 +48,7 @@ const DEFAULTS = {
   },
   auto: {
     enabled: false,
-    dir: 'cw',
+    dir: "cw",
     degPerSec: 14,
     idleDelayMs: 2200,
     rampInMs: 700,
@@ -62,11 +69,11 @@ const DEFAULTS = {
 const mod = (a, n) => ((a % n) + n) % n;
 const shortDelta = (from, to) => mod(to - from + 180, 360) - 180;
 // 1.2 起角度用带符号的 -180..180 表示：向右为正，向左为负。
-const wrapSigned = deg => mod(deg + 180, 360) - 180;
+const wrapSigned = (deg) => mod(deg + 180, 360) - 180;
 const clampNum = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 function isPlainObject(value) {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function deepMerge(base, ...sources) {
@@ -112,7 +119,7 @@ function blobToBuffer(blob) {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
     fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error || new Error('读取失败'));
+    fr.onerror = () => reject(fr.error || new Error("读取失败"));
     fr.readAsArrayBuffer(blob);
   });
 }
@@ -122,8 +129,8 @@ function blobToText(blob) {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
     fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error || new Error('读取失败'));
-    fr.readAsText(blob, 'utf-8');
+    fr.onerror = () => reject(fr.error || new Error("读取失败"));
+    fr.readAsText(blob, "utf-8");
   });
 }
 
@@ -134,16 +141,19 @@ async function readZipEntries(blob) {
   let eocd = -1;
   const stop = Math.max(0, buf.length - 22 - 65535);
   for (let i = buf.length - 22; i >= stop; i--) {
-    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (dv.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
   }
-  if (eocd < 0) throw new Error('不是有效的 zip 文件');
+  if (eocd < 0) throw new Error("不是有效的 zip 文件");
 
   const total = dv.getUint16(eocd + 10, true);
   let off = dv.getUint32(eocd + 16, true);
   const entries = new Map();
 
   for (let i = 0; i < total; i++) {
-    if (dv.getUint32(off, true) !== 0x02014b50) throw new Error('zip 中央目录损坏');
+    if (dv.getUint32(off, true) !== 0x02014b50) throw new Error("zip 中央目录损坏");
     const method = dv.getUint16(off + 10, true);
     const compSize = dv.getUint32(off + 20, true);
     const nameLen = dv.getUint16(off + 28, true);
@@ -163,58 +173,71 @@ async function readZipEntries(blob) {
 async function zipFileBlob(entries, name) {
   const e = entries.get(name);
   if (!e) return null;
-  if (e.method === 0) return new Blob([e.data], { type: 'application/octet-stream' });
-  if (typeof DecompressionStream === 'function') {
-    const stream = new Blob([e.data]).stream()
-      .pipeThrough(new DecompressionStream('deflate-raw'));
+  if (e.method === 0) return new Blob([e.data], { type: "application/octet-stream" });
+  if (typeof DecompressionStream === "function") {
+    const stream = new Blob([e.data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
     return await new Response(stream).blob();
   }
   throw new Error(`${name} 使用了 deflate 压缩，当前浏览器无法解压`);
 }
 
 function loadImageBlob(blob) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const url = URL.createObjectURL(blob);
     const img = new Image();
-    img.decoding = 'async';
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.decoding = "async";
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
     img.src = url;
   });
 }
 
 function isTouchDevice() {
-  if (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) return true;
-  if (typeof navigator === 'undefined') return false;
-  if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '')) return true;
-  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  if (typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches) return true;
+  if (typeof navigator === "undefined") return false;
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "")) return true;
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
 }
 
 function screenAngle() {
-  const so = typeof screen !== 'undefined' ? screen.orientation : null;
-  if (so && typeof so.angle === 'number') return mod(so.angle, 360);
-  return typeof window !== 'undefined' && typeof window.orientation === 'number'
-    ? mod(window.orientation, 360) : 0;
+  const so = typeof screen !== "undefined" ? screen.orientation : null;
+  if (so && typeof so.angle === "number") return mod(so.angle, 360);
+  return typeof window !== "undefined" && typeof window.orientation === "number"
+    ? mod(window.orientation, 360)
+    : 0;
 }
 
 // 由设备姿态解出水平方位角（yaw）：与握持倾斜、横竖屏都无关。
 function headingOf(e) {
-  if (typeof e.webkitCompassHeading === 'number'
-      && !Number.isNaN(e.webkitCompassHeading) && e.webkitCompassHeading >= 0) {
+  if (
+    typeof e.webkitCompassHeading === "number" &&
+    !Number.isNaN(e.webkitCompassHeading) &&
+    e.webkitCompassHeading >= 0
+  ) {
     return e.webkitCompassHeading;
   }
-  const a = e.alpha, b = e.beta, g = e.gamma;
-  if (typeof a !== 'number') return null;
-  if (typeof b !== 'number' || typeof g !== 'number') return mod(360 - a, 360);
+  const a = e.alpha,
+    b = e.beta,
+    g = e.gamma;
+  if (typeof a !== "number") return null;
+  if (typeof b !== "number" || typeof g !== "number") return mod(360 - a, 360);
 
-  const A = a * RAD, B = b * RAD, G = g * RAD;
+  const A = a * RAD,
+    B = b * RAD,
+    G = g * RAD;
   const vx = Math.sin(G) * Math.cos(A) + Math.cos(G) * Math.sin(B) * Math.sin(A);
   const vy = Math.sin(G) * Math.sin(A) - Math.cos(G) * Math.sin(B) * Math.cos(A);
   const horizontal = Math.hypot(vx, vy);
 
   if (horizontal < 0.25) {
     const sa = screenAngle();
-    return (sa === 90 || sa === 270) ? mod(a, 360) : mod(360 - a, 360);
+    return sa === 90 || sa === 270 ? mod(a, 360) : mod(360 - a, 360);
   }
   return mod(Math.atan2(-vx, -vy) / RAD, 360);
 }
@@ -222,11 +245,12 @@ function headingOf(e) {
 // Y 轴场景用前后俯仰（beta）：把 -180..180 归一到 0..360。
 function pitchOf(e) {
   const b = e.beta;
-  if (typeof b !== 'number' || Number.isNaN(b)) return null;
+  if (typeof b !== "number" || Number.isNaN(b)) return null;
   return mod(b, 360);
 }
 
 export class Orbit360Client {
+  [key: string]: any;
   /**
    * @param {HTMLCanvasElement} canvas
    * @param {object} [options]
@@ -238,19 +262,19 @@ export class Orbit360Client {
    * @param {number} [options.concurrency=6]
    * @param {string} [options.dragClass='dragging']
    */
-  constructor(canvas, options = {}) {
-    if (!canvas || typeof canvas.getContext !== 'function') {
-      throw new Error('Orbit360Client: 需要 canvas 元素');
+  constructor(canvas: HTMLCanvasElement, options: any = {}) {
+    if (!canvas || typeof canvas.getContext !== "function") {
+      throw new Error("Orbit360Client: 需要 canvas 元素");
     }
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d', { alpha: false });
-    if (!this.ctx) throw new Error('Orbit360Client: 无法获取 2D context');
+    this.ctx = canvas.getContext("2d", { alpha: false });
+    if (!this.ctx) throw new Error("Orbit360Client: 无法获取 2D context");
 
     this.options = {
       dprCap: 2,
       autoStartGyro: false,
       concurrency: 6,
-      dragClass: 'dragging',
+      dragClass: "dragging",
       preventContextMenu: true,
       ...options,
     };
@@ -284,21 +308,21 @@ export class Orbit360Client {
     this._lastPointerX = 0;
     this._lastPointerY = 0;
     this._lastPointerT = 0;
-    this._lastPointerType = '';
+    this._lastPointerType = "";
     this._hoverX = null;
     this._hoverY = null;
-    this._idleSince = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    this._idleSince = typeof performance !== "undefined" ? performance.now() : Date.now();
     this._autoWeight = 0;
     this._orientT = 0;
     this._invert = false;
-    this._axis = 'x';
+    this._axis = "x";
     this._minAngle = -180;
     this._maxAngle = 180;
     this._limited = false;
     this._mouseFollow = false;
     this._inertia = true;
-    this._fitMode = 'contain';
-    this._autoState = 'off';
+    this._fitMode = "contain";
+    this._autoState = "off";
     this._autoDir = 1;
     this._autoSpeed = 14;
     this._gyro = false;
@@ -325,7 +349,7 @@ export class Orbit360Client {
     this._progress = 0;
     this._loaded = 0;
     this._total = 0;
-    this._phase = 'idle';
+    this._phase = "idle";
 
     this._pressTimer = null;
     this._pressStart = null;
@@ -343,15 +367,18 @@ export class Orbit360Client {
   /* ---------- 事件 ---------- */
 
   on(type, handler) {
-    if (typeof handler !== 'function') throw new Error('Orbit360Client: handler 必须是函数');
+    if (typeof handler !== "function") throw new Error("Orbit360Client: handler 必须是函数");
     let list = this._events.get(type);
-    if (!list) { list = []; this._events.set(type, list); }
+    if (!list) {
+      list = [];
+      this._events.set(type, list);
+    }
     list.push(handler);
     return () => this.off(type, handler);
   }
 
   once(type, handler) {
-    const off = this.on(type, payload => {
+    const off = this.on(type, (payload) => {
       off();
       handler(payload);
     });
@@ -371,16 +398,20 @@ export class Orbit360Client {
     const list = this._events.get(type);
     if (!list || !list.length) return;
     for (const handler of list.slice()) {
-      try { handler(payload); } catch (err) { console.error(err); }
+      try {
+        handler(payload);
+      } catch (err) {
+        console.error(err);
+      }
     }
   }
 
   _emitState() {
-    this._emit('state', this.getState());
+    this._emit("state", this.getState());
   }
 
   _emitAngle() {
-    this._emit('angle', {
+    this._emit("angle", {
       angle: this._angle,
       target: this._target,
       axis: this._axis,
@@ -389,7 +420,7 @@ export class Orbit360Client {
   }
 
   _emitFrame(index) {
-    this._emit('frame', {
+    this._emit("frame", {
       index,
       count: this._count,
       frameDeg: this._frameDeg,
@@ -409,7 +440,7 @@ export class Orbit360Client {
   _applyConfig() {
     const cfg = this._config;
     this._invert = !!cfg.drag.invert;
-    this._axis = cfg.orbit.axis === 'y' ? 'y' : 'x';
+    this._axis = cfg.orbit.axis === "y" ? "y" : "x";
     const minAngle = Number(cfg.orbit.minAngle);
     const maxAngle = Number(cfg.orbit.maxAngle);
     let lo = clampNum(Number.isFinite(minAngle) ? minAngle : -180, -180, 180);
@@ -426,10 +457,10 @@ export class Orbit360Client {
     this._gyroSmooth = cfg.gyro.smooth !== false;
     this._inertia = cfg.drag.inertia !== false;
     this._mouseFollow = cfg.mouseFollow.enabled !== false;
-    this._fitMode = cfg.video.fit === 'cover' ? 'cover' : 'contain';
+    this._fitMode = cfg.video.fit === "cover" ? "cover" : "contain";
 
-    this._autoState = cfg.auto.enabled ? (cfg.auto.dir === 'ccw' ? 'ccw' : 'cw') : 'off';
-    this._autoDir = this._autoState === 'ccw' ? -1 : 1;
+    this._autoState = cfg.auto.enabled ? (cfg.auto.dir === "ccw" ? "ccw" : "cw") : "off";
+    this._autoDir = this._autoState === "ccw" ? -1 : 1;
     const speed = Number(cfg.auto.degPerSec);
     this._autoSpeed = Number.isFinite(speed) ? speed : DEFAULTS.auto.degPerSec;
 
@@ -495,7 +526,7 @@ export class Orbit360Client {
       format: this._format,
       quality: this._quality,
       codec: this._codec,
-      title: this._config.title || '环绕视角',
+      title: this._config.title || "环绕视角",
       angle: this._normAngle(this._angle),
       target: this._normAngle(this._target),
       axis: this._axis,
@@ -513,8 +544,8 @@ export class Orbit360Client {
       missingFrames: this._countMissingFrames(),
       auto: {
         state: this._autoState,
-        enabled: this._autoState !== 'off',
-        direction: this._autoState === 'off' ? (this._config.auto.dir || 'cw') : this._autoState,
+        enabled: this._autoState !== "off",
+        direction: this._autoState === "off" ? this._config.auto.dir || "cw" : this._autoState,
         speed: this._autoSpeed,
         weight: this._autoWeight,
         idleDelayMs: this._config.auto.idleDelayMs,
@@ -526,7 +557,7 @@ export class Orbit360Client {
         pending: this._pendingGyro,
         seen: this._gyroSeen,
         absolute: this._hasAbsolute,
-        supported: typeof DeviceOrientationEvent !== 'undefined',
+        supported: typeof DeviceOrientationEvent !== "undefined",
         gain: this._gyroGain,
         invert: !!this._config.gyro.invert,
         smooth: this._gyroSmooth,
@@ -577,9 +608,9 @@ export class Orbit360Client {
     return this._count;
   }
 
-  setAngle(deg, options = {}) {
+  setAngle(deg, options: { immediate?: boolean } = {}) {
     const value = Number(deg);
-    if (!Number.isFinite(value)) throw new Error('setAngle: deg 必须是数字');
+    if (!Number.isFinite(value)) throw new Error("setAngle: deg 必须是数字");
     this._target = this._normAngle(value);
     this._vel = 0;
     if (options.immediate) {
@@ -594,14 +625,14 @@ export class Orbit360Client {
 
   rotateBy(deg) {
     const value = Number(deg);
-    if (!Number.isFinite(value)) throw new Error('rotateBy: deg 必须是数字');
+    if (!Number.isFinite(value)) throw new Error("rotateBy: deg 必须是数字");
     this._target = this._normAngle(this._target + value);
     this._touchActivity();
     this._emitState();
     return this;
   }
 
-  reset(angle = 0, options = {}) {
+  reset(angle = 0, options: { immediate?: boolean } = {}) {
     this._target = this._normAngle(Number(angle) || 0);
     this._vel = 0;
     if (this._gyro) {
@@ -618,23 +649,25 @@ export class Orbit360Client {
     return this;
   }
 
-  setAutoRotate(value, direction) {
+  setAutoRotate(value, direction?: string) {
     let enabled = !!value;
     let dir = direction;
 
-    if (typeof value === 'string') {
-      if (value === 'off' || value === 'false') enabled = false;
-      else if (value === 'on' || value === 'true') enabled = true;
-      else if (value === 'cw' || value === 'ccw') { enabled = true; dir = value; }
-      else throw new Error('setAutoRotate: 期望 off / on / cw / ccw');
-    } else if (value && typeof value === 'object') {
+    if (typeof value === "string") {
+      if (value === "off" || value === "false") enabled = false;
+      else if (value === "on" || value === "true") enabled = true;
+      else if (value === "cw" || value === "ccw") {
+        enabled = true;
+        dir = value;
+      } else throw new Error("setAutoRotate: 期望 off / on / cw / ccw");
+    } else if (value && typeof value === "object") {
       enabled = !!value.enabled;
       if (value.dir) dir = value.dir;
     }
 
-    const auto = { enabled };
+    const auto: { enabled: boolean; dir?: string } = { enabled };
     if (dir) {
-      if (dir !== 'cw' && dir !== 'ccw') throw new Error('setAutoRotate: dir 必须是 cw / ccw');
+      if (dir !== "cw" && dir !== "ccw") throw new Error("setAutoRotate: dir 必须是 cw / ccw");
       auto.dir = dir;
     }
     this.setConfig({ auto });
@@ -643,15 +676,14 @@ export class Orbit360Client {
   }
 
   cycleAuto() {
-    const next = this._autoState === 'off' ? 'cw'
-      : (this._autoState === 'cw' ? 'ccw' : 'off');
+    const next = this._autoState === "off" ? "cw" : this._autoState === "cw" ? "ccw" : "off";
     this.setAutoRotate(next);
     return next;
   }
 
   setAutoSpeed(degPerSec) {
     const value = Number(degPerSec);
-    if (!Number.isFinite(value)) throw new Error('setAutoSpeed: 需要数字');
+    if (!Number.isFinite(value)) throw new Error("setAutoSpeed: 需要数字");
     return this.setAutoConfig({ degPerSec: value });
   }
 
@@ -692,66 +724,72 @@ export class Orbit360Client {
   }
 
   setFit(mode) {
-    if (mode !== 'contain' && mode !== 'cover') throw new Error('setFit: 期望 contain / cover');
+    if (mode !== "contain" && mode !== "cover") throw new Error("setFit: 期望 contain / cover");
     return this.setVideoConfig({ fit: mode });
   }
 
   setMouseFollow(value) {
-    if (typeof value === 'boolean') return this.setConfig({ mouseFollow: { enabled: value } });
+    if (typeof value === "boolean") return this.setConfig({ mouseFollow: { enabled: value } });
     return this.setConfig({ mouseFollow: value || {} });
   }
 
   /* ---------- 加载 ---------- */
 
-  async load(source, options = {}) {
+  async load(source, options: any = {}) {
     const token = ++this._loadToken;
     this._loading = true;
     this._ready = false;
-    this._phase = 'load';
+    this._phase = "load";
     this._loaded = 0;
     this._total = 0;
-    this._setProgress(0, 'load', 0, 0);
-    this._emit('loadstart', { source });
+    this._setProgress(0, "load", 0, 0);
+    this._emit("loadstart", { source });
     this._emitState();
 
     try {
       let blob;
-      if (typeof source === 'string') {
-        this._setProgress(0.03, 'fetch', 0, 0);
-        const res = await fetch(source, { cache: options.cache || 'default' });
+      if (typeof source === "string") {
+        this._setProgress(0.03, "fetch", 0, 0);
+        const res = await fetch(source, { cache: options.cache || "default" });
         if (!res.ok) throw new Error(`包下载失败（HTTP ${res.status}）`);
-        this._setProgress(0.12, 'fetch', 0, 0);
+        this._setProgress(0.12, "fetch", 0, 0);
         blob = await res.blob();
-        this._setProgress(0.38, 'fetch', 0, 0);
-      } else if (typeof Blob !== 'undefined' && source instanceof Blob) {
+        this._setProgress(0.38, "fetch", 0, 0);
+      } else if (typeof Blob !== "undefined" && source instanceof Blob) {
         blob = source;
-        this._setProgress(0.38, 'read', 0, 0);
+        this._setProgress(0.38, "read", 0, 0);
       } else if (source instanceof ArrayBuffer) {
         blob = new Blob([source]);
-        this._setProgress(0.38, 'read', 0, 0);
+        this._setProgress(0.38, "read", 0, 0);
       } else if (ArrayBuffer.isView(source)) {
-        blob = new Blob([source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength)]);
-        this._setProgress(0.38, 'read', 0, 0);
+        blob = new Blob([
+          source.buffer.slice(
+            source.byteOffset,
+            source.byteOffset + source.byteLength,
+          ) as ArrayBuffer,
+        ]);
+        this._setProgress(0.38, "read", 0, 0);
       } else {
-        throw new Error('load: 需要 URL / Blob / File / ArrayBuffer');
+        throw new Error("load: 需要 URL / Blob / File / ArrayBuffer");
       }
 
       if (token !== this._loadToken || this._destroyed) return this;
       const head = blob.size >= 4 ? new Uint8Array(await blobToBuffer(blob.slice(0, 4))) : null;
-      const isOrb = head && head[0] === 0x4f && head[1] === 0x52 && head[2] === 0x42 && head[3] === 0x33;
+      const isOrb =
+        head && head[0] === 0x4f && head[1] === 0x52 && head[2] === 0x42 && head[3] === 0x33;
       if (isOrb) await this._loadOrb(blob, token, options);
       else await this._loadZip(blob, token, options);
 
       if (token !== this._loadToken || this._destroyed) return this;
       this._loading = false;
       this._ready = true;
-      this._phase = 'ready';
+      this._phase = "ready";
       this._loaded = this._total;
-      this._setProgress(1, 'ready', this._loaded, this._total);
+      this._setProgress(1, "ready", this._loaded, this._total);
       this.resize();
       this._emitAngle();
       this._emitFrame(this._frameIndex());
-      this._emit('ready', {
+      this._emit("ready", {
         meta: this.getMeta(),
         config: this.getConfig(),
         state: this.getState(),
@@ -762,8 +800,8 @@ export class Orbit360Client {
       if (token === this._loadToken && !this._destroyed) {
         this._loading = false;
         this._ready = false;
-        this._phase = 'error';
-        this._emit('error', err);
+        this._phase = "error";
+        this._emit("error", err);
         this._emitState();
       }
       throw err;
@@ -806,8 +844,8 @@ export class Orbit360Client {
   }
 
   async _loadOrb(blob, token, options) {
-    if (typeof OrbBundle === 'undefined' || typeof OrbBundle.fromBlob !== 'function') {
-      throw new Error('缺少 ORB3 解析器');
+    if (typeof OrbBundle === "undefined" || typeof OrbBundle.fromBlob !== "function") {
+      throw new Error("缺少 ORB3 解析器");
     }
     const orb = await OrbBundle.fromBlob(blob);
     if (token !== this._loadToken) return;
@@ -816,7 +854,7 @@ export class Orbit360Client {
     const layers = [];
     const jobs = [];
     meta.videos.forEach((video, vi) => {
-      const frames = new Array(video.frames.count);
+      const frames = Array.from({ length: video.frames.count });
       layers.push({ rect: video.rect, frames, count: video.frames.count });
       for (let fi = 0; fi < video.frames.count; fi++) {
         jobs.push({
@@ -824,7 +862,7 @@ export class Orbit360Client {
             const frame = orb.frameBlob(vi, fi);
             return frame ? loadImageBlob(frame) : null;
           },
-          set: img => {
+          set: (img) => {
             frames[fi] = img
               ? { img, sx: 0, sy: 0, sw: video.frames.width, sh: video.frames.height }
               : null;
@@ -840,14 +878,17 @@ export class Orbit360Client {
 
     this._meta = meta;
     this._sceneConfig = sceneConfigFrom(meta);
-    this._format = 'orb';
+    this._format = "orb";
     this._quality = options.quality || null;
     this._codec = meta.codec || null;
     this._canvasW = meta.canvas.width;
     this._canvasH = meta.canvas.height;
     this._frameW = this._canvasW;
     this._frameH = this._canvasH;
-    this._count = Math.max.apply(null, meta.videos.map(v => v.frames.count));
+    this._count = Math.max.apply(
+      null,
+      meta.videos.map((v) => v.frames.count),
+    );
     this._layers = layers;
     this._frames = [];
     this._config = this._resolveConfig();
@@ -858,21 +899,21 @@ export class Orbit360Client {
   async _loadZip(blob, token, options) {
     const entries = await readZipEntries(blob);
     if (token !== this._loadToken) return;
-    const metaBlob = await zipFileBlob(entries, 'meta.json');
-    if (!metaBlob) throw new Error('包里缺少 meta.json');
+    const metaBlob = await zipFileBlob(entries, "meta.json");
+    if (!metaBlob) throw new Error("包里缺少 meta.json");
     const meta = JSON.parse(await blobToText(metaBlob));
     const pack = meta.pack;
     if (!pack || !Array.isArray(pack.files) || !pack.files.length) {
-      throw new Error('meta 缺少 pack.files');
+      throw new Error("meta 缺少 pack.files");
     }
 
     const imgs = new Map();
-    const jobs = pack.files.map(name => ({
+    const jobs = pack.files.map((name) => ({
       run: async () => {
         const file = await zipFileBlob(entries, name);
         return file ? loadImageBlob(file) : null;
       },
-      set: img => imgs.set(name, img),
+      set: (img) => imgs.set(name, img),
     }));
     this._total = jobs.length;
     this._loaded = 0;
@@ -881,7 +922,7 @@ export class Orbit360Client {
 
     const count = pack.count || pack.files.length;
     let frames;
-    if (pack.type === 'atlas') {
+    if (pack.type === "atlas") {
       const per = pack.cols * pack.rows;
       frames = Array.from({ length: count }, (_, i) => {
         const img = imgs.get(pack.files[Math.floor(i / per)]);
@@ -904,8 +945,8 @@ export class Orbit360Client {
 
     this._meta = meta;
     this._sceneConfig = sceneConfigFrom(meta);
-    this._format = 'zip';
-    this._quality = options.quality || meta.quality || 'std';
+    this._format = "zip";
+    this._quality = options.quality || meta.quality || "std";
     this._codec = meta.codec || null;
     this._canvasW = pack.frameW;
     this._canvasH = pack.frameH;
@@ -913,11 +954,13 @@ export class Orbit360Client {
     this._frameH = pack.frameH;
     this._count = count;
     this._frames = frames;
-    this._layers = [{
-      rect: { x: 0, y: 0, width: pack.frameW, height: pack.frameH },
-      frames,
-      count,
-    }];
+    this._layers = [
+      {
+        rect: { x: 0, y: 0, width: pack.frameW, height: pack.frameH },
+        frames,
+        count,
+      },
+    ];
     this._config = this._resolveConfig();
     this._applyConfig();
     this._angle = this._target = this._normAngle(Number(meta.initialAngle) || 0);
@@ -938,7 +981,7 @@ export class Orbit360Client {
         done++;
         this._loaded = done;
         this._total = total;
-        this._setProgress(from + (done / total) * (to - from), 'decode', done, total);
+        this._setProgress(from + (done / total) * (to - from), "decode", done, total);
       }
     };
     await Promise.all(Array.from({ length: concurrency }, worker));
@@ -949,7 +992,7 @@ export class Orbit360Client {
     this._phase = phase;
     this._loaded = loaded;
     this._total = total;
-    this._emit('progress', {
+    this._emit("progress", {
       progress: this._progress,
       phase,
       loaded,
@@ -970,12 +1013,12 @@ export class Orbit360Client {
   /* ---------- 画布 / 渲染 ---------- */
 
   resize() {
-    const w = this.container.clientWidth
-      || (typeof window !== 'undefined' ? window.innerWidth : 0) || 1;
-    const h = this.container.clientHeight
-      || (typeof window !== 'undefined' ? window.innerHeight : 0) || 1;
+    const w =
+      this.container.clientWidth || (typeof window !== "undefined" ? window.innerWidth : 0) || 1;
+    const h =
+      this.container.clientHeight || (typeof window !== "undefined" ? window.innerHeight : 0) || 1;
     const cap = Number(this.options.dprCap) || 2;
-    const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, cap);
+    const dpr = Math.min((typeof window !== "undefined" && window.devicePixelRatio) || 1, cap);
     this._dpr = dpr;
     this._viewW = w;
     this._viewH = h;
@@ -984,7 +1027,7 @@ export class Orbit360Client {
     if (this.canvas.width !== bw) this.canvas.width = bw;
     if (this.canvas.height !== bh) this.canvas.height = bh;
     this.ctx.imageSmoothingEnabled = true;
-    this.ctx.imageSmoothingQuality = 'medium';
+    this.ctx.imageSmoothingQuality = "medium";
     this._layout();
     return this;
   }
@@ -999,14 +1042,19 @@ export class Orbit360Client {
   }
 
   _fillBackdrop() {
-    const w = this._viewW, h = this._viewH;
+    const w = this._viewW,
+      h = this._viewH;
     const g = this.ctx.createRadialGradient(
-      w * 0.5, h * 0.42, 0,
-      w * 0.5, h * 0.42, Math.max(w, h) * 0.78,
+      w * 0.5,
+      h * 0.42,
+      0,
+      w * 0.5,
+      h * 0.42,
+      Math.max(w, h) * 0.78,
     );
-    g.addColorStop(0, '#1b1f27');
-    g.addColorStop(0.62, '#0a0b0e');
-    g.addColorStop(1, '#050608');
+    g.addColorStop(0, "#1b1f27");
+    g.addColorStop(0.62, "#0a0b0e");
+    g.addColorStop(1, "#050608");
     this.ctx.fillStyle = g;
     this.ctx.fillRect(0, 0, w, h);
   }
@@ -1016,12 +1064,12 @@ export class Orbit360Client {
     const cfg = this._config;
     const vw = this._canvasW || this._frameW || cfg.video.width || 1280;
     const vh = this._canvasH || this._frameH || cfg.video.height || 720;
-    const cover = this._fitMode === 'cover';
+    const cover = this._fitMode === "cover";
     const base = cover
       ? Math.max(this._viewW / vw, this._viewH / vh)
-      : Math.min(this._viewW / vw, this._viewH / vh)
-        * (this._viewH > this._viewW ? (cfg.video.portraitScale ?? 1.25) : 1);
-    const scale = base * (cover ? 1 : (cfg.video.displayScale || 1));
+      : Math.min(this._viewW / vw, this._viewH / vh) *
+        (this._viewH > this._viewW ? (cfg.video.portraitScale ?? 1.25) : 1);
+    const scale = base * (cover ? 1 : cfg.video.displayScale || 1);
     this._dst.w = vw * scale;
     this._dst.h = vh * scale;
     this._dst.x = (this._viewW - this._dst.w) / 2;
@@ -1041,18 +1089,19 @@ export class Orbit360Client {
     }
     // 帧序列只覆盖 spanDeg：居中映射到 [-span/2, span/2]，超出取首尾帧。
     const t = (angle + span / 2) / span;
-    return Math.min(this._count - 1,
-      Math.max(0, Math.round(t * (this._count - 1))));
+    return Math.min(this._count - 1, Math.max(0, Math.round(t * (this._count - 1))));
   }
 
   _dirSign() {
-    return this._config.orbit.direction === 'ccw' ? -1 : 1;
+    return this._config.orbit.direction === "ccw" ? -1 : 1;
   }
 
   _layerFrame(layer, index) {
     if (!layer.count) return null;
-    const i = layer.count === this._count ? index
-      : mod(Math.floor(index * layer.count / this._count), layer.count);
+    const i =
+      layer.count === this._count
+        ? index
+        : mod(Math.floor((index * layer.count) / this._count), layer.count);
     return layer.frames[i];
   }
 
@@ -1072,8 +1121,15 @@ export class Orbit360Client {
       if (!frame || !frame.img) continue;
       const r = layer.rect;
       this.ctx.drawImage(
-        frame.img, frame.sx, frame.sy, frame.sw, frame.sh,
-        this._dst.x + r.x * sx, this._dst.y + r.y * sy, r.width * sx, r.height * sy,
+        frame.img,
+        frame.sx,
+        frame.sy,
+        frame.sw,
+        frame.sh,
+        this._dst.x + r.x * sx,
+        this._dst.y + r.y * sy,
+        r.width * sx,
+        r.height * sy,
       );
     }
     this._emitFrame(index);
@@ -1103,9 +1159,7 @@ export class Orbit360Client {
     const delta = this._angleDelta(this._angle, this._target);
     const tau = this._config.motion.smoothMs ?? 62;
     const next = this._angle + delta * (1 - Math.exp(-dt / tau));
-    this._angle = this._limited
-      ? clampNum(next, this._minAngle, this._maxAngle)
-      : mod(next, 360);
+    this._angle = this._limited ? clampNum(next, this._minAngle, this._maxAngle) : mod(next, 360);
     if (Math.abs(this._angleDelta(this._angle, this._target)) < 0.0005) {
       this._angle = this._target;
     }
@@ -1117,17 +1171,27 @@ export class Orbit360Client {
 
   _updateAuto(dt, t) {
     const idle = t - this._idleSince;
-    const want = (this._autoState !== 'off' && !this._gyro && !this._dragging
-      && idle > (this._config.auto.idleDelayMs ?? 2200)) ? 1 : 0;
+    const want =
+      this._autoState !== "off" &&
+      !this._gyro &&
+      !this._dragging &&
+      idle > (this._config.auto.idleDelayMs ?? 2200)
+        ? 1
+        : 0;
     const tau = want
       ? (this._config.auto.rampInMs ?? 700)
-      : (this._dragging ? 120 : (this._config.auto.rampOutMs ?? 280));
+      : this._dragging
+        ? 120
+        : (this._config.auto.rampOutMs ?? 280);
 
     this._autoWeight += (want - this._autoWeight) * (1 - Math.exp(-dt / tau));
-    if (want === 0 && this._autoWeight < 0.004) { this._autoWeight = 0; return; }
+    if (want === 0 && this._autoWeight < 0.004) {
+      this._autoWeight = 0;
+      return;
+    }
     if (this._autoWeight <= 0) return;
     this._target = this._normAngle(
-      this._target + this._autoDir * this._autoSpeed * this._autoWeight * dt / 1000,
+      this._target + (this._autoDir * this._autoSpeed * this._autoWeight * dt) / 1000,
     );
   }
 
@@ -1139,43 +1203,46 @@ export class Orbit360Client {
 
   _bindEvents() {
     this._onResize = () => this._queueResize();
-    window.addEventListener('resize', this._onResize);
-    window.addEventListener('orientationchange', this._onResize);
-    if (typeof ResizeObserver === 'function') {
+    window.addEventListener("resize", this._onResize);
+    window.addEventListener("orientationchange", this._onResize);
+    if (typeof ResizeObserver === "function") {
       this._resizeObserver = new ResizeObserver(this._onResize);
       this._resizeObserver.observe(this.container);
     }
 
-    this._onPointerDown = e => this._handlePointerDown(e);
-    this._onPointerMove = e => this._handlePointerMove(e);
-    this._onPointerUp = e => this._handlePointerUp(e);
-    this._onPointerLeave = () => { this._hoverX = null; this._hoverY = null; };
-    this._onDblClick = () => {
-      if (this._lastPointerType === 'touch') return;
-      this._emit('doubletap', {});
+    this._onPointerDown = (e) => this._handlePointerDown(e);
+    this._onPointerMove = (e) => this._handlePointerMove(e);
+    this._onPointerUp = (e) => this._handlePointerUp(e);
+    this._onPointerLeave = () => {
+      this._hoverX = null;
+      this._hoverY = null;
     };
-    this._onContextMenu = e => {
+    this._onDblClick = () => {
+      if (this._lastPointerType === "touch") return;
+      this._emit("doubletap", {});
+    };
+    this._onContextMenu = (e) => {
       if (this.options.preventContextMenu) e.preventDefault();
     };
 
-    this.input.addEventListener('pointerdown', this._onPointerDown);
-    this.input.addEventListener('pointermove', this._onPointerMove);
-    this.input.addEventListener('pointerup', this._onPointerUp);
-    this.input.addEventListener('pointercancel', this._onPointerUp);
-    this.input.addEventListener('pointerleave', this._onPointerLeave);
-    this.input.addEventListener('dblclick', this._onDblClick);
-    this.input.addEventListener('contextmenu', this._onContextMenu);
+    this.input.addEventListener("pointerdown", this._onPointerDown);
+    this.input.addEventListener("pointermove", this._onPointerMove);
+    this.input.addEventListener("pointerup", this._onPointerUp);
+    this.input.addEventListener("pointercancel", this._onPointerUp);
+    this.input.addEventListener("pointerleave", this._onPointerLeave);
+    this.input.addEventListener("dblclick", this._onDblClick);
+    this.input.addEventListener("contextmenu", this._onContextMenu);
 
-    this._onAbsolute = e => this._handleOrientation(e, true);
-    this._onRelative = e => this._handleOrientation(e, false);
+    this._onAbsolute = (e) => this._handleOrientation(e, true);
+    this._onRelative = (e) => this._handleOrientation(e, false);
   }
 
   _handlePointerDown(e) {
-    if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
-    this._lastPointerType = e.pointerType || '';
+    if (e.button !== undefined && e.button !== 0 && e.pointerType === "mouse") return;
+    this._lastPointerType = e.pointerType || "";
     if (this._pendingGyro) {
       this._pendingGyro = false;
-      this.enableGyro();
+      void this.enableGyro();
     }
     this._dragging = true;
     this._vel = 0;
@@ -1185,28 +1252,35 @@ export class Orbit360Client {
     this._lastPointerY = e.clientY;
     this._lastPointerT = e.timeStamp;
     this.dragTarget.classList.add(this.options.dragClass);
-    try { this.input.setPointerCapture(e.pointerId); } catch (_) { /* 合成事件无活动指针 */ }
+    try {
+      this.input.setPointerCapture(e.pointerId);
+    } catch (_) {
+      /* 合成事件无活动指针 */
+    }
     this._touchActivity();
-    this._emit('dragstart', { pointerType: this._lastPointerType });
+    this._emit("dragstart", { pointerType: this._lastPointerType });
 
     clearTimeout(this._pressTimer);
     this._pressTimer = null;
     this._pressStart = { x: e.clientX, y: e.clientY };
-    if (e.pointerType !== 'mouse') {
+    if (e.pointerType !== "mouse") {
       this._pressTimer = setTimeout(() => {
         this._pressTimer = null;
         this._suppressMove = true;
         this._dragging = false;
         this._vel = 0;
         this.dragTarget.classList.remove(this.options.dragClass);
-        this._emit('longpress', {});
+        this._emit("longpress", {});
       }, 420);
     }
     this._emitState();
   }
 
   _handlePointerMove(e) {
-    if (this._pressStart && Math.hypot(e.clientX - this._pressStart.x, e.clientY - this._pressStart.y) > 8) {
+    if (
+      this._pressStart &&
+      Math.hypot(e.clientX - this._pressStart.x, e.clientY - this._pressStart.y) > 8
+    ) {
       clearTimeout(this._pressTimer);
       this._pressTimer = null;
       this._pressStart = null;
@@ -1214,7 +1288,7 @@ export class Orbit360Client {
     if (this._suppressMove) return;
 
     if (!this._dragging) {
-      if (this._mouseFollow && e.pointerType === 'mouse' && e.buttons === 0) {
+      if (this._mouseFollow && e.pointerType === "mouse" && e.buttons === 0) {
         if (this._hoverX === null || this._hoverY === null) {
           this._hoverX = e.clientX;
           this._hoverY = e.clientY;
@@ -1224,7 +1298,7 @@ export class Orbit360Client {
         const my = e.clientY - this._hoverY;
         this._hoverX = e.clientX;
         this._hoverY = e.clientY;
-        const px = this._axis === 'y' ? my : mx;
+        const px = this._axis === "y" ? my : mx;
         if (px) {
           const d = px * (this._config.mouseFollow.degPerPx ?? 0.3) * (this._invert ? -1 : 1);
           this._target = this._normAngle(this._target + d);
@@ -1238,7 +1312,7 @@ export class Orbit360Client {
     const dx = e.clientX - this._lastPointerX;
     const dy = e.clientY - this._lastPointerY;
     const dt = Math.max(e.timeStamp - this._lastPointerT, 1);
-    const px = this._axis === 'y' ? dy : dx;
+    const px = this._axis === "y" ? dy : dx;
     const deg = px * (this._config.drag.degPerPx ?? 0.42) * (this._invert ? -1 : 1);
     this._target = this._normAngle(this._target + deg);
     if (this._gyro) this._gyroBase = this._normAngle(this._gyroBase + deg);
@@ -1258,7 +1332,11 @@ export class Orbit360Client {
     this._hoverY = null;
     this.dragTarget.classList.remove(this.options.dragClass);
     if (e && e.pointerId !== undefined && this.input.hasPointerCapture?.(e.pointerId)) {
-      try { this.input.releasePointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+      try {
+        this.input.releasePointerCapture(e.pointerId);
+      } catch (_) {
+        /* ignore */
+      }
     }
     if (this._suppressMove) {
       this._suppressMove = false;
@@ -1272,30 +1350,30 @@ export class Orbit360Client {
     if (performance.now() - this._lastPointerT > 90) this._vel = 0;
     this._vel = Math.max(-0.55, Math.min(0.55, this._vel));
     this._touchActivity();
-    this._emit('dragend', { velocity: this._vel });
+    this._emit("dragend", { velocity: this._vel });
     this._emitState();
   }
 
   /* ---------- 陀螺仪 ---------- */
 
   isGyroSupported() {
-    return typeof DeviceOrientationEvent !== 'undefined';
+    return typeof DeviceOrientationEvent !== "undefined";
   }
 
   _initAutoGyro() {
     if (!isTouchDevice()) return;
     if (!this.isGyroSupported()) return;
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
       this._pendingGyro = true;
-      this._emit('gyrochange', {
+      this._emit("gyrochange", {
         enabled: false,
         pending: true,
-        reason: 'permission',
+        reason: "permission",
         state: this.getState(),
       });
       this._emitState();
     } else {
-      this.enableGyro();
+      void this.enableGyro();
     }
   }
 
@@ -1303,40 +1381,45 @@ export class Orbit360Client {
     if (this._gyro) return true;
     try {
       if (!this.isGyroSupported()) {
-        const err = new Error('unsupported');
-        err.code = 'unsupported';
+        const err = new Error("unsupported");
+        (err as any).code = "unsupported";
         throw err;
       }
-      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        const permission = await DeviceOrientationEvent.requestPermission();
-        if (permission !== 'granted') {
-          const err = new Error('permission denied');
-          err.code = 'denied';
+      if (typeof (DeviceOrientationEvent as any).requestPermission === "function") {
+        const permission = await (DeviceOrientationEvent as any).requestPermission();
+        if (permission !== "granted") {
+          const err = new Error("permission denied");
+          (err as any).code = "denied";
           throw err;
         }
       }
-      window.addEventListener('deviceorientationabsolute', this._onAbsolute, true);
-      window.addEventListener('deviceorientation', this._onRelative, true);
+      window.addEventListener("deviceorientationabsolute", this._onAbsolute, true);
+      window.addEventListener("deviceorientation", this._onRelative, true);
       this._gyro = true;
       this._pendingGyro = false;
       this._gyroSeen = false;
       this._hasAbsolute = false;
       this._gyroRef = null;
-      this._emit('gyrochange', { enabled: true, pending: false, reason: 'enabled', state: this.getState() });
+      this._emit("gyrochange", {
+        enabled: true,
+        pending: false,
+        reason: "enabled",
+        state: this.getState(),
+      });
       this._emitState();
 
       clearTimeout(this._gyroTimer);
       this._gyroTimer = setTimeout(() => {
         if (this._destroyed || this._gyroSeen) return;
-        this._stopGyro('no-readings');
+        this._stopGyro("no-readings");
       }, 2200);
       return true;
     } catch (err) {
       this._pendingGyro = false;
-      this._emit('gyrochange', {
+      this._emit("gyrochange", {
         enabled: false,
         pending: false,
-        reason: err.code || 'error',
+        reason: err.code || "error",
         error: err,
         state: this.getState(),
       });
@@ -1346,7 +1429,7 @@ export class Orbit360Client {
   }
 
   disableGyro() {
-    this._stopGyro('disabled');
+    this._stopGyro("disabled");
     return this;
   }
 
@@ -1354,15 +1437,15 @@ export class Orbit360Client {
     clearTimeout(this._gyroTimer);
     this._gyroTimer = null;
     if (this._gyro) {
-      window.removeEventListener('deviceorientationabsolute', this._onAbsolute, true);
-      window.removeEventListener('deviceorientation', this._onRelative, true);
+      window.removeEventListener("deviceorientationabsolute", this._onAbsolute, true);
+      window.removeEventListener("deviceorientation", this._onRelative, true);
     }
     const wasEnabled = this._gyro;
     this._gyro = false;
     this._pendingGyro = false;
     this._gyroRef = null;
-    if (wasEnabled || reason === 'no-readings') {
-      this._emit('gyrochange', {
+    if (wasEnabled || reason === "no-readings") {
+      this._emit("gyrochange", {
         enabled: false,
         pending: false,
         reason,
@@ -1379,7 +1462,7 @@ export class Orbit360Client {
   }
 
   _handleOrientation(e, absolute) {
-    const heading = this._axis === 'y' ? pitchOf(e) : headingOf(e);
+    const heading = this._axis === "y" ? pitchOf(e) : headingOf(e);
     if (heading === null) return;
     if (absolute) this._hasAbsolute = true;
     else if (this._hasAbsolute) return;
@@ -1394,9 +1477,7 @@ export class Orbit360Client {
       return;
     }
 
-    const gain = this._gyroGain
-      * (this._config.gyro.invert ? -1 : 1)
-      * (this._invert ? -1 : 1);
+    const gain = this._gyroGain * (this._config.gyro.invert ? -1 : 1) * (this._invert ? -1 : 1);
     const delta = shortDelta(this._gyroRef, heading) * gain;
     const raw = this._normAngle(this._gyroBase - delta);
 
@@ -1421,25 +1502,25 @@ export class Orbit360Client {
     this._destroyed = true;
     this._loadToken++;
     cancelAnimationFrame(this._raf);
-    this._stopGyro('destroyed');
+    this._stopGyro("destroyed");
     clearTimeout(this._pressTimer);
     this._pressTimer = null;
     this._resizeObserver?.disconnect();
-    window.removeEventListener('resize', this._onResize);
-    window.removeEventListener('orientationchange', this._onResize);
-    this.input.removeEventListener('pointerdown', this._onPointerDown);
-    this.input.removeEventListener('pointermove', this._onPointerMove);
-    this.input.removeEventListener('pointerup', this._onPointerUp);
-    this.input.removeEventListener('pointercancel', this._onPointerUp);
-    this.input.removeEventListener('pointerleave', this._onPointerLeave);
-    this.input.removeEventListener('dblclick', this._onDblClick);
-    this.input.removeEventListener('contextmenu', this._onContextMenu);
+    window.removeEventListener("resize", this._onResize);
+    window.removeEventListener("orientationchange", this._onResize);
+    this.input.removeEventListener("pointerdown", this._onPointerDown);
+    this.input.removeEventListener("pointermove", this._onPointerMove);
+    this.input.removeEventListener("pointerup", this._onPointerUp);
+    this.input.removeEventListener("pointercancel", this._onPointerUp);
+    this.input.removeEventListener("pointerleave", this._onPointerLeave);
+    this.input.removeEventListener("dblclick", this._onDblClick);
+    this.input.removeEventListener("contextmenu", this._onContextMenu);
     this._layers = [];
     this._frames = [];
     this._meta = null;
     this._ready = false;
     this._loading = false;
-    this._emit('destroy', {});
+    this._emit("destroy", {});
     this._events.clear();
   }
 }

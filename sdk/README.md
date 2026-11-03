@@ -6,11 +6,12 @@ ORB3（`.orb`）的解析器与浏览器渲染层在同一个包里：
 sdk/
   js/
     package.json      npm 包 @orbit360/javascript
-    orb.js            ORB3 解析器（UMD，零依赖）
-    orb.d.ts          解析器类型
-    src/client.mjs    Canvas 渲染核心（不含 UI）
-    dist/             IIFE / ESM / CJS 构建产物
-    web-client.d.ts   渲染层类型
+    src/orb.ts        ORB3 解析器（TypeScript，零依赖）
+    src/client.ts     Canvas 渲染核心（TypeScript，不含 UI）
+    src/index.ts      解析器入口
+    src/web-client.ts web client 入口
+    vite.config.ts    Vite+ pack 配置（ESM / CJS / IIFE + dts）
+    dist/             构建产物
     README.md         包说明与完整 API
 ```
 
@@ -23,19 +24,19 @@ npm install @orbit360/javascript
 解析 `.orb`：
 
 ```js
-const OrbBundle = require('@orbit360/javascript');
+const OrbBundle = require("@orbit360/javascript");
 const orb = await OrbBundle.fromBlob(file);
 ```
 
 渲染（不包含 UI，所有控制项通过 API）：
 
 ```js
-import { Orbit360Client } from '@orbit360/javascript/web-client';
+import { Orbit360Client } from "@orbit360/javascript/web-client";
 
 const client = new Orbit360Client(canvas, { container: stage, input: stage });
-await client.load('assets/maid/scene.orb');
-client.setAutoRotate('cw');
-client.setFit('cover');
+await client.load("assets/maid/scene.orb");
+client.setAutoRotate("cw");
+client.setFit("cover");
 console.log(client.getAngle(), client.getState());
 ```
 
@@ -52,12 +53,12 @@ console.log(client.getAngle(), client.getState());
 
 ## 发布
 
-包在根 `pnpm-workspace.yaml` 的 workspace 里，发布由
+包在根 `pnpm-workspace.yaml` 的 workspace 里，依赖与安装由 `vp` 管理，发布由
 `.github/workflows/npm-publish.yml` 负责：
 
-- PR / 手动运行：安装依赖、构建 SDK 与页面、校验包、`pnpm pack --dry-run`
+- PR / 手动运行：安装依赖、构建 SDK 与页面、校验包、`vp pm pack --dry-run`
 - GitHub Release：执行
-  `pnpm --filter @orbit360/javascript publish`
+  `vp pm publish`（在 `sdk/js` 下）
 
 发布前在仓库 `Settings → Secrets and variables → Actions` 添加 `NPM_TOKEN`，
 并按需更新 `sdk/js/package.json` 的 `version`（npm 不允许覆盖已发布版本）。
@@ -74,4 +75,4 @@ console.log(client.getAngle(), client.getState());
 6. 校验 `orbit.minAngle` / `maxAngle` 在 `-180..180` 且 `min < max`（缺省 `-180 / 180`），
    角度语义为向右为正、向左为负，每条视频的限制与场景一致。
 
-解析逻辑应以 `sdk/js/orb.js` 为参考，但不要依赖浏览器 API；核心校验规则保持一致。
+解析逻辑应以 `sdk/js/src/orb.ts` 为参考，但不要依赖浏览器 API；核心校验规则保持一致。

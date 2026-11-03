@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** 顶部提示：默认文案随轴变化，flash 临时覆盖并自动淡出。 */
 export function useHint(baseText) {

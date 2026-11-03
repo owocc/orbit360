@@ -2,65 +2,64 @@
   "name": "@orbit360/javascript",
   "version": "0.1.0",
   "description": "ORB3 (.orb) scene bundle parser and Canvas renderer for orbit360",
-  "type": "commonjs",
-  "license": "PolyForm-Noncommercial-1.0.0",
   "keywords": [
-    "orbit360",
+    "360",
+    "canvas",
     "orb",
     "orb3",
-    "360",
+    "orbit360",
     "panorama",
-    "canvas",
     "web-client"
   ],
   "homepage": "https://github.com/owocc/orbit360#readme",
+  "bugs": {
+    "url": "https://github.com/owocc/orbit360/issues"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/owocc/orbit360.git",
     "directory": "sdk/js"
   },
-  "bugs": {
-    "url": "https://github.com/owocc/orbit360/issues"
-  },
-  "main": "./orb.js",
-  "browser": "./orb.js",
-  "types": "./orb.d.ts",
-  "exports": {
-    ".": {
-      "types": "./orb.d.ts",
-      "require": "./orb.js",
-      "import": "./orb.js",
-      "default": "./orb.js"
-    },
-    "./web-client": {
-      "types": "./web-client.d.ts",
-      "import": "./dist/orbit360-client.mjs",
-      "require": "./dist/orbit360-client.cjs",
-      "default": "./dist/orbit360-client.mjs"
-    },
-    "./package.json": "./package.json"
-  },
   "files": [
-    "orb.js",
-    "orb.d.ts",
     "dist",
-    "web-client.d.ts",
     "README.md"
   ],
+  "type": "commonjs",
   "sideEffects": false,
-  "engines": {
-    "node": ">=16"
-  },
-  "scripts": {
-    "build": "node scripts/build.mjs",
-    "test": "node --check orb.js && node --check src/client.mjs",
-    "prepack": "node -e \"require('fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
-    "prepublishOnly": "pnpm build && pnpm test"
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.mjs"
+    },
+    "./web-client": {
+      "types": "./dist/web-client.d.ts",
+      "import": "./dist/web-client.mjs",
+      "require": "./dist/web-client.js",
+      "default": "./dist/web-client.mjs"
+    },
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
   },
+  "scripts": {
+    "dev": "vp pack --watch",
+    "build": "vp pack",
+    "test": "vp check",
+    "prepack": "node -e \"require('fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
+    "prepublishOnly": "vp pack && vp check"
+  },
   "devDependencies": {
-    "esbuild": "catalog:"
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=16"
   }
 }

@@ -18,8 +18,13 @@ body {
   overflow: hidden;
   background: var(--bg);
   color: var(--fg);
-  font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC",
-    "Helvetica Neue", sans-serif;
+  font:
+    500 13px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro SC",
+    "PingFang SC",
+    "Helvetica Neue",
+    sans-serif;
   touch-action: none;
   overscroll-behavior: none;
   -webkit-user-select: none;

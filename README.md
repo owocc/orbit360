@@ -13,25 +13,26 @@
 
 ## 快速开始
 
-根目录是 pnpm workspace（`apps/playground`、`sdk/js`），依赖版本统一在
+根目录是 Vite+ 管理的 pnpm workspace（`apps/playground`、`sdk/js`），依赖版本统一在
 `pnpm-workspace.yaml` 的 catalog 里。页面是 Vite + React，解析与渲染都在
-`@orbit360/javascript` 包里；先安装依赖：
+`@orbit360/javascript` 包里。需要 Vite+ CLI（`vp`）；没有全局 CLI 时
+安装依赖后可用 `pnpm exec vp ...` 代替。先安装依赖：
 
 ```bash
-pnpm install         # 安装整个 workspace（playground + sdk/js）
-pnpm dev             # 开发服务器，默认 http://127.0.0.1:5173/
+vp install           # 安装整个 workspace（playground + sdk/js）
+vp run dev           # 开发服务器，默认 http://127.0.0.1:5173/
 ```
 
 构建静态站点（输出 `dist/`，包含 `catalog.json` 与 `assets/` 里的 `.orb`）：
 
 ```bash
-pnpm build
+vp run build
 python3 scripts/serve.py 8787        # http://127.0.0.1:8787/
 python3 scripts/serve_tls.py 8443    # 手机 https://<本机IP>:8443/（需 HTTPS 才能用陀螺仪）
 ```
 
 仓库里已经带了两个 `.orb` 示例（`assets/orbit/`、`assets/maid/`），开箱即用。
-GitHub Pages 发布 `dist/` 目录（`pnpm build` 的产物）；`.github/workflows/pages.yml`
+GitHub Pages 发布 `dist/` 目录（`vp run build` 的产物）；`.github/workflows/pages.yml`
 会在推送到 `main` 时自动构建并部署。
 
 自己的视频：用 `scripts/bundle.py` 生成 `.orb`，再挂进示例清单，页面源码不用改，重新构建即可——
@@ -46,9 +47,10 @@ python3 scripts/bundle.py build assets/<id>/scene.orb <视频路径> \
 ## 目录结构
 
 ```
-pnpm-workspace.yaml   workspace 包列表 + catalog（统一 React / Vite / esbuild 版本）
+pnpm-workspace.yaml   workspace 包列表 + catalog（Vite+ 统一依赖版本）
 pnpm-lock.yaml        全仓库唯一锁文件
-package.json          根脚本（pnpm dev / build / test）
+package.json          根脚本（vp run dev / build / check）
+vite.config.ts        Vite+ 根配置（fmt / lint / staged）
 apps/playground/       Vite + React 示例页面（独立 workspace）
   index.html          Vite 入口（只有 #root）
   vite.config.mjs     构建 dist/ + dev 服务器代理仓库 assets/catalog
@@ -60,7 +62,7 @@ apps/playground/       Vite + React 示例页面（独立 workspace）
     styles/           base / header / panel / overlays
 sdk/js/               @orbit360/javascript（解析器 + Canvas 渲染，IIFE 仍为 window.Orbit360）
 scripts/bundle.py     视频 → .orb
-dist/                 pnpm build 产物（GitHub Pages 发布目录）
+dist/                 vp run build 产物（GitHub Pages 发布目录）
 ```
 
 ## GUI（原生窗口）
@@ -80,19 +82,19 @@ go tool mygo build    # 打包成 Orbit360.app / .exe / .deb
 [evermeet.cx](https://evermeet.cx/ffmpeg/) 取 ffmpeg + ffprobe 静态构建，Windows 取
 gyan.dev 的 essentials 包，解到配置目录的 `bin/`）；Linux 走包管理器，窗口只给提示。
 
-| 位置 | 作用 |
-|---|---|
-| 源视频 | `选择…` 后自动用 ffprobe 读尺寸，并把「每帧长边」收窄到源的长边（上限 1280） |
-| 示例 id / 标题 | `id` 决定唯一产物 `assets/<id>/scene.orb`，并写进 `catalog.json` |
-| 帧率 / 每帧长边 | `--fps` / `--long-edge` |
-| 帧质量 / 帧编码 | `--quality`（0–100，默认 80）/ `--codec`（webp / avif / jpeg） |
-| 初始角度 / 环向 / 环绕角度 | `--initial-angle` / `--orbit-dir` / `--orbit-span` |
-| 旋转轴 | `--axis x\|y`；X 为水平环绕，Y 为垂直环绕，一条视频只用一个轴 |
-| 最小/最大角度 | `--min-angle` / `--max-angle`，`-180..180`，分别限制；默认 `-180` / `180` 整圈 |
-| 更新 catalog | `--catalog`，扫描 `assets/<id>/scene.orb` 重写清单 |
-| 开始生成 | 起 `python3 scripts/bundle.py build assets/<id>/scene.orb …`，日志实时贴在下半屏，可中途停止 |
-| 打开预览 | 先 `pnpm build`，没在跑就起 `scripts/serve.py 8787`，再打开 `http://127.0.0.1:8787/?e=<id>` |
-| 打开输出目录 | 在 Finder / 资源管理器里定位 `assets/<id>` |
+| 位置                       | 作用                                                                                          |
+| -------------------------- | --------------------------------------------------------------------------------------------- |
+| 源视频                     | `选择…` 后自动用 ffprobe 读尺寸，并把「每帧长边」收窄到源的长边（上限 1280）                  |
+| 示例 id / 标题             | `id` 决定唯一产物 `assets/<id>/scene.orb`，并写进 `catalog.json`                              |
+| 帧率 / 每帧长边            | `--fps` / `--long-edge`                                                                       |
+| 帧质量 / 帧编码            | `--quality`（0–100，默认 80）/ `--codec`（webp / avif / jpeg）                                |
+| 初始角度 / 环向 / 环绕角度 | `--initial-angle` / `--orbit-dir` / `--orbit-span`                                            |
+| 旋转轴                     | `--axis x\|y`；X 为水平环绕，Y 为垂直环绕，一条视频只用一个轴                                 |
+| 最小/最大角度              | `--min-angle` / `--max-angle`，`-180..180`，分别限制；默认 `-180` / `180` 整圈                |
+| 更新 catalog               | `--catalog`，扫描 `assets/<id>/scene.orb` 重写清单                                            |
+| 开始生成                   | 起 `python3 scripts/bundle.py build assets/<id>/scene.orb …`，日志实时贴在下半屏，可中途停止  |
+| 打开预览                   | 先 `vp run build`，没在跑就起 `scripts/serve.py 8787`，再打开 `http://127.0.0.1:8787/?e=<id>` |
+| 打开输出目录               | 在 Finder / 资源管理器里定位 `assets/<id>`                                                    |
 
 设置（上一次的视频、路径、参数）存在 `~/Library/Application Support/orbit360-gui/settings.json`
 （Linux 在 `$XDG_CONFIG_HOME`，Windows 在 `%AppData%`）。
@@ -104,7 +106,7 @@ go run . -shot shot.png
 ```
 
 GUI 和命令行是同一个脚本的两个入口，参数一一对应，产物只有 `assets/<id>/scene.orb`；
-没有第二套 zip 产物链。生成后重新 `pnpm build` 即可在页面里看到新示例。
+没有第二套 zip 产物链。生成后重新 `vp run build` 即可在页面里看到新示例。
 
 ## 场景包（`.orb`，多视频）
 
@@ -180,23 +182,31 @@ meta 是一个对象 + 一个数组，一个视频对应 `videos` 里的一项�
 
 ```json
 {
-  "format": "orbit360.bundle", "version": 1.2, "title": "…",
+  "format": "orbit360.bundle",
+  "version": 1.2,
+  "title": "…",
   "canvas": { "width": 1920, "height": 1080 },
   "totalFrames": 240,
   "codec": "image/webp",
   "initialAngle": -30,
-  "orbit": { "axis": "x", "spanDeg": 360, "direction": "cw",
-             "minAngle": -60, "maxAngle": 60 },
-  "videos": [{
-    "id": "v1",
-    "rect": { "x": 0, "y": 0, "width": 960, "height": 1080 },
-    "source": { "file": "a.mp4", "width": 3840, "height": 2160, "fps": 24,
-                "frames": 239, "durationSec": 9.963, "codec": "h264" },
-    "orbit": { "axis": "x", "spanDeg": 360, "direction": "cw",
-               "minAngle": -60, "maxAngle": 60 },
-    "frames": { "count": 120, "width": 960, "height": 540, "fps": 12,
-                "indexStart": 0 }
-  }]
+  "orbit": { "axis": "x", "spanDeg": 360, "direction": "cw", "minAngle": -60, "maxAngle": 60 },
+  "videos": [
+    {
+      "id": "v1",
+      "rect": { "x": 0, "y": 0, "width": 960, "height": 1080 },
+      "source": {
+        "file": "a.mp4",
+        "width": 3840,
+        "height": 2160,
+        "fps": 24,
+        "frames": 239,
+        "durationSec": 9.963,
+        "codec": "h264"
+      },
+      "orbit": { "axis": "x", "spanDeg": 360, "direction": "cw", "minAngle": -60, "maxAngle": 60 },
+      "frames": { "count": 120, "width": 960, "height": 540, "fps": 12, "indexStart": 0 }
+    }
+  ]
 }
 ```
 
@@ -228,14 +238,14 @@ meta 是一个对象 + 一个数组，一个视频对应 `videos` 里的一项�
 `@orbit360/javascript/web-client` 子路径里，通过 `import` 使用：
 
 ```js
-import { Orbit360Client } from '@orbit360/javascript/web-client';
+import { Orbit360Client } from "@orbit360/javascript/web-client";
 
-const client = new Orbit360Client(document.querySelector('canvas'), {
-  container: document.querySelector('#stage'),
-  input: document.querySelector('#stage'),
+const client = new Orbit360Client(document.querySelector("canvas"), {
+  container: document.querySelector("#stage"),
+  input: document.querySelector("#stage"),
 });
 
-await client.load('assets/maid/scene.orb');
+await client.load("assets/maid/scene.orb");
 ```
 
 非打包环境仍可加载 IIFE 版本，全局命名空间还是 `window.Orbit360`：
@@ -243,43 +253,44 @@ await client.load('assets/maid/scene.orb');
 ```html
 <script src="sdk/js/dist/orbit360-client.js"></script>
 <script>
-  const client = new Orbit360.Client(document.querySelector('canvas'), {
-    container: document.querySelector('#stage'),
-    input: document.querySelector('#stage'),
+  const client = new Orbit360.Client(document.querySelector("canvas"), {
+    container: document.querySelector("#stage"),
+    input: document.querySelector("#stage"),
   });
-  client.load('assets/maid/scene.orb');
+  client.load("assets/maid/scene.orb");
 </script>
 ```
 
 核心 API：
 
 ```js
-client.load(urlOrBlob);                       // .orb / 旧版 zip
-client.setAngle(90);                          // 目标角度
+client.load(urlOrBlob); // .orb / 旧版 zip
+client.setAngle(90); // 目标角度
 client.rotateBy(3);
-client.setAutoRotate('cw');                   // off / cw / ccw
+client.setAutoRotate("cw"); // off / cw / ccw
 client.setAutoSpeed(20);
 client.setGyroConfig({ gain: 1.4, smooth: true });
 client.setInvert(false);
-client.setFit('cover');                       // contain / cover
+client.setFit("cover"); // contain / cover
 client.setMouseFollow({ enabled: true });
 client.setConfig({ drag: { degPerPx: 0.5 } });
-client.getAngle();                            // 当前角度
-client.getConfig();                           // 当前完整配置
-client.getState();                            // 角度 / 帧号 / 自动旋转 / 陀螺仪 / 进度 / meta
-client.on('angle', ({ angle, frameIndex }) => {});
-client.on('state', state => {});
+client.getAngle(); // 当前角度
+client.getConfig(); // 当前完整配置
+client.getState(); // 角度 / 帧号 / 自动旋转 / 陀螺仪 / 进度 / meta
+client.on("angle", ({ angle, frameIndex }) => {});
+client.on("state", (state) => {});
 ```
 
 完整配置项、状态字段、事件与方法见 [sdk/js/README.md](sdk/js/README.md)。
 解析器约定见 [sdk/js/README.md](sdk/js/README.md)，其他语言实现放在 `sdk/<lang>/`，
 总约定见 [sdk/README.md](sdk/README.md)。
 
-修改 SDK（`sdk/js/src/client.mjs`）或页面（`apps/playground/src/`）后重新构建：
+修改 SDK（`sdk/js/src/client.ts`）或页面（`apps/playground/src/`）后重新构建：
 
 ```bash
-pnpm dev                    # 开发；会先构建 SDK
-pnpm build                  # SDK + Vite 静态站点到 dist/
+vp run dev                  # 开发；会先构建 SDK
+vp run build                # SDK + Vite 静态站点到 dist/
+vp run check                # oxlint + oxfmt + 类型检查
 ```
 
 npm 包：
@@ -300,15 +311,15 @@ npm install @orbit360/javascript   # 解析器 + Canvas 渲染层
 底层解析器仍可单独使用（`@orbit360/javascript`）：
 
 ```js
-const orb = await OrbBundle.fromBlob(file);   // File / Blob
-orb.meta;                                     // JSON meta
-orb.prefixLen;                                // Header+Meta+Index 字节数
-orb.entries;                                  // [video, length, offset] 数组
-orb.frameEntry(0, 0);                         // { video, length, offset }
-orb.frameBlob(0, 0);                          // 该帧 Blob，可直接 <img>/createImageBitmap
+const orb = await OrbBundle.fromBlob(file); // File / Blob
+orb.meta; // JSON meta
+orb.prefixLen; // Header+Meta+Index 字节数
+orb.entries; // [video, length, offset] 数组
+orb.frameEntry(0, 0); // { video, length, offset }
+orb.frameBlob(0, 0); // 该帧 Blob，可直接 <img>/createImageBitmap
 
-const whole = OrbBundle.parse(arrayBuffer);   // 整文件 ArrayBuffer
-const head = OrbBundle.parse(prefixBuffer);   // 也可以只给前 prefixLen 字节
+const whole = OrbBundle.parse(arrayBuffer); // 整文件 ArrayBuffer
+const head = OrbBundle.parse(prefixBuffer); // 也可以只给前 prefixLen 字节
 ```
 
 `fromBlob()` 只先读 32B Header 和前 `prefixLen` 字节，帧在需要时才 `slice`，
@@ -321,12 +332,14 @@ const head = OrbBundle.parse(prefixBuffer);   // 也可以只给前 prefixLen �
 ```json
 {
   "default": "maid",
-  "items": [{
-    "id": "maid",
-    "title": "沙发少女",
-    "orb": "assets/maid/scene.orb",
-    "defaults": { "auto": { "enabled": true, "dir": "cw" } }
-  }]
+  "items": [
+    {
+      "id": "maid",
+      "title": "沙发少女",
+      "orb": "assets/maid/scene.orb",
+      "defaults": { "auto": { "enabled": true, "dir": "cw" } }
+    }
+  ]
 }
 ```
 
@@ -374,16 +387,16 @@ python3 scripts/bundle.py build assets/myid/scene.orb my-video.mp4 \
 进入 3.2 秒后整体自动隐藏，画面全屏沉浸；触屏长按、鼠标双击（或 `H`）随时调出。
 移动端进入页面后会在首次触摸时自动申请并开启陀螺仪（iOS 必须在用户手势内授权），无需手动点按钮。
 
-| 操作 | 效果 |
-|---|---|
-| 左右拖拽 / 鼠标拖动 | 转动视角，松手有阻尼惯性 |
-| 移动鼠标（不按键） | 鼠标跟随转向，默认 `0.3°/px` |
-| 倾斜手机（需 HTTPS） | 陀螺仪映射到环绕角度，增益 0.4×–3.0× 可调 |
-| 长按画面（触屏） | 显示 / 隐藏 UI |
-| 双击画面（鼠标） | 显示 / 隐藏 UI |
-| `H` | 显示 / 隐藏 UI |
-| `←` `→` | 微调 3°（`Shift` 为 15°） |
-| `空格` / 面板 `自动环绕` | 三态循环：关 → 顺时针 → 逆时针（默认关） |
+| 操作                     | 效果                                      |
+| ------------------------ | ----------------------------------------- |
+| 左右拖拽 / 鼠标拖动      | 转动视角，松手有阻尼惯性                  |
+| 移动鼠标（不按键）       | 鼠标跟随转向，默认 `0.3°/px`              |
+| 倾斜手机（需 HTTPS）     | 陀螺仪映射到环绕角度，增益 0.4×–3.0× 可调 |
+| 长按画面（触屏）         | 显示 / 隐藏 UI                            |
+| 双击画面（鼠标）         | 显示 / 隐藏 UI                            |
+| `H`                      | 显示 / 隐藏 UI                            |
+| `←` `→`                  | 微调 3°（`Shift` 为 15°）                 |
+| `空格` / 面板 `自动环绕` | 三态循环：关 → 顺时针 → 逆时针（默认关）  |
 
 自动旋转在静止 `idleDelayMs` 后**渐入**（默认 700 ms 升到满速），任何拖拽/陀螺仪输入都会让权重
 在 120–280 ms 内降到 0，所以起步和打断都没有突兀的速度跳变；速度与方向都记在 `localStorage`。
@@ -407,29 +420,29 @@ python3 scripts/bundle.py build assets/myid/scene.orb my-video.mp4 \
 合并到内置默认值上；`scripts/bundle.py` 默认只写 `title / canvas / codec / initialAngle / orbit / videos`，
 其余键取渲染层默认值，也可以在加载后用 `client.setConfig({...})` 覆盖（完整字段见 [sdk/js/README.md](sdk/js/README.md)）。
 
-| 键 | 含义 | 默认 |
-|---|---|---|
-| `source` | 源视频 meta（分辨率/fps/帧数/时长/编码/码率） | 自动 |
-| `video.width/height` | 帧的逻辑宽高（决定画面比例） | 自动 |
-| `video.displayScale` | 画面缩放 >1 时裁切边缘 | `1` |
-| `video.portraitScale` | 竖屏额外放大 | `1.25` |
-| `orbit.spanDeg` | 整段视频覆盖的真实角度（`--orbit-span`），帧按 `[-span/2, span/2]` 居中映射 | `360` |
-| `orbit.direction` | `cw` / `ccw`，帧序列方向（`--orbit-dir`） | `cw` |
+| 键                                  | 含义                                                                        | 默认           |
+| ----------------------------------- | --------------------------------------------------------------------------- | -------------- |
+| `source`                            | 源视频 meta（分辨率/fps/帧数/时长/编码/码率）                               | 自动           |
+| `video.width/height`                | 帧的逻辑宽高（决定画面比例）                                                | 自动           |
+| `video.displayScale`                | 画面缩放 >1 时裁切边缘                                                      | `1`            |
+| `video.portraitScale`               | 竖屏额外放大                                                                | `1.25`         |
+| `orbit.spanDeg`                     | 整段视频覆盖的真实角度（`--orbit-span`），帧按 `[-span/2, span/2]` 居中映射 | `360`          |
+| `orbit.direction`                   | `cw` / `ccw`，帧序列方向（`--orbit-dir`）                                   | `cw`           |
 | `orbit.minAngle` / `orbit.maxAngle` | 允许的最小/最大角度，`-180..180`，分别限制（`--min-angle` / `--max-angle`） | `-180` / `180` |
-| `videos[].frames.count` | 帧数；每帧角度 = `orbit.spanDeg / count` | 自动 |
-| `drag.degPerPx` | 拖拽灵敏度（度/像素） | `0.42` |
-| `video.fit` | `contain` 自适应 / `cover` 铺满 | `contain` |
-| `drag.inertia` | 松手是否继续滑行 | `true` |
-| `drag.inertiaMs` | 松手惯性时间常数 | `110` |
-| `motion.smoothMs` | 角度阻尼（越小越跟手） | `45` |
-| `auto.enabled` / `auto.dir` | 默认是否自动旋转 / 方向 `cw`\|`ccw` | `false` / `cw` |
-| `auto.degPerSec` | 自动旋转速度（面板滑块同步） | `14` |
-| `auto.idleDelayMs` | 静止多久开始自动旋转 | `2200` |
-| `auto.rampInMs` / `rampOutMs` | 起转渐入 / 交互渐出时间常数 | `700` / `280` |
-| `gyro.gain` | 陀螺仪增益（面板滑块同步） | `1.0` |
-| `gyro.smooth` / `smoothMs` | 陀螺仪低通滤波开关 / 时间常数 | `true` / `80` |
-| `mouseFollow.enabled` | 是否默认开启鼠标悬停转向 | `false` |
-| `mouseFollow.degPerPx` | 鼠标跟随灵敏度（度/像素） | `0.3` |
+| `videos[].frames.count`             | 帧数；每帧角度 = `orbit.spanDeg / count`                                    | 自动           |
+| `drag.degPerPx`                     | 拖拽灵敏度（度/像素）                                                       | `0.42`         |
+| `video.fit`                         | `contain` 自适应 / `cover` 铺满                                             | `contain`      |
+| `drag.inertia`                      | 松手是否继续滑行                                                            | `true`         |
+| `drag.inertiaMs`                    | 松手惯性时间常数                                                            | `110`          |
+| `motion.smoothMs`                   | 角度阻尼（越小越跟手）                                                      | `45`           |
+| `auto.enabled` / `auto.dir`         | 默认是否自动旋转 / 方向 `cw`\|`ccw`                                         | `false` / `cw` |
+| `auto.degPerSec`                    | 自动旋转速度（面板滑块同步）                                                | `14`           |
+| `auto.idleDelayMs`                  | 静止多久开始自动旋转                                                        | `2200`         |
+| `auto.rampInMs` / `rampOutMs`       | 起转渐入 / 交互渐出时间常数                                                 | `700` / `280`  |
+| `gyro.gain`                         | 陀螺仪增益（面板滑块同步）                                                  | `1.0`          |
+| `gyro.smooth` / `smoothMs`          | 陀螺仪低通滤波开关 / 时间常数                                               | `true` / `80`  |
+| `mouseFollow.enabled`               | 是否默认开启鼠标悬停转向                                                    | `false`        |
+| `mouseFollow.degPerPx`              | 鼠标跟随灵敏度（度/像素）                                                   | `0.3`          |
 
 改完重新生成 `.orb`（或改 `client.setConfig`）后生效。
 
@@ -452,7 +465,7 @@ iOS Safari 上逐帧切换 `ImageBitmap` 会不停上传/驱逐 GPU 纹理，画
 
 ```
 apps/playground/           Vite + React 示例页面（index.html / src / vite.config.mjs）
-dist/               pnpm build 产物（GitHub Pages 发布目录）
+dist/               vp run build 产物（GitHub Pages 发布目录）
 catalog.json        示例清单（default + items + orb + defaults）
 LICENSE             PolyForm Noncommercial 1.0.0（源码公开，禁止商用）
 CREDITS.md          致谢、独立实现声明、素材归属
@@ -465,11 +478,12 @@ examples/           示例源视频（用于重新生成，不参与页面加载
 sdk/                多语言 SDK
   README.md          SDK 约定、npm 发布与新增语言说明
   js/                npm 包 @orbit360/javascript
-    orb.js           解析器（浏览器 / Node，零依赖）
-    orb.d.ts         解析器类型
-    src/client.mjs   Canvas 渲染核心（不含 UI）
-    dist/            IIFE / ESM / CJS 构建产物（IIFE 暴露 window.Orbit360）
-    web-client.d.ts  web client 类型
+    src/orb.ts       ORB3 解析器（TypeScript，零依赖）
+    src/client.ts    Canvas 渲染核心（TypeScript，不含 UI）
+    src/index.ts     解析器入口
+    src/web-client.ts web client 入口
+    vite.config.ts   Vite+ pack 配置（ESM / CJS / IIFE + dts）
+    dist/            构建产物（IIFE 暴露 window.Orbit360）
     README.md        解析器 + web client 完整 API
 apps/
   playground/       Vite + React 示例页面
@@ -499,13 +513,13 @@ Android 优先使用 `deviceorientationabsolute` 的绝对朝向，无传感器�
 [PolyForm Noncommercial License 1.0.0](LICENSE)：
 源码完整公开，可以自由阅读、修改、分发、自用，**但仅限非商业用途**。
 
-| 用途 | 是否需要授权 |
-| --- | --- |
-| 个人学习、研究、实验、业余项目、私人娱乐 | 直接可用 |
-| 学校、科研机构、慈善/公益组织、政府机构使用 | 直接可用 |
-| 改代码后仍用于上述非商业场景，并随附本许可证 | 直接可用 |
+| 用途                                                                  | 是否需要授权       |
+| --------------------------------------------------------------------- | ------------------ |
+| 个人学习、研究、实验、业余项目、私人娱乐                              | 直接可用           |
+| 学校、科研机构、慈善/公益组织、政府机构使用                           | 直接可用           |
+| 改代码后仍用于上述非商业场景，并随附本许可证                          | 直接可用           |
 | 商业产品、SaaS 服务、企业内部生产经营、付费交付、带广告或付费墙的站点 | **需书面商业授权** |
-| 把本 SDK 打包进商业项目 / 商业 App 分发 | **需书面商业授权** |
+| 把本 SDK 打包进商业项目 / 商业 App 分发                               | **需书面商业授权** |
 
 商业授权：开 issue 或邮件联系仓库作者（`owocc`）。
 创意来源与素材归属见 [CREDITS.md](CREDITS.md)。

@@ -1,4 +1,4 @@
-const PREFIX = 'orbit' + '360.';
+const PREFIX = "orbit" + "360.";
 const AUTO_KEY = `${PREFIX}auto`;
 const AUTO_SPEED_KEY = `${PREFIX}autoSpeed`;
 const QUALITY_KEY = `${PREFIX}quality`;
@@ -32,13 +32,13 @@ export function readUserConfig() {
   const auto = readPref(AUTO_KEY);
   if (auto) {
     config.auto = {
-      enabled: auto !== 'off',
-      dir: auto === 'ccw' ? 'ccw' : 'cw',
+      enabled: auto !== "off",
+      dir: auto === "ccw" ? "ccw" : "cw",
     };
   }
   const speed = Number.parseFloat(readPref(AUTO_SPEED_KEY));
   if (Number.isFinite(speed)) {
-    config.auto = { ...(config.auto || {}), degPerSec: speed };
+    config.auto = { ...config.auto, degPerSec: speed };
   }
   return config;
 }

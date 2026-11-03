@@ -35,29 +35,30 @@ jobs:
           version: 12.9.1
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22.18.0
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - name: 安装依赖
-        run: pnpm install --frozen-lockfile
-      - name: 语法检查
-        run: pnpm test
+        run: pnpm dlx --package=vite-plus@1.0.0 vp install --frozen-lockfile
+      - name: 检查 / 格式化 / 类型
+        run: pnpm exec vp run check
       - name: 构建 SDK 与页面
-        run: pnpm build
+        run: pnpm exec vp run build
       - name: 校验 web client
         run: >-
-          node -e "const m=require('./sdk/js/dist/orbit360-client.cjs');
+          node -e "const m=require('./sdk/js/dist/web-client.js');
           if(typeof m.Orbit360Client!=='function'||m.Orbit360Client.name!=='Orbit360Client')process.exit(1);
           console.log('web client',m.VERSION);"
       - name: 解析示例 .orb
         run: >-
-          node -e "const fs=require('fs');const O=require('./sdk/js/orb.js');
+          node -e "const fs=require('fs');const O=require('./sdk/js/dist/index.js');
           const b=fs.readFileSync('assets/maid/scene.orb');
           const o=O.parse(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));
           if(!o.meta||o.meta.totalFrames!==o.entries.length)process.exit(1);
           console.log(o.meta.title,o.meta.totalFrames,'frames');"
       - name: 检查 javascript 发布内容
-        run: pnpm --filter @orbit360/javascript pack --dry-run
+        working-directory: sdk/js
+        run: pnpm exec vp pm pack -- --dry-run
 
   publish-javascript:
     name: 发布 @orbit360/javascript
@@ -74,13 +75,16 @@ jobs:
           version: 12.9.1
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22.18.0
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - name: 安装依赖
-        run: pnpm install --frozen-lockfile
+        run: pnpm dlx --package=vite-plus@1.0.0 vp install --frozen-lockfile
+      - name: 构建 SDK
+        run: pnpm exec vp run build:sdk
       - name: 发布到 npm
-        run: pnpm --filter @orbit360/javascript publish --access public --provenance
+        working-directory: sdk/js
+        run: pnpm exec vp pm publish -- --access public --provenance
         env:
           # 占位：填入仓库 Secrets 里的 NPM_TOKEN 后即可发布
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
