@@ -8,8 +8,8 @@
 > 灵感来源：[monoradio（@monoradio102）2026-11-01 的一条帖子](https://x.com/monoradio102/status/2116746974716432602)
 > ——把环绕画面当帧序列、按手机倾斜切帧。详见 [CREDITS.md](CREDITS.md)。
 
-- `examples/anime-maid.mp4`（**3840×2160** / 24fps / 10s / 239 帧，首尾闭环 0.768，环回有一次可见跳变）
-- `examples/orbit-sample.mp4`（1280×720 / 24fps / 10s / 240 帧，首尾闭环 0.952）
+- `videos/anime-maid.mp4`（**3840×2160** / 24fps / 10s / 239 帧，首尾闭环 0.768，环回有一次可见跳变）
+- `videos/orbit-sample.mp4`（1280×720 / 24fps / 10s / 240 帧，首尾闭环 0.952）
 
 ## 快速开始
 
@@ -147,9 +147,9 @@ python3 scripts/serve.py 8787
 重新生成（参数与上面文件一致）：
 
 ```bash
-python3 scripts/bundle.py build assets/orbit/scene.orb examples/orbit-sample.mp4 \
+python3 scripts/bundle.py build assets/orbit/scene.orb videos/orbit-sample.mp4 \
     --fps 12 --long-edge 1280 --codec webp --quality 80 --title "环绕视角"
-python3 scripts/bundle.py build assets/maid/scene.orb examples/anime-maid.mp4 \
+python3 scripts/bundle.py build assets/maid/scene.orb videos/anime-maid.mp4 \
     --fps 12 --long-edge 1280 --codec webp --quality 80 --title "沙发少女"
 ```
 
