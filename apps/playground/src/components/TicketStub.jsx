@@ -42,8 +42,6 @@ export function TicketStub({
       className="perspective-1000 select-none py-6 px-2 flex items-center justify-center w-full"
       style={{ perspective: "1000px" }}
     >
-      {/* 隐藏的 SVG 剪裁路径：直角票根 + 上下精确切除的凹圆齿孔 */}
-
       <div
         ref={containerRef}
         onPointerMove={handlePointerMove}
@@ -51,7 +49,7 @@ export function TicketStub({
         style={{
           transform: `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg)`,
           transformStyle: "preserve-3d",
-          /* 直角票根 + SVG 镂空上下半圆缺口（彻底去除白色残留） */
+          /* 直角票根外廓 + 上下切入镂空的凹圆打孔 */
           clipPath:
             "polygon(0% 0%, calc(72% - 10px) 0%, calc(72% - 10px) 0%, calc(72% - 9px) 1.5px, calc(72% - 7px) 3.5px, calc(72% - 4px) 6px, 72% 7px, calc(72% + 4px) 6px, calc(72% + 7px) 3.5px, calc(72% + 9px) 1.5px, calc(72% + 10px) 0%, 100% 0%, 100% 100%, calc(72% + 10px) 100%, calc(72% + 9px) calc(100% - 1.5px), calc(72% + 7px) calc(100% - 3.5px), calc(72% + 4px) calc(100% - 6px), 72% calc(100% - 7px), calc(72% - 4px) calc(100% - 6px), calc(72% - 7px) calc(100% - 3.5px), calc(72% - 9px) calc(100% - 1.5px), calc(72% - 10px) 100%, 0% 100%)",
         }}
@@ -66,10 +64,10 @@ export function TicketStub({
           }}
         />
 
-        {/* 左侧大联：视频画布直接紧贴虚线分割线（边距清零） */}
-        <div className="flex-1 h-full pt-3.5 pb-3.5 pl-4 pr-0 flex flex-col justify-between relative border-r-2 border-dashed border-neutral-400/80">
+        {/* 左侧大联：与中轴虚线留出通透空隙 */}
+        <div className="flex-1 h-full p-3.5 sm:p-4 flex flex-col justify-between relative border-r-2 border-dashed border-neutral-400/80">
           {/* 顶部微型元信息 */}
-          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-neutral-500 tracking-wider pr-3">
+          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-neutral-500 tracking-wider">
             <span>{date}</span>
             <span className="text-[#ea580c] font-black text-sm">{ticketNo}</span>
             <div className="flex items-center gap-1.5">
@@ -78,16 +76,22 @@ export function TicketStub({
             </div>
           </div>
 
-          {/* 核心视频画板：右边距彻底清零，与中轴虚线完全贴合 */}
-          <div className="my-1.5 w-full flex-1 relative flex items-center justify-end">
-            <div className="w-full h-full max-h-[168px] relative flex items-center justify-end overflow-hidden pr-0">
+          {/* 核心视频画板：留出空隙 + 不规则邮票齿孔锯齿裁切 (Stamp Edge Clipping) */}
+          <div className="my-1.5 w-full flex-1 relative flex items-center justify-center px-1">
+            <div className="w-full h-full max-h-[160px] relative flex items-center justify-center">
               {/* 四角星芒小装饰 */}
-              <span className="absolute top-1 left-2 text-[10px] font-mono text-neutral-400 select-none z-20">
+              <span className="absolute -top-1 left-1 text-[10px] font-mono text-neutral-400 select-none z-20">
                 ✦
               </span>
 
-              {/* 核心 360° Canvas 实时模型视窗：紧贴虚线，直角对齐 */}
-              <div className="w-full h-full rounded-l-xl rounded-r-none overflow-hidden relative shadow-sm border-y border-l border-neutral-300 dark:border-neutral-700 bg-black">
+              {/* 核心 360° Canvas 实时模型视窗：采用不规则邮票锯齿边缘裁剪 (Stamp Edge Mask) */}
+              <div
+                style={{
+                  clipPath:
+                    "polygon(0% 0%, 5% 0%, 7% 3%, 9% 0%, 14% 0%, 16% 3%, 18% 0%, 23% 0%, 25% 3%, 27% 0%, 32% 0%, 34% 3%, 36% 0%, 41% 0%, 43% 3%, 45% 0%, 50% 0%, 52% 3%, 54% 0%, 59% 0%, 61% 3%, 63% 0%, 68% 0%, 70% 3%, 72% 0%, 77% 0%, 79% 3%, 81% 0%, 86% 0%, 88% 3%, 90% 0%, 95% 0%, 97% 3%, 100% 0%, 100% 7%, 97% 9%, 100% 11%, 100% 18%, 97% 20%, 100% 22%, 100% 29%, 97% 31%, 100% 33%, 100% 40%, 97% 42%, 100% 44%, 100% 51%, 97% 53%, 100% 55%, 100% 62%, 97% 64%, 100% 66%, 100% 73%, 97% 75%, 100% 77%, 100% 84%, 97% 86%, 100% 88%, 100% 95%, 97% 97%, 100% 100%, 95% 100%, 93% 97%, 91% 100%, 86% 100%, 84% 97%, 82% 100%, 77% 100%, 75% 97%, 73% 100%, 68% 100%, 66% 97%, 64% 100%, 59% 100%, 57% 97%, 55% 100%, 50% 100%, 48% 97%, 46% 100%, 41% 100%, 39% 97%, 37% 100%, 32% 100%, 30% 97%, 28% 100%, 23% 100%, 21% 97%, 19% 100%, 14% 100%, 12% 97%, 10% 100%, 5% 100%, 3% 97%, 0% 100%, 0% 95%, 3% 93%, 0% 91%, 0% 84%, 3% 82%, 0% 80%, 0% 73%, 3% 71%, 0% 69%, 0% 62%, 3% 60%, 0% 58%, 0% 51%, 3% 49%, 0% 47%, 0% 40%, 3% 38%, 0% 36%, 0% 29%, 3% 27%, 0% 25%, 0% 18%, 3% 16%, 0% 14%, 0% 7%, 3% 5%, 0% 0%)",
+                }}
+                className="w-full h-full relative overflow-hidden shadow-md bg-neutral-900"
+              >
                 <Pure3DCard
                   materialId={materialId}
                   aspectRatio="16/10"
@@ -100,7 +104,7 @@ export function TicketStub({
           </div>
 
           {/* 底部艺术大字题与 Halloween 标识 */}
-          <div className="flex items-center justify-between text-[11px] font-mono pr-3">
+          <div className="flex items-center justify-between text-[11px] font-mono">
             <span className="font-black tracking-widest uppercase text-neutral-800">{title}</span>
             <span className="text-[10px] font-semibold text-neutral-600 tracking-tight">
               Halloween · 360 SPECIMEN
