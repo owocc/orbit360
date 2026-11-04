@@ -72,10 +72,7 @@ const SNARK = [
   "No.",
 ];
 
-const DEFAULT_FILES = [
-  { id: "img", name: "mood.png", ext: "PNG", size: 2.4e6, tint: "#079455" },
-  { id: "vid", name: "demo.mp4", ext: "MP4", size: 12.6e6, tint: "#155EEF" },
-];
+const DEFAULT_FILES = [];
 
 const fmt = (b) => (b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.round(b / 1e3)} KB`);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -505,41 +502,43 @@ export function UploadDropzone({
         </div>
       </motion.div>
 
-      <div className="upl-tray">
-        {files.map((file) => (
-          <div key={file.id} className="upl-slot" data-empty={inBox === file.id || undefined}>
-            <div
-              ref={(el) => {
-                tiles.current[file.id] = el;
-              }}
-              className="upl-file"
-              data-held={held === file.id || undefined}
-              data-gone={inBox === file.id || undefined}
-              role="button"
-              tabIndex={0}
-              aria-label={`${file.name}, ${fmt(file.size)}. Drag into the box to upload, or press Enter.`}
-              onPointerDown={onDown(file)}
-              onPointerMove={onMove}
-              onPointerUp={onUp(file)}
-              onPointerCancel={onUp(file)}
-              onKeyDown={(e) => {
-                if (
-                  (e.key === "Enter" || e.key === " ") &&
-                  phase.kind === "idle" &&
-                  inBox !== file.id
-                ) {
-                  e.preventDefault();
-                  if (file.size > MAX * 1e6) refuseIt();
-                  else send(file);
-                }
-              }}
-            >
-              <Page f={file} />
-              <span className="upl-label">{file.name}</span>
+      {files.length > 0 && (
+        <div className="upl-tray">
+          {files.map((file) => (
+            <div key={file.id} className="upl-slot" data-empty={inBox === file.id || undefined}>
+              <div
+                ref={(el) => {
+                  tiles.current[file.id] = el;
+                }}
+                className="upl-file"
+                data-held={held === file.id || undefined}
+                data-gone={inBox === file.id || undefined}
+                role="button"
+                tabIndex={0}
+                aria-label={`${file.name}, ${fmt(file.size)}. Drag into the box to upload, or press Enter.`}
+                onPointerDown={onDown(file)}
+                onPointerMove={onMove}
+                onPointerUp={onUp(file)}
+                onPointerCancel={onUp(file)}
+                onKeyDown={(e) => {
+                  if (
+                    (e.key === "Enter" || e.key === " ") &&
+                    phase.kind === "idle" &&
+                    inBox !== file.id
+                  ) {
+                    e.preventDefault();
+                    if (file.size > MAX * 1e6) refuseIt();
+                    else send(file);
+                  }
+                }}
+              >
+                <Page f={file} />
+                <span className="upl-label">{file.name}</span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

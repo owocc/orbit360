@@ -5,8 +5,9 @@ import { resolveCatalogSource } from "../lib/catalog";
 import { displayAngle, ringGeometry, frameLabel } from "../lib/format";
 import { WakeSlider } from "./WakeSlider";
 import { UploadDropzone } from "./UploadDropzone.jsx";
-const CATALOG_URL = "catalog.json";
+import { PopoverRoot, PopoverTrigger, PopoverContent } from "./ui/Popover.jsx";
 
+const CATALOG_URL = "catalog.json";
 export default function PlaygroundPage() {
   const [catalog, setCatalog] = useState(null);
   const [activeItem, setActiveItem] = useState(null);
@@ -294,18 +295,59 @@ export default function PlaygroundPage() {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => setShowUploadModal(true)}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors shadow-sm cursor-pointer"
-          >
-            上传
-          </button>
-          <button
-            type="button"
-            onClick={handleReset}
-            className="px-3.5 py-2 rounded-xl text-xs font-medium border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer text-neutral-700 dark:text-neutral-300"
-          >
+          <PopoverRoot open={showUploadModal} onOpenChange={setShowUploadModal}>
+            <PopoverTrigger className="px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors shadow-sm cursor-pointer">
+              上传
+            </PopoverTrigger>
+
+            <PopoverContent side="bottom" align="end" sideOffset={10}>
+              <div className="flex flex-col items-center">
+                <div className="w-full flex items-center justify-between mb-3 pb-2 border-b border-neutral-100 dark:border-neutral-800">
+                  <span className="text-[11px] font-mono font-bold text-neutral-500 uppercase tracking-wider">
+                    UPLOAD SCENE (.ORB / .ZIP)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowUploadModal(false)}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <UploadDropzone
+                  onFileUploaded={async (uploaded) => {
+                    const targetFile =
+                      uploaded && "file" in uploaded && uploaded.file
+                        ? uploaded.file
+                        : uploaded instanceof File
+                          ? uploaded
+                          : null;
+                    if (targetFile) {
+                      const lower = targetFile.name.toLowerCase();
+                      if (!lower.endsWith(".orb") && !lower.endsWith(".zip")) {
+                        showNotice("仅支持 .orb 和 .zip 场景文件", 4000);
+                        return;
+                      }
+                      showNotice(`正在挂载文件：${targetFile.name}`);
+                      setActiveItem({ id: "custom", title: targetFile.name });
+                      try {
+                        await orbit.load(targetFile);
+                        showNotice(`已成功挂载渲染：${targetFile.name}`);
+                        setTimeout(() => setShowUploadModal(false), 900);
+                      } catch (err) {
+                        showNotice(`挂载失败: ${err.message}`, 4000);
+                      }
+                    } else {
+                      showNotice(`演示素材已上传：${uploaded.name}`);
+                      setTimeout(() => setShowUploadModal(false), 1200);
+                    }
+                  }}
+                />
+              </div>
+            </PopoverContent>
+          </PopoverRoot>
+          <button type="button" onClick={handleReset}>
             重置 0°
           </button>
         </div>
@@ -315,59 +357,6 @@ export default function PlaygroundPage() {
       {infoNotice && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-neutral-900/90 text-white dark:bg-white/95 dark:text-neutral-900 text-xs font-mono shadow-xl backdrop-blur-md animate-fade-in pointer-events-none">
           {infoNotice}
-        </div>
-      )}
-
-      {/* Bencho 拖拽上传弹窗组件 */}
-      {showUploadModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div
-            className="relative p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-full flex items-center justify-between mb-4 pb-2 border-b border-neutral-100 dark:border-neutral-800">
-              <span className="text-xs font-mono font-bold text-neutral-500 uppercase tracking-wider">
-                BENCHO UPLOAD DROPZONE
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowUploadModal(false)}
-                className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <UploadDropzone
-              onFileUploaded={async (uploaded) => {
-                const targetFile =
-                  uploaded && "file" in uploaded && uploaded.file
-                    ? uploaded.file
-                    : uploaded instanceof File
-                      ? uploaded
-                      : null;
-                if (targetFile) {
-                  const lower = targetFile.name.toLowerCase();
-                  if (!lower.endsWith(".orb") && !lower.endsWith(".zip")) {
-                    showNotice("仅支持 .orb 和 .zip 场景文件", 4000);
-                    return;
-                  }
-                  showNotice(`正在挂载文件：${targetFile.name}`);
-                  setActiveItem({ id: "custom", title: targetFile.name });
-                  try {
-                    await orbit.load(targetFile);
-                    showNotice(`已成功挂载渲染：${targetFile.name}`);
-                    setTimeout(() => setShowUploadModal(false), 900);
-                  } catch (err) {
-                    showNotice(`挂载失败: ${err.message}`, 4000);
-                  }
-                } else {
-                  showNotice(`演示素材已上传：${uploaded.name}`);
-                  setTimeout(() => setShowUploadModal(false), 1200);
-                }
-              }}
-            />
-          </div>
         </div>
       )}
 
