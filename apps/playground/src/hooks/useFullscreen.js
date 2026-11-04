@@ -5,7 +5,7 @@ function fullscreenElement() {
 }
 
 /** 全屏开关 + 状态同步。 */
-export function useFullscreen({ onChange, onError }) {
+export function useFullscreen({ onChange, onError } = {}) {
   const root = document.documentElement;
   const supported = !!(root.requestFullscreen || root.webkitRequestFullscreen);
   const [active, setActive] = useState(!!fullscreenElement());
