@@ -1,6 +1,7 @@
 import { copyFileSync, cpSync, createReadStream, existsSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
@@ -65,7 +66,7 @@ function siteAssets() {
 export default defineConfig({
   base: "./",
   publicDir: false,
-  plugins: lazyPlugins(() => [react(), repoStatic(), siteAssets()]),
+  plugins: lazyPlugins(() => [tailwindcss(), react(), repoStatic(), siteAssets()]),
   build: {
     outDir: out,
     assetsDir: "web",

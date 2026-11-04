@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #ffffff;
+    --border-main: #f3f4f6;
+  }
+
+  :root.dark {
+    --bg-main: #0a0b0e;
+    --border-main: #1e2430;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: #171717;
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  :root.dark body {
+    color: #e2e8f0;
+  }
+}
