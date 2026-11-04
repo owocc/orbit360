@@ -54,15 +54,14 @@ export function HeroCardStack() {
     }
   };
 
-  // 响应式步长与优雅间距：收敛大屏最大步长，确保卡片尺寸克制，比例平衡
+  // 保持始终互相物理层叠（Stacked Overlap）：步长小于卡片宽度（留出约 40% ~ 50% 的重叠区）
   const getStepX = () => {
-    if (windowWidth >= 1280) return 250;
-    if (windowWidth >= 1024) return 220;
-    if (windowWidth >= 768) return 190;
-    if (windowWidth >= 480) return 160;
-    return 135;
+    if (windowWidth >= 1280) return 175; // 大屏卡片宽约 256px，步长 175px，产生 80px 明显重叠
+    if (windowWidth >= 1024) return 155; // 笔记本卡片宽约 240px，步长 155px，产生 85px 重叠
+    if (windowWidth >= 768) return 140; // 平板卡片宽约 224px，步长 140px，产生 84px 重叠
+    if (windowWidth >= 480) return 115; // 移动大屏步长 115px
+    return 95; // 手机屏幕步长 95px，卡片宽 176px，叠合感强
   };
-
   const stepX = getStepX();
 
   return (
@@ -100,9 +99,9 @@ export function HeroCardStack() {
             const absOffset = Math.abs(offset);
 
             // 动态响应式计算：居中放大卡片，两侧卡片层叠倾斜后退
-            const rotateDeg = offset * (windowWidth >= 1024 ? 4.5 : 6);
-            const translateY = absOffset * (windowWidth >= 1024 ? 8 : 10);
-            const scale = 1 - absOffset * 0.08;
+            const rotateDeg = offset * (windowWidth >= 1024 ? 5.5 : 7);
+            const translateY = absOffset * (windowWidth >= 1024 ? 10 : 12);
+            const scale = 1 - absOffset * 0.06;
             const zIndex = 30 - absOffset * 5;
             const translateX = offset * stepX;
 
