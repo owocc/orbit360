@@ -7,8 +7,7 @@ import { defineConfig, lazyPlugins } from "vite-plus";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../..");
-const out = resolve(repo, "dist");
-
+const out = resolve(here, "dist");
 const MIME = {
   ".json": "application/json; charset=utf-8",
   ".orb": "application/octet-stream",
@@ -64,11 +63,6 @@ function siteAssets() {
       }
       if (existsSync(resolve(repo, "_redirects"))) {
         copyFileSync(resolve(repo, "_redirects"), resolve(out, "_redirects"));
-      }
-      // 兼容 Cloudflare Pages 默认在应用子目录下寻找 dist 的情况
-      const localDist = resolve(here, "dist");
-      if (out !== localDist) {
-        cpSync(out, localDist, { recursive: true });
       }
     },
   };

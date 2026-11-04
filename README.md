@@ -23,7 +23,7 @@ vp install           # 安装整个 workspace（playground + sdk/js）
 vp run dev           # 开发服务器，默认 http://127.0.0.1:5173/
 ```
 
-构建静态站点（输出 `dist/`，包含 `catalog.json` 与 `assets/` 里的 `.orb`）：
+构建应用站点（输出到 `apps/playground/dist/`，包含 `catalog.json` 与 `assets/` 里的 `.orb`）：
 
 ```bash
 vp run build
@@ -43,7 +43,7 @@ python3 scripts/serve_tls.py 8443    # 手机 https://<本机IP>:8443/（需 HTT
 在 Cloudflare 控制台连接 Git 仓库后：
 
 - **构建命令（Build command）**：`vp run build`
-- **输出目录（Output directory）**：`dist`
+- **输出目录（Output directory）**：`apps/playground/dist`
 
 本地亦可通过命令直接发布：
 
@@ -79,7 +79,7 @@ apps/playground/       Vite + React 示例页面（独立 workspace）
     styles/           base / header / panel / overlays
 sdk/js/               @orbit360/javascript（解析器 + Canvas 渲染，IIFE 仍为 window.Orbit360）
 scripts/bundle.py     视频 → .orb
-dist/                 vp run build 产物（GitHub Pages 发布目录）
+apps/playground/dist/   vp run build 产物目录
 ```
 
 ## GUI（原生窗口）

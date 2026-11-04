@@ -5,7 +5,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
   "assets": {
-    "directory": "dist",
+    "directory": "apps/playground/dist",
     "binding": "ASSETS",
   },
   "observability": {
