@@ -32,11 +32,27 @@ python3 scripts/serve_tls.py 8443    # 手机 https://<本机IP>:8443/（需 HTT
 ```
 
 仓库里已经带了两个 `.orb` 示例（`assets/orbit/`、`assets/maid/`），开箱即用。
-支持两种云端托管部署：
 
-- **GitHub Pages**：发布 `dist/` 产物（`.github/workflows/pages.yml`）；
-- **Cloudflare Pages**：原生支持 Range 请求与 SPA 路由重定向（附带 `_headers` 与 `_redirects`，通过 `.github/workflows/cloudflare-pages.yml` 或 Cloudflare 仪表盘连接部署）。
-  自己的视频：用 `scripts/bundle.py` 生成 `.orb`，再挂进示例清单，页面源码不用改，重新构建即可——
+### 部署到 Cloudflare（官方标准方案）
+
+项目为 TanStack Start 全栈架构配备了官方标准配置文件 `wrangler.jsonc`，支持一键部署到 Cloudflare：
+
+- **静态资源与 `.orb` 文件**：由全球边缘 CDN 的 `ASSETS` 直接高速分发，支持 Byte-Range 流式传输（附带 `_headers` 跨域与切片规则、`_redirects` 路由重写）；
+- **服务端渲染 (SSR)**：由 Cloudflare Workers / Pages 边缘运行时毫秒级响应首屏。
+
+在 Cloudflare 控制台连接 Git 仓库后：
+
+- **构建命令（Build command）**：`vp run build`
+- **输出目录（Output directory）**：`dist`
+
+本地亦可通过命令直接发布：
+
+```bash
+vp run build
+npx wrangler deploy
+```
+
+自己的视频：用 `scripts/bundle.py` 生成 `.orb`，再挂进示例清单，页面源码不用改，重新构建即可——
 
 ```bash
 python3 scripts/bundle.py build assets/<id>/scene.orb <视频路径> \
