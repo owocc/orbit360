@@ -31,7 +31,7 @@ export function ShowcaseSections() {
 
         <div className="lg:col-span-6 flex justify-center lg:justify-end">
           <div className="p-4 rounded-3xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800">
-            <CardSwap auto={true} every={3.5} />
+            <CardSwap auto={false} />
           </div>
         </div>
       </section>

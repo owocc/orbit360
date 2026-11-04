@@ -58,9 +58,9 @@ const slot = (k) => `translate3d(${k * STEP_X}px, ${-k * STEP_Y}px, ${-k * STEP_
 export function CardSwap({
   /* off by default: a stack that reshuffles itself on a timer is a
      thing that keeps moving while you are reading the page */
-  auto = true,
+  auto = false,
   /* seconds between swaps, when it is on */
-  every = 3.5,
+  every = 4,
 } = {}) {
   const [order, setOrder] = useState(CARDS.map((c) => c.id));
   const els = useRef({});
