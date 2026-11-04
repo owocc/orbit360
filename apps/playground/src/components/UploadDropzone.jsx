@@ -367,23 +367,32 @@ export function UploadDropzone({
     z.style.height = `${n.offsetHeight + 28}px`;
   }, [phase.kind]);
 
-  // 原生系统文件拖放支持（从电脑桌面直接拖拽 .orb / .zip 到盒子中）
+  // 原生系统文件拖放支持（只接收 .orb 和 .zip 文件）
   const handleNativeDrop = (e) => {
     e.preventDefault();
     setOver(false);
     const droppedFile = e.dataTransfer.files?.[0];
     if (!droppedFile) return;
 
+    const lowerName = droppedFile.name.toLowerCase();
+    const isValid = lowerName.endsWith(".orb") || lowerName.endsWith(".zip");
+    if (!isValid) {
+      setRefuse("仅支持 .orb 和 .zip 文件");
+      void shake.start({ x: [0, -7, 6, -4, 2, 0], transition: { duration: 0.42 } });
+      later(() => setRefuse(null), 2000);
+      return;
+    }
+
     const f = {
       id: `file-${Date.now()}`,
       name: droppedFile.name,
-      ext: droppedFile.name.split(".").pop()?.toUpperCase() || "ORB",
+      ext: lowerName.endsWith(".orb") ? "ORB" : "ZIP",
       size: droppedFile.size,
-      tint: "#10b981",
+      tint: lowerName.endsWith(".orb") ? "#10b981" : "#2563eb",
       file: droppedFile,
     };
 
-    if (f.size > 50 * 1e6) {
+    if (f.size > 200 * 1e6) {
       refuseIt();
     } else {
       send(f);
@@ -406,17 +415,25 @@ export function UploadDropzone({
       <input
         ref={nativeInputRef}
         type="file"
-        accept=".orb,.zip,application/octet-stream,application/zip"
+        accept=".orb,.zip,application/zip,application/octet-stream"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (!file) return;
+          const lowerName = file.name.toLowerCase();
+          const isValid = lowerName.endsWith(".orb") || lowerName.endsWith(".zip");
+          if (!isValid) {
+            setRefuse("仅支持 .orb 和 .zip 文件");
+            void shake.start({ x: [0, -7, 6, -4, 2, 0], transition: { duration: 0.42 } });
+            later(() => setRefuse(null), 2000);
+            return;
+          }
           const fObj = {
             id: `file-${Date.now()}`,
             name: file.name,
-            ext: file.name.split(".").pop()?.toUpperCase() || "ORB",
+            ext: lowerName.endsWith(".orb") ? "ORB" : "ZIP",
             size: file.size,
-            tint: "#10b981",
+            tint: lowerName.endsWith(".orb") ? "#10b981" : "#2563eb",
             file,
           };
           send(fObj);

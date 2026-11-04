@@ -94,6 +94,28 @@ export default function PlaygroundPage() {
     };
   }, []);
 
+  // 监听全窗口文件拖入：当用户从桌面拖动文件至浏览器视口时，自动弹出接收 Dropzone
+  useEffect(() => {
+    const handleWindowDragEnter = (e) => {
+      e.preventDefault();
+      // 仅对携带文件的拖拽响应
+      if (e.dataTransfer?.types?.includes("Files")) {
+        setShowUploadModal(true);
+      }
+    };
+
+    const handleWindowDragOver = (e) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener("dragenter", handleWindowDragEnter);
+    window.addEventListener("dragover", handleWindowDragOver);
+
+    return () => {
+      window.removeEventListener("dragenter", handleWindowDragEnter);
+      window.removeEventListener("dragover", handleWindowDragOver);
+    };
+  }, []);
   // 1. 本地文件导入
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -277,7 +299,7 @@ export default function PlaygroundPage() {
             onClick={() => setShowUploadModal(true)}
             className="px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors shadow-sm cursor-pointer"
           >
-            拖拽上传 .orb
+            上传
           </button>
           <button
             type="button"
@@ -325,6 +347,11 @@ export default function PlaygroundPage() {
                       ? uploaded
                       : null;
                 if (targetFile) {
+                  const lower = targetFile.name.toLowerCase();
+                  if (!lower.endsWith(".orb") && !lower.endsWith(".zip")) {
+                    showNotice("仅支持 .orb 和 .zip 场景文件", 4000);
+                    return;
+                  }
                   showNotice(`正在挂载文件：${targetFile.name}`);
                   setActiveItem({ id: "custom", title: targetFile.name });
                   try {
