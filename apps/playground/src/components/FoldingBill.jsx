@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from "react";
+import { Client } from "@orbit360/javascript/web-client";
+import { getMaterialBlob } from "../lib/materials";
 
 /* ══ Folding bill ═════════════════════════════════════════
    A one-dollar bill blown in glass that you can take hold of:
@@ -21,12 +23,11 @@ import React, { useEffect, useRef } from "react";
    go so the hand wins; released, it smooths the folds out and
    brings the bill home, at the rate Settle sets.
 
-   ── THE GLASS IS LIGHT AND A BUMP ───────────────────────
-   No refraction: a pale, glossy surface under a studio of soft
-   lights, with the real note's engraving raised by a bump map —
-   the portrait, the seals, the lettering — over a puffed edge so
-   the sheet reads as thick. The engraving is the public-domain
-   one-dollar note, baked in grey by scripts/bill.sh. */
+   ── 3D ROTATION & FULL COLOUR TEXTURE ───────────────────
+   Not a grey engraving: the texture is directly mapped with
+   full-colour real-time pixels from the Orbit360 Web SDK.
+   Dragging the bill also spins the 360° frame sequence, so
+   you inspect and fold the real 3D entity simultaneously. */
 
 export const BILL_W = 340;
 export const BILL_H = 240;
@@ -52,21 +53,8 @@ const SPEC = {
 const REACH = 1.5;
 const CREASE = 0.55;
 
-/* the glass: a cool, pale blue-white */
-const ICE = 0xdde8f0;
-
-/* ── the corners ───────────────────────────────────────────
-   The sheet is cut to a rounded rectangle: CORNER is the radius as
-   a share of the bill's height. `inset` is how far a point is in
-   from that outline (negative outside it), in pixels of a W×H map. */
+/* the corners */
 const CORNER = 0.09;
-function inset(x, y, W, H) {
-  const r = CORNER * H;
-  const qx = Math.max(r - x, x - (W - 1 - r), 0);
-  const qy = Math.max(r - y, y - (H - 1 - r), 0);
-  if (qx > 0 && qy > 0) return r - Math.hypot(qx, qy);
-  return Math.min(x, y, W - 1 - x, H - 1 - y);
-}
 
 /* the outline as a mask: white inside, clear outside */
 function outline(W, H) {
@@ -83,109 +71,7 @@ function outline(W, H) {
   return c;
 }
 
-/* ── the engraving, as heights ──────────────────────────────
-   The real note's engraving (see bill-art.ts), turned into a height
-   map: ink is raised and paper is the sheet, so the portrait, the
-   seals and the lettering stand up out of the glass. Under it the
-   sheet is puffed — it rises over its first 34px from the rim to a
-   plateau — so the bill reads as a thick slab rather than a film.
-   Light is high, dark is low. */
-/* ── the printed frame's corners ───────────────────────────
-   The note's printed border is square-cornered and the sheet is
-   not, so the border's corners are cut round to match: a radius
-   concentric with the sheet's own (the sheet's less the margin
-   between the two), measured off the scan — the border runs from
-   24 to 997 across a 1024 scan and 22 to 414 down a 437 one.
-   Outside that curve the scan counts as blank paper. */
-function offFrame(x, y, W, H) {
-  const l = W * 0.0234,
-    r = W * 0.9736,
-    t = H * 0.0503,
-    b = H * 0.9474;
-  const rad = Math.max(4, CORNER * H - t);
-  const cx = x < l + rad ? l + rad : x > r - rad ? r - rad : x;
-  const cy = y < t + rad ? t + rad : y > b - rad ? b - rad : y;
-  return cx !== x && cy !== y && Math.hypot(x - cx, y - cy) > rad;
-}
-
-/* the engraving as ink in the glass: two maps off the same scan.
-   Colour, where the lines darken the glass they are cut into, and
-   roughness (green channel), where the lines are frosted against the
-   polished sheet — so they read even where no highlight crosses them.
-   The scan is put through levels first, so its paper goes clean and
-   only the line work carries. */
-function etching(img) {
-  const W = img.naturalWidth || img.width,
-    H = img.naturalHeight || img.height;
-  const make = () => {
-    const c = document.createElement("canvas");
-    c.width = W;
-    c.height = H;
-    return c;
-  };
-  const src = make().getContext("2d", { willReadFrequently: true });
-  src.drawImage(img, 0, 0);
-  const d = src.getImageData(0, 0, W, H);
-  const color = make(),
-    rough = make();
-  const cg = color.getContext("2d"),
-    rg = rough.getContext("2d");
-  const cd = cg.createImageData(W, H),
-    rd = rg.createImageData(W, H);
-  for (let i = 0; i < d.data.length; i += 4) {
-    const p = i / 4;
-    const ink = offFrame(p % W, Math.floor(p / W), W, H)
-      ? 0
-      : Math.min(1, Math.max(0, (255 - d.data[i] - 70) / 160));
-    const v = 255 * (1 - 0.26 * ink);
-    cd.data[i] = cd.data[i + 1] = cd.data[i + 2] = v;
-    cd.data[i + 3] = 255;
-    const r = 255 * (0.2 + 0.4 * ink);
-    rd.data[i] = rd.data[i + 1] = rd.data[i + 2] = r;
-    rd.data[i + 3] = 255;
-  }
-  cg.putImageData(cd, 0, 0);
-  rg.putImageData(rd, 0, 0);
-  return { color, rough };
-}
-
-/* with no image it is the plain sheet: the puffed rim and nothing on it */
-function engraving(img) {
-  const W = img ? img.naturalWidth || img.width : 1024,
-    H = img ? img.naturalHeight || img.height : 437;
-  const c = document.createElement("canvas");
-  c.width = W;
-  c.height = H;
-  const g = c.getContext("2d", { willReadFrequently: true });
-  g.fillStyle = "#fff";
-  g.fillRect(0, 0, W, H);
-  if (img) g.drawImage(img, 0, 0);
-  const d = g.getImageData(0, 0, W, H);
-  const RIM = 34;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4;
-      const ink = offFrame(x, y, W, H) ? 0 : 255 - d.data[i];
-      /* distance in from the rounded outline, so the puffed rim
-         turns the corners with the sheet */
-      const edge = inset(x, y, W, H) / RIM;
-      const e = Math.min(1, edge);
-      const puff = e * (2 - e); // eased: steep at the rim, flat inside
-      const h = 46 + 84 * puff + ink * 0.42 * puff;
-      d.data[i] = d.data[i + 1] = d.data[i + 2] = Math.min(255, h);
-    }
-  g.putImageData(d, 0, 0);
-  /* soften, so the raised work has shoulders rather than steps */
-  const out = document.createElement("canvas");
-  out.width = W;
-  out.height = H;
-  const o = out.getContext("2d");
-  o.filter = "blur(0.8px)";
-  o.drawImage(c, 0, 0);
-  return out;
-}
-
-/* a studio for the glass to reflect: dark room, soft boxes */
+/* a studio for the glass/cloth to reflect */
 function studio(THREE, pmrem) {
   const room = new THREE.Scene();
   room.add(
@@ -214,23 +100,16 @@ function studio(THREE, pmrem) {
   return pmrem.fromScene(room, 0.03).texture;
 }
 
-export function FoldingBill({
-  stiffness = 40,
-  settle = 0,
-  print = "Print",
-  /* BILL_ART pointing to project's specimen image */
-  artSrc = "assets/maid/cover.webp",
-} = {}) {
+export function FoldingBill({ stiffness = 38, settle = 12, materialId = "maid" } = {}) {
   const host = useRef(null);
-  const live = useRef({ stiffness, settle, print, artSrc });
-  live.current = { stiffness, settle, print, artSrc };
+  const live = useRef({ stiffness, settle, materialId });
+  live.current = { stiffness, settle, materialId };
   const spec = SPEC;
 
   useEffect(() => {
     const el = host.current;
     if (!el) return;
-    /* three.js is heavy for one block, so it is fetched here, the
-       first time a bill is drawn, rather than with the page */
+
     let undo = () => {};
     let gone = false;
     void import("three").then((THREE) => {
@@ -244,29 +123,12 @@ export function FoldingBill({
   }, []);
 
   function mount(THREE, el) {
-    /* ── ON A PHONE IT IS LIGHTER, AND IT SLEEPS ───────────────
-       The bill used to simulate and redraw every frame for as long
-       as it was on screen: its idle flutter meant it never settled,
-       and a glass material on a canvas twice the block's size at a
-       phone's pixel density is a lot to redraw sixty times a second
-       while somebody is only scrolling past. On a touch screen it now
-       draws at a lower density without antialiasing, solves the
-       sheet in fewer passes, lets the flutter die away a few seconds
-       after the last touch, and stops the loop entirely once the
-       sheet is still. A touch wakes it. */
     const light = window.matchMedia("(pointer: coarse), (max-width: 760px)").matches;
     const renderer = new THREE.WebGLRenderer({ antialias: !light, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, light ? 1.25 : 2));
-    /* ── no edges ──────────────────────────────────────────────
-       The canvas is SPILL times the block's box and centred on it,
-       so a bill dragged or folded past the box keeps being drawn
-       instead of being cut at an invisible line. The box is what the
-       wall measures and fits; the canvas hangs out of it, and the
-       camera's field widens by the same factor so nothing changes
-       size. What clips it now is the card or the stage it sits in. */
     renderer.setSize(spec.fw * SPILL, spec.fh * SPILL, false);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    renderer.toneMappingExposure = 1.2;
     const cv = renderer.domElement;
     cv.className = "fbill-gl";
     cv.dataset.ink = "false";
@@ -290,7 +152,7 @@ export function FoldingBill({
     camera.position.set(0, 0, spec.cam);
     const { nx: NX, ny: NY, w: BW, h: BH } = spec;
 
-    /* ── the sheet ── */
+    /* ── the sheet geometry ── */
     const geo = new THREE.PlaneGeometry(BW, BH, NX - 1, NY - 1);
     const P = geo.attributes.position;
     const N = P.count;
@@ -313,116 +175,93 @@ export function FoldingBill({
           add(id(i, j), id(i + 1, j + 1), 0.7);
           add(id(i + 1, j), id(i, j + 1), 0.7);
         }
-        if (i < NX - 2) add(id(i, j), id(i + 2, j), -1); // bend: weight from the knob
+        if (i < NX - 2) add(id(i, j), id(i + 2, j), -1);
         if (j < NY - 2) add(id(i, j), id(i, j + 2), -1);
       }
 
+    /* ── 3D Full Colour Texture via Hidden Canvas ── */
+    const textureCanvas = document.createElement("canvas");
+    textureCanvas.width = 1280;
+    textureCanvas.height = 720;
+    const textureContainer = document.createElement("div");
+    textureContainer.style.width = "1280px";
+    textureContainer.style.height = "720px";
+    textureContainer.style.position = "absolute";
+    textureContainer.style.left = "-9999px";
+    textureContainer.appendChild(textureCanvas);
+    document.body.appendChild(textureContainer);
+
+    let orbitClient = null;
+    let textureNeedsUpdate = true;
+
+    try {
+      orbitClient = new Client(textureCanvas, {
+        container: textureContainer,
+        input: textureContainer,
+        config: {
+          video: { fit: "cover" },
+          auto: { enabled: true, degPerSec: 15 },
+          drag: { degPerPx: 0.45 },
+        },
+        autoStartGyro: false,
+      });
+
+      orbitClient.on("frame", () => {
+        textureNeedsUpdate = true;
+      });
+
+      void getMaterialBlob(live.current.materialId).then((blob) => {
+        if (!disposed && orbitClient) {
+          orbitClient.load(blob);
+        }
+      });
+    } catch {
+      /* ignore */
+    }
+
+    const colorTexture = new THREE.CanvasTexture(textureCanvas);
+    colorTexture.colorSpace = THREE.SRGBColorSpace;
+    colorTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
     const mat = new THREE.MeshPhysicalMaterial({
-      color: ICE,
-      /* glossy enough to read as glass, quiet enough that the
-         engraving is what you see rather than the room it reflects */
-      metalness: 0.3,
-      roughness: 0.2,
-      clearcoat: 0.45,
-      clearcoatRoughness: 0.12,
-      envMapIntensity: 0.75,
-      iridescence: 0.12,
-      iridescenceIOR: 1.3,
-      bumpScale: 6,
+      color: 0xffffff,
+      map: colorTexture,
+      metalness: 0.1,
+      roughness: 0.35,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.15,
+      envMapIntensity: 0.85,
       side: THREE.DoubleSide,
     });
-    /* ── plain or printed ──────────────────────────────────────
-       Plain is the sheet with only its puffed rim, there from the
-       first frame. The engraving arrives with its own small module
-       the first time Print is asked for, and after that the two are
-       swapped on the material without rebuilding anything. */
-    const plain = new THREE.CanvasTexture(engraving(null));
-    plain.colorSpace = THREE.NoColorSpace;
-    plain.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    let bump = null;
-    let ink = null;
-    let frost = null;
-    let fetching = false;
-    let shown = "";
-    const dress = () => {
-      const want = live.current.print === "Print" ? "Print" : "Plain";
-      if (want === "Print" && !bump) {
-        if (!fetching) {
-          fetching = true;
-          const img = new Image();
-          img.onload = () => {
-            if (disposed) return;
-            bump = new THREE.CanvasTexture(engraving(img));
-            bump.colorSpace = THREE.NoColorSpace;
-            bump.anisotropy = plain.anisotropy;
-            const { color, rough } = etching(img);
-            ink = new THREE.CanvasTexture(color);
-            ink.colorSpace = THREE.SRGBColorSpace;
-            ink.anisotropy = plain.anisotropy;
-            frost = new THREE.CanvasTexture(rough);
-            frost.colorSpace = THREE.NoColorSpace;
-            frost.anisotropy = plain.anisotropy;
-            shown = "";
-          };
-          img.src = live.current.artSrc;
-        }
-        if (shown) return;
-      }
-      const now = want === "Print" && bump ? "Print" : "Plain";
-      if (now === shown) return;
-      shown = now;
-      if (now === "Print") {
-        mat.bumpMap = bump;
-        mat.map = ink;
-        mat.roughnessMap = frost;
-        mat.roughness = 1; // the map carries it: 0.2 polished, 0.6 in the lines
-      } else {
-        mat.bumpMap = plain;
-        mat.map = null;
-        mat.roughnessMap = null;
-        mat.roughness = 0.2;
-      }
-      mat.needsUpdate = true;
-    };
-    let disposed = false;
-    /* the rounded corners: cut by an alpha mask, so the cloth
-       underneath stays a plain grid and folds exactly as before */
+
     const cut = new THREE.CanvasTexture(outline(512, Math.round(512 / 2.35)));
     cut.colorSpace = THREE.NoColorSpace;
     mat.alphaMap = cut;
     mat.alphaTest = 0.5;
+
     const mesh = new THREE.Mesh(geo, mat);
-    /* tipped back a little and turned, so the light runs across it
-       rather than lying flat on it */
     mesh.rotation.set(...spec.tilt);
     scene.add(mesh);
 
-    /* ── the hand ── */
+    /* ── the hand (supports both cloth folding and 3D angle rotation) ── */
     let held = -1;
     let holdZ = 0;
+    let lastClientX = 0;
     const target = new THREE.Vector3();
     const ray = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
+
     const toNdc = (e) => {
       const r = cv.getBoundingClientRect();
       ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     };
-    /* the point under the pointer on a plane facing the camera at
-       the held point's depth */
-    /* the sheet is tipped, so the drag is worked out in the world —
-       on a plane facing the camera at the held point's depth — and
-       handed to the cloth in the sheet's own frame */
+
     const aim = () => {
       ray.setFromCamera(ndc, camera);
       const t = (holdZ - ray.ray.origin.z) / ray.ray.direction.z;
       target.copy(ray.ray.direction).multiplyScalar(t).add(ray.ray.origin);
       mesh.worldToLocal(target);
-      /* ── the hand has a reach ──────────────────────────────────
-         Past REACH from where the held point sits on the flat bill
-         the pull turns to rubber: a fifth as much again, no more.
-         Without it a long drag dragged one point across the frame
-         while the cloth behind it could not keep its length, and the
-         sheet tore into a stretched, creased strip. */
+
       if (held >= 0) {
         const k = held * 3;
         const dx = target.x - rest[k],
@@ -435,8 +274,10 @@ export function FoldingBill({
         }
       }
     };
+
     const down = (e) => {
       toNdc(e);
+      lastClientX = e.clientX;
       ray.setFromCamera(ndc, camera);
       const hit = ray.intersectObject(mesh)[0];
       cv.dataset.ink = String(!!hit);
@@ -464,22 +305,31 @@ export function FoldingBill({
       try {
         cv.setPointerCapture(e.pointerId);
       } catch {
-        /* scripted pointers */
+        /* scripted */
       }
       wake();
     };
+
     const move = (e) => {
       toNdc(e);
-      if (held >= 0) aim();
-      else {
+      if (held >= 0) {
+        aim();
+        // 拖动时驱动内部 360° 模型进行全角度旋转
+        const deltaX = e.clientX - lastClientX;
+        lastClientX = e.clientX;
+        if (orbitClient && Math.abs(deltaX) > 0.5) {
+          const curAngle = orbitClient.getAngle?.() || 0;
+          orbitClient.setAngle?.(curAngle + deltaX * 0.8);
+          textureNeedsUpdate = true;
+        }
+      } else {
         ray.setFromCamera(ndc, camera);
         const on = ray.intersectObject(mesh).length > 0;
         cv.dataset.over = on ? "true" : "";
-        /* read by the wall card: only the bill itself is the block,
-           the empty canvas round it is the card's to open */
         cv.dataset.ink = String(on);
       }
     };
+
     const up = (e) => {
       if (held < 0) return;
       held = -1;
@@ -490,6 +340,7 @@ export function FoldingBill({
         /* never captured */
       }
     };
+
     cv.addEventListener("pointerdown", down);
     cv.addEventListener("pointermove", move);
     cv.addEventListener("pointerup", up);
@@ -504,8 +355,6 @@ export function FoldingBill({
     let clock = 0;
     const H = 1 / 120;
     const PASSES = light ? 9 : 16;
-    /* when a hand last moved the sheet; the flutter and the loop
-       both answer to it on a phone */
     let touched = performance.now();
     let flutter = 1;
     let calm = 0;
@@ -513,16 +362,11 @@ export function FoldingBill({
     const step = () => {
       const { stiffness: st, settle: se } = live.current;
       const bend = 0.04 + (st / 100) * 0.5;
-      /* held, the pull home nearly lets go so the hand wins */
       const home = (0.3 + (se / 100) * 7) * (held >= 0 ? 0.04 : 1);
       for (let n = 0; n < N; n++) {
         const k = n * 3;
         const rx = rest[k],
           ry = rest[k + 1];
-        /* at rest the sheet is not flat: a long, soft wave along its
-           length (the curl a bill has out of a wallet), and a slow
-           flutter on top of it — both are what give the glass
-           highlights to carry */
         const rz =
           Math.sin(rx * 1.25 + 0.6) * 0.16 +
           Math.cos(ry * 2.2) * 0.04 +
@@ -541,8 +385,6 @@ export function FoldingBill({
         pos[k + 1] = target.y;
         pos[k + 2] = target.z;
       }
-      /* sixteen passes: enough that a hard pull is answered by the
-         whole sheet rather than rippling the edge nearest the hand */
       for (let it = 0; it < PASSES; it++) {
         for (const l of links) {
           const a = l.a * 3,
@@ -552,12 +394,6 @@ export function FoldingBill({
             dz = pos[b + 2] - pos[a + 2];
           const d = Math.hypot(dx, dy, dz) || 1e-6;
           let w = ((l.k < 0 ? bend : l.k) * 0.5 * (d - l.len)) / d;
-          /* ── a fold has a limit ────────────────────────────────
-             A bend link spans two cells, so how short it gets is how
-             sharp the crease is. Under CREASE of its length it is
-             pushed back out at full strength: the bill can fold over
-             on itself in a round, but never flatten into a knife
-             edge, which is where the jagged seam came from. */
           if (l.k < 0 && d < l.len * CREASE) w = (0.5 * (d - l.len * CREASE)) / d;
           const pa = l.a === held ? 0 : 1,
             pb = l.b === held ? 0 : 1;
@@ -576,14 +412,19 @@ export function FoldingBill({
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       clock += dt;
-      dress();
+
+      if (textureNeedsUpdate) {
+        colorTexture.needsUpdate = true;
+        textureNeedsUpdate = false;
+      }
+
       if (held >= 0) touched = now;
       const idle = (now - touched) / 1000;
       if (light) flutter = Math.max(0, Math.min(1, 1 - (idle - 2) / 1.5));
       if (still) flutter = 0;
       const n = Math.max(1, Math.round(dt / H));
       for (let s = 0; s < n; s++) step();
-      /* still? count frames where nothing moved more than a hair */
+
       let moved = 0;
       for (let k = 0; k < pos.length; k++) moved = Math.max(moved, Math.abs(pos[k] - prev[k]));
       calm = held < 0 && moved < 2e-4 ? calm + 1 : 0;
@@ -592,24 +433,27 @@ export function FoldingBill({
       geo.computeVertexNormals();
       geo.computeBoundingSphere();
       renderer.render(scene, camera);
-      /* asleep: on a phone once the flutter is gone, anywhere under
-         reduced motion; the last frame drawn stays on the canvas */
+
       const sleep = (light || still) && flutter === 0 && calm > 20;
       if ((seen && !(light || still)) || (seen && !sleep)) raf = requestAnimationFrame(frame);
       else running = false;
     };
+
     const wake = () => {
       if (running || !seen) return;
       running = true;
       last = performance.now();
       raf = requestAnimationFrame(frame);
     };
+
     const io = new IntersectionObserver(([row]) => {
       seen = row.isIntersecting;
       if (seen) wake();
     });
     io.observe(el);
     wake();
+
+    let disposed = false;
 
     return () => {
       cancelAnimationFrame(raf);
@@ -619,12 +463,11 @@ export function FoldingBill({
       cv.removeEventListener("pointerup", up);
       cv.removeEventListener("pointercancel", up);
       disposed = true;
+      orbitClient?.destroy?.();
+      textureContainer.remove();
+      colorTexture.dispose();
       geo.dispose();
       mat.dispose();
-      plain.dispose();
-      bump?.dispose();
-      ink?.dispose();
-      frost?.dispose();
       cut.dispose();
       scene.environment?.dispose();
       pmrem.dispose();
