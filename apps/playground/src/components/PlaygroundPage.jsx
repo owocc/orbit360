@@ -23,8 +23,7 @@ export default function PlaygroundPage() {
   ];
   const [selectedRatio, setSelectedRatio] = useState("16/9");
   const currentRatioObj = ASPECT_RATIOS.find((r) => r.id === selectedRatio) || ASPECT_RATIOS[0];
-  // 全屏 hook
-  const fullscreen = useFullscreen();
+  // 全屏 hook 在 orbit 声明后初始化
 
   const showNotice = (msg, duration = 2400) => {
     setInfoNotice(msg);
@@ -54,10 +53,16 @@ export default function PlaygroundPage() {
     },
   });
 
+  // 全屏 hook：传入 stageRef，实现仅 canvas 画板全屏（不受比例限制，填满物理屏幕）
+  const fullscreen = useFullscreen(orbit.stageRef, {
+    onChange: () => {
+      orbit.clientRef.current?.resize?.();
+    },
+  });
+
   const state = orbit.state;
   const config = state?.config;
   const client = orbit.clientRef.current;
-
   // 加载素材清单
   useEffect(() => {
     let cancelled = false;
@@ -297,13 +302,28 @@ export default function PlaygroundPage() {
         {/* 左侧画板区 */}
         <div className="lg:col-span-8 flex flex-col items-center w-full min-h-[500px] justify-center">
           <div
-            className={`w-full ${currentRatioObj.maxW} flex items-center justify-center transition-all duration-300 ease-out`}
+            className={`w-full ${fullscreen.active ? "max-w-none w-screen h-screen" : currentRatioObj.maxW} flex items-center justify-center transition-all duration-300 ease-out`}
           >
             <div
               ref={orbit.stageRef}
-              className={`w-full ${currentRatioObj.aspect} max-h-[640px] rounded-3xl bg-neutral-950 relative overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.25)] flex items-center justify-center cursor-grab active:cursor-grabbing border border-neutral-800 select-none transition-all duration-300`}
+              className={`w-full ${
+                fullscreen.active
+                  ? "w-screen h-screen fixed inset-0 z-[9999] rounded-none border-none max-h-none"
+                  : `${currentRatioObj.aspect} max-h-[640px] rounded-3xl border border-neutral-800 shadow-[0_25px_60px_rgba(0,0,0,0.25)]`
+              } bg-neutral-950 relative overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing select-none transition-all duration-300`}
             >
               <canvas ref={orbit.canvasRef} className="w-full h-full block object-contain" />
+
+              {/* 全屏状态下右上角浮动退出全屏按钮 */}
+              {fullscreen.active && (
+                <button
+                  type="button"
+                  onClick={fullscreen.toggle}
+                  className="absolute top-6 right-6 z-50 px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white/90 text-xs font-mono backdrop-blur-md border border-white/20 transition-all cursor-pointer"
+                >
+                  ESC 退出全屏
+                </button>
+              )}
             </div>
           </div>
 
