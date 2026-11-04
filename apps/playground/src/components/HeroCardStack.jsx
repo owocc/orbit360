@@ -1,7 +1,11 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Pure3DCard } from "./Pure3DCard";
+import { useFlipFocus } from "./FlipFocusModal";
 
 export function HeroCardStack() {
+  const cardRefs = useRef({});
+  const { focusCard } = useFlipFocus();
+
   const cards = [
     {
       id: "c1",
@@ -84,13 +88,27 @@ export function HeroCardStack() {
                 transform: `rotate(${card.rotate}) translateY(${card.translateY})`,
                 zIndex: card.zIndex,
               }}
-              className="w-36 sm:w-44 lg:w-48 transition-transform duration-300 hover:!-translate-y-6 hover:!rotate-0"
+              className="w-36 sm:w-44 lg:w-48 aspect-[3/4] transition-transform duration-300 hover:!-translate-y-6 hover:!rotate-0 cursor-pointer"
             >
               <Pure3DCard
+                ref={(el) => (cardRefs.current[card.id] = el)}
                 src={card.src}
                 aspectRatio={card.aspect}
                 speed={card.speed}
-                className="w-full"
+                className="w-full h-full"
+                onClick={() => {
+                  const cardHandle = cardRefs.current[card.id];
+                  const containerEl = cardHandle?.getContainer();
+                  if (containerEl) {
+                    focusCard(
+                      {
+                        id: card.id,
+                        clientRef: { current: cardHandle.getClient() },
+                      },
+                      containerEl,
+                    );
+                  }
+                }}
               />
             </div>
           ))}

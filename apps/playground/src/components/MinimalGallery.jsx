@@ -1,7 +1,11 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Pure3DCard } from "./Pure3DCard";
+import { useFlipFocus } from "./FlipFocusModal";
 
 export function MinimalGallery() {
+  const cardRefs = useRef({});
+  const { focusCard } = useFlipFocus();
+
   const items = [
     {
       id: "g1",
@@ -47,12 +51,26 @@ export function MinimalGallery() {
         {/* 响应式多尺寸网格 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
           {items.map((item) => (
-            <div key={item.id} className="w-full">
+            <div key={item.id} className="w-full aspect-[3/4] cursor-pointer">
               <Pure3DCard
+                ref={(el) => (cardRefs.current[item.id] = el)}
                 src={item.src}
                 aspectRatio={item.aspect}
                 speed={item.speed}
-                className="w-full"
+                className="w-full h-full"
+                onClick={() => {
+                  const cardHandle = cardRefs.current[item.id];
+                  const containerEl = cardHandle?.getContainer();
+                  if (containerEl) {
+                    focusCard(
+                      {
+                        id: item.id,
+                        clientRef: { current: cardHandle.getClient() },
+                      },
+                      containerEl,
+                    );
+                  }
+                }}
               />
             </div>
           ))}
