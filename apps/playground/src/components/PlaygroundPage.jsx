@@ -12,6 +12,7 @@ const CATALOG_URL = "catalog.json";
 export default function PlaygroundPage() {
   const { t } = useI18n();
   const [catalog, setCatalog] = useState(null);
+  const [activeItem, setActiveItem] = useState(null);
   const [currentAngle, setCurrentAngle] = useState(0);
   const [infoNotice, setInfoNotice] = useState("");
   const fileInputRef = useRef(null);
@@ -555,51 +556,6 @@ export default function PlaygroundPage() {
                 <div>{t.playground.inertia}</div>
                 <div className="text-[10px] font-mono opacity-80 mt-0.5">
                   {state?.inertia !== false ? t.playground.inertia_on : t.playground.inertia_off}
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleToggleInvert}
-                className={`px-3 py-2 rounded-xl transition-all border text-left cursor-pointer ${
-                  state?.invert
-                    ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent font-semibold shadow-xs"
-                    : "border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-800"
-                }`}
-              >
-                <div>拖拽反向</div>
-                <div className="text-[10px] font-mono opacity-80 mt-0.5">
-                  {state?.invert ? "已反向" : "常规"}
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleToggleMouseFollow}
-                className={`px-3 py-2 rounded-xl transition-all border text-left cursor-pointer ${
-                  state?.mouseFollow?.enabled
-                    ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent font-semibold shadow-xs"
-                    : "border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-800"
-                }`}
-              >
-                <div>鼠标跟随</div>
-                <div className="text-[10px] font-mono opacity-80 mt-0.5">
-                  {state?.mouseFollow?.enabled ? "开启" : "关闭"}
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleToggleInertia}
-                className={`px-3 py-2 rounded-xl transition-all border text-left cursor-pointer ${
-                  state?.inertia !== false
-                    ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent font-semibold shadow-xs"
-                    : "border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-800"
-                }`}
-              >
-                <div>松手惯性</div>
-                <div className="text-[10px] font-mono opacity-80 mt-0.5">
-                  {state?.inertia !== false ? "平滑阻尼" : "立即停住"}
                 </div>
               </button>
             </div>
