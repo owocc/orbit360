@@ -33,6 +33,8 @@ export function WakeSlider({
   min = -180,
   max = 180,
   value: externalValue,
+  step = 1,
+  formatValue,
   onChange,
   className = "",
 } = {}) {
@@ -114,13 +116,14 @@ export function WakeSlider({
       s.lastBar = b;
     }
 
-    // 将 0..1 真实换算为 min..max 范围的真实带符号数值（支持负数，默认 0）
-    const realValue = Math.round(min + f * (max - min));
+    // 将 0..1 真实换算为 min..max 范围的真实数值（支持 step 步长，如 0.1 或 1）
+    const raw = min + f * (max - min);
+    const stepped = Math.round(raw / step) * step;
+    const realValue = clamp(Number(stepped.toFixed(2)), min, max);
     setValue(realValue);
     onChange?.(realValue);
     loop();
   };
-
   const frac = (clientX) => {
     const r = track.current.getBoundingClientRect();
     return (clientX - r.left) / r.width;
@@ -130,9 +133,8 @@ export function WakeSlider({
   const ratio = clamp((value - min) / (max - min), 0, 1);
   const lit = Math.round(ratio * (n - 1));
 
-  // 格式化数值显示：正数保留原始数字，0 显示为 0，负数正确展示负号 -XX
-  const displayVal = value > 0 ? `+${value}°` : `${value}°`;
-
+  // 格式化数值显示
+  const displayVal = formatValue ? formatValue(value) : value > 0 ? `+${value}°` : `${value}°`;
   return (
     <div className={`wks ${className}`}>
       <div

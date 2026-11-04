@@ -490,21 +490,23 @@ export default function PlaygroundPage() {
               </button>
             </div>
 
-            {/* 自动转速调节滑块 */}
-            <div className="space-y-1.5 pt-1 text-xs">
-              <div className="flex justify-between text-neutral-600 dark:text-neutral-400">
-                <span>自动旋转速度</span>
-                <span className="font-mono font-semibold">{Math.round(autoSpeedVal)}°/s</span>
+            {/* 自动转速调节条形尾波滑块 */}
+            <div className="space-y-1 pt-1 text-xs">
+              <div className="text-neutral-700 dark:text-neutral-300 font-medium">
+                自动旋转角速度
               </div>
-              <input
-                type="range"
-                min="2"
-                max="60"
-                step="1"
-                value={autoSpeedVal}
-                onChange={(e) => handleAutoSpeed(Number(e.target.value) || 14)}
-                className="w-full accent-neutral-900 dark:accent-white cursor-pointer"
-              />
+              <div className="w-full flex items-center justify-center">
+                <WakeSlider
+                  bars={32}
+                  wake={60}
+                  min={2}
+                  max={60}
+                  step={1}
+                  value={Math.round(autoSpeedVal)}
+                  formatValue={(v) => `${v}°/s`}
+                  onChange={(v) => handleAutoSpeed(v)}
+                />
+              </div>
             </div>
 
             {/* 视口排版模式 */}
@@ -608,20 +610,22 @@ export default function PlaygroundPage() {
                 </button>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-neutral-600 dark:text-neutral-400">
-                  <span>体感灵敏度</span>
-                  <span className="font-mono font-semibold">{gyroGainVal.toFixed(1)}×</span>
+              <div className="space-y-1 pt-1 text-xs">
+                <div className="text-neutral-700 dark:text-neutral-300 font-medium">
+                  体感灵敏度增益
                 </div>
-                <input
-                  type="range"
-                  min="0.4"
-                  max="3.0"
-                  step="0.1"
-                  value={gyroGainVal}
-                  onChange={(e) => handleGyroGain(Number(e.target.value) || 1)}
-                  className="w-full accent-neutral-900 dark:accent-white cursor-pointer"
-                />
+                <div className="w-full flex items-center justify-center">
+                  <WakeSlider
+                    bars={30}
+                    wake={55}
+                    min={0.4}
+                    max={3.0}
+                    step={0.1}
+                    value={Number(gyroGainVal.toFixed(1))}
+                    formatValue={(v) => `${Number(v).toFixed(1)}×`}
+                    onChange={(v) => handleGyroGain(v)}
+                  />
+                </div>
               </div>
             </div>
           </div>
