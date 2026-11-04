@@ -1,0 +1,643 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --bg-main: #ffffff;
+    --border-main: #f3f4f6;
+    --fill-slab: #ffffff;
+    --fill-on: #17181a;
+    /* Aspect Ratio design tokens mapping */
+    --card: #ffffff;
+    --font-ui:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", sans-serif;
+    --ink: #17181a;
+    --ink-3: #8a8f98;
+    --ink-rgb: 23, 24, 26;
+    --surface-2: #f4f5f7;
+    --wash: 0.08;
+    /* Bencho Upload tokens mapping */
+    --ok: #15803d;
+    --pane-edge: rgba(0, 0, 0, 0.08);
+    --signal: #2563eb;
+  }
+
+  :root.dark {
+    --bg-main: #0a0b0e;
+    --border-main: #1e2430;
+    --fill-slab: #141721;
+    --fill-on: #f3f4f6;
+    /* Dark mode aspect ratio tokens */
+    --card: #1f2430;
+    --font-ui:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", sans-serif;
+    --ink: #f3f4f6;
+    --ink-3: #9ca3af;
+    --ink-rgb: 243, 244, 246;
+    --surface-2: #141822;
+    --wash: 0.16;
+    /* Dark mode Bencho Upload tokens */
+    --ok: #22c55e;
+    --pane-edge: rgba(255, 255, 255, 0.12);
+    --signal: #38bdf8;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: #171717;
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  :root.dark body {
+    color: #e2e8f0;
+  }
+}
+
+/* ══ Card swap ════════════════════════════════════════════
+   lab/CardSwap.tsx. A stack in depth; each card's slot arrives as
+   --t. Cards are the slab, a title row and a photo with a concentric
+   corner. No shadows: depth is the stack and a hairline edge */
+.csw {
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.csw-stage {
+  position: absolute;
+  left: 30px;
+  bottom: 24px;
+  /* flat, so paint order is the z-index: a card sent back goes behind
+     at once. The origin is the block's middle, where it was on .csw */
+  perspective: 1000px;
+  perspective-origin: 150px 95px;
+}
+
+/* a card is a photo in a thin slab frame, its corner concentric
+   with the photo's, and a solid label pill in the corner */
+.csw-card {
+  position: absolute;
+  inset: 0;
+  padding: 3px;
+  border-radius: 20px;
+  background: var(--fill-slab, #fff);
+  color: var(--fill-on, #17181a);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fill-on, #17181a) 12%, transparent);
+  transform: var(--t);
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  backface-visibility: hidden;
+}
+
+.csw-card[data-front] {
+  cursor: grab;
+  touch-action: none;
+}
+
+.csw-card[data-front]:active {
+  cursor: grabbing;
+}
+
+.csw-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 17px;
+  pointer-events: none;
+}
+
+.csw-tag {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--fill-slab, #fff);
+  font-size: 13px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+/* ══ Folding bill (lab/FoldingBill.tsx) ═════════════════════════
+   The canvas is three.js's own; touch-action off so a finger
+   folds the bill rather than scrolling the page. */
+.fbill {
+  position: relative;
+}
+
+.fbill-gl {
+  display: block;
+  position: absolute;
+  touch-action: none;
+  cursor: default;
+}
+
+.fbill-gl[data-over="true"] {
+  cursor: grab;
+}
+
+.fbill-gl[data-held="true"] {
+  cursor: grabbing;
+}
+
+/* ══ Aspect ═════════════════════════════════════════════════
+   A picture and three shapes to put it in. Almost everything
+   that moves is written in the markup from the chosen shape;
+   what is here is the transition itself and the chrome. */
+.asp {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  font-family: var(--font-ui);
+}
+
+/* the full square, and it never changes size — the picture is
+   centred in a box that is not moving, so the tabs below do
+   not climb and drop as the shape changes */
+.asp-stage {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
+.asp-pic {
+  background-color: var(--surface-2);
+  background-size: cover;
+  background-position: center;
+  /* `cover` and a frame that moves: the picture stays
+     undistorted and the CROP changes, which is what a format
+     switch actually is. Contain would letterbox and fit would
+     squash. */
+  transition:
+    width var(--asp-ms, 600ms) cubic-bezier(0.22, 1, 0.36, 1),
+    height var(--asp-ms, 600ms) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── the tab strip ──────────────────────────────────────────
+   .dtl-seg's numbers, which is the segmented control the
+   panel beside this block is already wearing: 36 tall, 2 of
+   padding, a 6% ink track and 999 on both. */
+.asp-tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(var(--ink-rgb), var(--wash));
+}
+
+.asp-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / 3);
+  height: calc(100% - 4px);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(var(--ink-rgb), 0.1);
+  /* ── it LEADS the picture ──────────────────────────────
+     Both are the same event and both answer the one knob, so
+     the thumb is not on a duration of its own — it is a
+     fraction of the picture's. */
+  transition: transform calc(var(--asp-ms, 600ms) * 0.55) cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.asp-tab {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    scale 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.asp-tab:hover {
+  color: var(--ink);
+}
+
+.asp-tab[aria-checked="true"] {
+  color: var(--ink);
+}
+
+.asp-tab:active {
+  scale: 0.96;
+}
+
+.asp-tab:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--card),
+    0 0 0 4px rgba(var(--ink-rgb), 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asp-pic,
+  .asp-thumb,
+  .asp-tab {
+    transition-duration: 160ms;
+  }
+}
+
+/* ══ Wake slider ══════════════════════════════════════════
+   lab/WakeSlider.tsx. Thin bars, the reading beside them. The bars
+   are data marks, so they take the ink strengths: ink when lit,
+   faint after the value. Heights are written by the component */
+.wks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  color: var(--fill-on, #17181a);
+}
+
+.wks-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 6px;
+}
+
+.wks-track:focus-visible {
+  outline: 2px solid #2231dd;
+  outline-offset: 6px;
+}
+
+.wks-bar {
+  flex: none;
+  width: 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--fill-on, #17181a) 32%, var(--fill-slab, #fff));
+  transform-origin: 50% 50%;
+  transition: background-color 160ms ease;
+}
+
+.wks-bar[data-on] {
+  background: var(--fill-on, #17181a);
+}
+
+.wks-value {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--fill-on, #17181a) 65%, var(--fill-slab, #fff));
+  user-select: none;
+  text-align: center;
+}
+
+/* ══ Upload dropzone ═════════════════════════════════════ */
+.upl {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 300px;
+  font-family: var(--font-ui);
+  color: var(--fill-on, var(--ink));
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* a slot of fixed size, so the box can close in round an upload
+   without moving anything below it */
+.upl-zone-wrap {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 176px;
+}
+
+.upl-zone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  /* 176, up from 128: the drop target is the block, and a short
+     one read as a banner rather than a place to put something */
+  height: 176px;
+  padding: 0 16px;
+  overflow: hidden;
+  border-radius: var(--upl-r, 20px);
+  background: var(--fill-slab, var(--card));
+  /* a file over it and it grows, with a bounce; an upload and it
+     closes in round it */
+  transition:
+    scale 420ms cubic-bezier(0.24, 1.34, 0.38, 1),
+    width 420ms cubic-bezier(0.24, 1.34, 0.38, 1),
+    height 420ms cubic-bezier(0.24, 1.34, 0.38, 1),
+    background-color 220ms ease;
+}
+
+.upl-zone[data-over] {
+  scale: 1.02;
+}
+
+/* the gulp: in a little as the file goes down, out past its size,
+   and settle */
+.upl-zone[data-gulp] {
+  animation: upl-gulp 460ms cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+
+.upl-zone[data-gulp] .upl-icon {
+  animation: upl-open 460ms cubic-bezier(0.3, 1.4, 0.4, 1);
+}
+
+[data-stroke="on"] .upl-zone {
+  box-shadow: 0 0 0 1px var(--pane-edge);
+}
+
+.upl-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  /* a light grey tile, no edge — the fill's own ink walked most
+     of the way to its slab, so it is a pale grey on the light fill
+     and a lifted grey on the dark one */
+  background: color-mix(in srgb, var(--fill-on, #17181a) 6%, var(--fill-slab, #ffffff));
+  color: color-mix(in srgb, var(--fill-on, #17181a) 72%, var(--fill-slab, #ffffff));
+  transition:
+    translate 420ms cubic-bezier(0.24, 1.34, 0.38, 1),
+    background-color 220ms ease,
+    color 220ms ease;
+}
+
+/* over the box the tile only lifts, and its arrow goes to full
+   ink — no colour of its own */
+.upl-zone[data-over] .upl-icon {
+  translate: 0 -4px;
+  color: var(--fill-on, var(--ink));
+}
+
+.upl-say {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  text-align: center;
+  letter-spacing: 0em;
+}
+
+.upl-say b {
+  font-weight: 500;
+}
+
+.upl-say span {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--fill-on, #17181a) 52%, var(--fill-slab, #ffffff));
+  letter-spacing: 0em;
+}
+
+.upl-zone[data-refuse] .upl-say b {
+  color: #e5484d;
+}
+
+/* the file, arrived in the box */
+.upl-now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  flex: none;
+  animation: upl-land 420ms var(--upl-spring) both;
+}
+
+.upl-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 150px;
+}
+
+.upl-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  letter-spacing: 0em;
+}
+
+.upl-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 14px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--fill-on, #17181a) 52%, var(--fill-slab, #ffffff));
+  letter-spacing: 0em;
+}
+
+.upl-track {
+  position: relative;
+  height: 4px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--fill-on, #17181a) 6%, var(--fill-slab, #ffffff));
+}
+
+.upl-bar {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--signal, #2231dd);
+  transform-origin: left center;
+}
+
+.upl-roll {
+  display: inline-flex;
+  line-height: 1em;
+  height: 1em;
+  overflow: hidden;
+}
+
+.upl-roll-col {
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+}
+
+.upl-roll-strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 220ms cubic-bezier(0.24, 1.34, 0.38, 1);
+}
+
+.upl-roll-strip > span {
+  height: 1em;
+}
+
+.upl-end {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+.upl-tick {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ok, #15803d);
+  color: #fff;
+  animation: upl-pop 380ms cubic-bezier(0.3, 1.6, 0.4, 1) both;
+}
+
+/* the tray: three files lying under the box */
+.upl-tray {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.upl-slot {
+  position: relative;
+  width: 76px;
+  height: 75px;
+}
+
+.upl-file {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+  /* home is a spring; the Bounce knob sets its overshoot */
+  transition:
+    transform 420ms var(--upl-spring),
+    opacity 220ms ease;
+}
+
+.upl-file[data-held] {
+  z-index: 5;
+  cursor: grabbing;
+  transition: none;
+}
+
+.upl-file[data-gone] {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+
+.upl-file:not([data-gone]) {
+  animation: upl-back 360ms var(--upl-spring) both;
+}
+
+.upl-file:focus-visible .upl-page {
+  outline: 2px solid var(--signal, #2231dd);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.upl-page {
+  overflow: visible;
+}
+
+.upl-page-line {
+  stroke: color-mix(in srgb, var(--fill-on, #17181a) 32%, var(--fill-slab, #ffffff));
+  stroke-width: 1.5;
+  /* outline only: the page is drawn, not filled */
+  fill: none;
+}
+
+.upl-page-ext {
+  fill: #fff;
+  font-family: var(--font-ui);
+  /* size is the <text>'s own fontSize, in the icon's units */
+  font-weight: 500;
+  letter-spacing: 0em;
+}
+
+.upl-label {
+  max-width: 76px;
+  overflow: hidden;
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: color-mix(in srgb, var(--fill-on, #17181a) 72%, var(--fill-slab, #ffffff));
+  letter-spacing: 0em;
+}
+
+@keyframes upl-gulp {
+  0% {
+    scale: 1.02;
+  }
+  35% {
+    scale: 0.985;
+  }
+  70% {
+    scale: 1.006;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+@keyframes upl-open {
+  40% {
+    scale: 1.08;
+  }
+}
+
+@keyframes upl-land {
+  from {
+    opacity: 0;
+    scale: 0.85;
+    translate: 0 10px;
+  }
+}
+
+@keyframes upl-pop {
+  from {
+    scale: 0;
+  }
+}
+
+@keyframes upl-back {
+  from {
+    scale: 0.7;
+    opacity: 0;
+  }
+}
