@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Pure3DCard } from "./Pure3DCard";
 
 /* ══ Card swap ════════════════════════════════════════════
    A stack of photo cards in depth, each a step further back and up
@@ -19,17 +20,37 @@ import React, { useEffect, useRef, useState } from "react";
 
 const W = 360;
 const H = 350;
-const CW = 196;
-const CH = 246;
+const CW = 210;
+const CH = 260;
 const STEP_X = 34;
 const STEP_Y = 26;
 const STEP_Z = 70;
 
 const CARDS = [
-  { id: "mount", title: "Maid Horizon", src: "assets/maid/cover.webp" },
-  { id: "bloom", title: "Orbit Perspective", src: "assets/orbit/cover.webp" },
-  { id: "peak", title: "360° Panorama", src: "assets/maid/cover.webp" },
-  { id: "wings", title: "Studio Light", src: "assets/orbit/cover.webp" },
+  {
+    id: "maid-1",
+    title: "Maid Horizon · 360°",
+    src: "assets/maid/scene.orb",
+    cover: "assets/maid/cover.webp",
+  },
+  {
+    id: "orbit-1",
+    title: "Orbit Perspective · 360°",
+    src: "assets/orbit/scene.orb",
+    cover: "assets/orbit/cover.webp",
+  },
+  {
+    id: "maid-2",
+    title: "Studio Light · 360°",
+    src: "assets/maid/scene.orb",
+    cover: "assets/maid/cover.webp",
+  },
+  {
+    id: "orbit-2",
+    title: "Panorama Loop · 360°",
+    src: "assets/orbit/scene.orb",
+    cover: "assets/orbit/cover.webp",
+  },
 ];
 
 const slot = (k) => `translate3d(${k * STEP_X}px, ${-k * STEP_Y}px, ${-k * STEP_Z}px) skewY(6deg)`;
@@ -37,9 +58,9 @@ const slot = (k) => `translate3d(${k * STEP_X}px, ${-k * STEP_Y}px, ${-k * STEP_
 export function CardSwap({
   /* off by default: a stack that reshuffles itself on a timer is a
      thing that keeps moving while you are reading the page */
-  auto = false,
+  auto = true,
   /* seconds between swaps, when it is on */
-  every = 4,
+  every = 3.5,
 } = {}) {
   const [order, setOrder] = useState(CARDS.map((c) => c.id));
   const els = useRef({});
@@ -176,7 +197,21 @@ export function CardSwap({
               }}
               onPointerDown={(e) => grab(e, c.id, front)}
             >
-              <img className="csw-photo" src={c.src} alt="" draggable={false} />
+              {front ? (
+                /* 前排卡片：实时 3D Canvas 正在持续自转炫技！ */
+                <div className="w-full h-full rounded-[17px] overflow-hidden">
+                  <Pure3DCard
+                    src={c.src}
+                    aspectRatio="3/4"
+                    autoSpin={true}
+                    speed={15}
+                    className="w-full h-full rounded-[17px]"
+                  />
+                </div>
+              ) : (
+                /* 后排卡片：展示超清封面缩略图并保持景深层叠 */
+                <img className="csw-photo" src={c.cover} alt="" draggable={false} />
+              )}
               <div className="csw-tag">{c.title}</div>
             </div>
           );
