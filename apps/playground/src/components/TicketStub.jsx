@@ -1,19 +1,38 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useImperativeHandle, forwardRef } from "react";
 import { Pure3DCard } from "./Pure3DCard";
 
-export function TicketStub({
-  materialId = "orbit",
-  ticketNo = "02",
-  date = "2026-11-04",
-  title = "TRICK OR TREAT",
-} = {}) {
+export const TicketStub = forwardRef(function TicketStub(
+  {
+    materialId = "orbit",
+    ticketNo = "02",
+    date = "2026-11-04",
+    title = "TRICK OR TREAT",
+    angle = 0,
+    onAngleChange,
+  } = {},
+  ref,
+) {
   const containerRef = useRef(null);
   const cardFrontRef = useRef(null);
   const cardBackRef = useRef(null);
-  const [rotate, setRotate] = useState({ x: 0, y: 0 });
+  const [rotate, setRotate] = useState({ x: 0, y: angle });
   const [shine, setShine] = useState({ x: 50, y: 50, opacity: 0 });
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, rotX: 0, rotY: 0 });
+
+  // 暴露给父级（如 WakeSlider）直接设定旋转角
+  useImperativeHandle(ref, () => ({
+    setAngle: (newAngle) => {
+      setRotate((prev) => ({ ...prev, y: newAngle }));
+      // 联动内部 360° 模型
+      cardFrontRef.current?.getClient?.()?.setAngle?.(newAngle);
+      cardBackRef.current?.getClient?.()?.setAngle?.(newAngle);
+    },
+    getAngle: () => rotate.y,
+  }));
+
+  // 同步受控 angle 变化
+  const currentY = typeof angle === "number" ? angle : rotate.y;
 
   // 1. 指针悬停微视差
   const handlePointerMoveHover = useCallback((e) => {
@@ -22,13 +41,12 @@ export function TicketStub({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const px = (x / rect.width) * 2 - 1;
     const py = (y / rect.height) * 2 - 1;
 
-    setRotate({
+    setRotate((prev) => ({
+      ...prev,
       x: -py * 12,
-      y: px * 16,
-    });
+    }));
 
     setShine({
       x: (x / rect.width) * 100,
@@ -46,7 +64,7 @@ export function TicketStub({
       x: e.clientX,
       y: e.clientY,
       rotX: rotate.x,
-      rotY: rotate.y,
+      rotY: currentY,
     };
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -57,11 +75,12 @@ export function TicketStub({
     if (isDraggingRef.current) {
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
-      const nextY = dragStartRef.current.rotY + dx * 0.7;
+      const nextY = Math.max(-180, Math.min(180, dragStartRef.current.rotY + dx * 0.7));
       const nextX = Math.max(-65, Math.min(65, dragStartRef.current.rotX - dy * 0.5));
       setRotate({ x: nextX, y: nextY });
+      onAngleChange?.(nextY);
 
-      // 同步驱动正面与背面的 360° Canvas 模型，当票根转到背部时，模型刚好展示背部视角！
+      // 同步驱动正面与背面的 360° Canvas 模型
       const clientFront = cardFrontRef.current?.getClient?.();
       if (clientFront) clientFront.setAngle?.(nextY);
 
@@ -83,14 +102,14 @@ export function TicketStub({
 
   const handlePointerLeave = useCallback(() => {
     if (!isDraggingRef.current) {
-      setRotate({ x: 0, y: 0 });
+      setRotate((prev) => ({ ...prev, x: 0 }));
       setShine((prev) => ({ ...prev, opacity: 0 }));
     }
   }, []);
 
   return (
     <div
-      className="perspective-1000 select-none py-4 sm:py-6 px-1 sm:px-2 flex items-center justify-center w-full"
+      className="perspective-1000 select-none py-2 px-1 flex items-center justify-center w-full"
       style={{ perspective: "1200px" }}
     >
       <div
@@ -101,7 +120,7 @@ export function TicketStub({
         onPointerCancel={handlePointerUp}
         onPointerLeave={handlePointerLeave}
         style={{
-          transform: `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg)`,
+          transform: `rotateX(${rotate.x}deg) rotateY(${currentY}deg)`,
           transformStyle: "preserve-3d",
         }}
         className="relative w-full max-w-[540px] aspect-[16/9.6] sm:aspect-[16/8.2] cursor-grab active:cursor-grabbing transition-transform duration-75 ease-out"
@@ -113,7 +132,7 @@ export function TicketStub({
             clipPath:
               "polygon(0% 0%, calc(72% - 10px) 0%, calc(72% - 10px) 0%, calc(72% - 9px) 1.5px, calc(72% - 7px) 3.5px, calc(72% - 4px) 6px, 72% 7px, calc(72% + 4px) 6px, calc(72% + 7px) 3.5px, calc(72% + 9px) 1.5px, calc(72% + 10px) 0%, 100% 0%, 100% 100%, calc(72% + 10px) 100%, calc(72% + 9px) calc(100% - 1.5px), calc(72% + 7px) calc(100% - 3.5px), calc(72% + 4px) calc(100% - 6px), 72% calc(100% - 7px), calc(72% - 4px) calc(100% - 6px), calc(72% - 7px) calc(100% - 3.5px), calc(72% - 9px) calc(100% - 1.5px), calc(72% - 10px) 100%, 0% 100%)",
           }}
-          className="absolute inset-0 w-full h-full rounded-none bg-[#f5f3ec] text-neutral-900 shadow-[0_25px_60px_rgba(0,0,0,0.32)] flex overflow-hidden"
+          className="absolute inset-0 w-full h-full rounded-none bg-[#f5f3ec] text-neutral-900 shadow-[0_20px_50px_rgba(0,0,0,0.22)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6)] flex overflow-hidden"
         >
           {/* 全息珠光流光视差层 */}
           <div
@@ -145,7 +164,7 @@ export function TicketStub({
                 <div
                   style={{
                     clipPath:
-                      "polygon(0% 0%, 5% 0%, 7% 3%, 9% 0%, 14% 0%, 16% 3%, 18% 0%, 23% 0%, 25% 3%, 27% 0%, 32% 0%, 34% 3%, 36% 0%, 41% 0%, 43% 3%, 45% 0%, 50% 0%, 52% 3%, 54% 0%, 59% 0%, 61% 3%, 63% 0%, 68% 0%, 70% 3%, 72% 0%, 77% 0%, 79% 3%, 81% 0%, 86% 0%, 88% 3%, 90% 0%, 95% 0%, 97% 3%, 100% 0%, 100% 7%, 97% 9%, 100% 11%, 100% 18%, 97% 20%, 100% 22%, 100% 29%, 97% 31%, 100% 33%, 100% 40%, 97% 42%, 100% 44%, 100% 51%, 97% 53%, 100% 55%, 100% 62%, 97% 64%, 100% 66%, 100% 73%, 97% 75%, 100% 77%, 100% 84%, 97% 86%, 100% 88%, 100% 95%, 97% 97%, 100% 100%, 95% 100%, 93% 97%, 91% 100%, 86% 100%, 84% 97%, 82% 100%, 77% 100%, 75% 97%, 73% 100%, 68% 100%, 66% 97%, 64% 100%, 59% 100%, 57% 97%, 55% 100%, 50% 100%, 48% 97%, 46% 100%, 41% 100%, 39% 97%, 37% 100%, 32% 100%, 30% 97%, 28% 100%, 23% 100%, 21% 97%, 19% 100%, 14% 100%, 12% 97%, 10% 100%, 5% 100%, 3% 97%, 0% 100%, 0% 95%, 3% 93%, 0% 91%, 0% 84%, 3% 82%, 0% 80%, 0% 73%, 3% 71%, 0% 69%, 0% 62%, 3% 60%, 0% 58%, 0% 51%, 3% 49%, 0% 47%, 0% 40%, 3% 38%, 0% 36%, 0% 29%, 3% 27%, 0% 25%, 0% 18%, 3% 16%, 0% 14%, 0% 7%, 3% 5%, 0% 0%)",
+                      "polygon(0% 0%, 5% 0%, 7% 3%, 9% 0%, 14% 0%, 16% 3%, 18% 0%, 23% 0%, 25% 3%, 27% 0%, 32% 0%, 34% 3%, 36% 0%, 41% 0%, 43% 3%, 45% 0%, 50% 0%, 52% 3%, 54% 0%, 59% 0%, 61% 3%, 63% 0%, 68% 0%, 70% 3%, 72% 0%, 77% 0%, 79% 3%, 81% 0%, 86% 0%, 88% 3%, 90% 0%, 95% 0%, 97% 3%, 100% 0%, 100% 7%, 97% 9%, 100% 11%, 100% 18%, 97% 20%, 100% 22%, 100% 29%, 97% 31%, 100% 33%, 100% 40%, 97% 42%, 100% 44%, 100% 51%, 97% 53%, 100% 55%, 100% 62%, 97% 64%, 100% 66%, 100% 73%, 97% 75%, 100% 77%, 100% 84%, 97% 86%, 100% 88%, 100% 95%, 97% 97%, 100% 100%, 95% 100%, 93% 97%, 91% 100%, 86% 100%, 84% 97%, 82% 100%, 77% 100%, 75% 97%, 73% 100%, 68% 100%, 66% 97%, 64% 100%, 59% 100%, 57% 97%, 55% 100%, 50% 100%, 48% 97%, 46% 100%, 41% 100%, 39% 97%, 37% 100%, 32% 100%, 30% 97%, 28% 100%, 23% 100%, 21% 97%, 19% 100%, 14% 100%, 12% 97%, 10% 100%, 5% 100%, 3% 97%, 0% 100%, 0% 93%, 3% 91%, 0% 89%, 0% 82%, 3% 80%, 0% 78%, 0% 71%, 3% 69%, 0% 67%, 0% 60%, 3% 58%, 0% 56%, 0% 49%, 3% 47%, 0% 45%, 0% 38%, 3% 36%, 0% 34%, 0% 27%, 3% 25%, 0% 23%, 0% 16%, 3% 14%, 0% 12%, 0% 5%, 3% 3%, 0% 0%)",
                   }}
                   className="w-full h-full relative overflow-hidden shadow-md bg-neutral-900"
                 >
@@ -170,6 +189,7 @@ export function TicketStub({
               </span>
             </div>
           </div>
+
           {/* 右侧副券 */}
           <div className="w-[28%] h-full p-1.5 xs:p-2 sm:p-4 bg-[#ede8dc] flex flex-col justify-between text-neutral-800 font-mono select-none overflow-hidden">
             <div className="space-y-0.5 xs:space-y-1">
@@ -230,7 +250,7 @@ export function TicketStub({
             clipPath:
               "polygon(0% 0%, calc(28% - 10px) 0%, calc(28% - 10px) 0%, calc(28% - 9px) 1.5px, calc(28% - 7px) 3.5px, calc(28% - 4px) 6px, 28% 7px, calc(28% + 4px) 6px, calc(28% + 7px) 3.5px, calc(28% + 9px) 1.5px, calc(28% + 10px) 0%, 100% 0%, 100% 100%, calc(28% + 10px) 100%, calc(28% + 9px) calc(100% - 1.5px), calc(28% + 7px) calc(100% - 3.5px), calc(28% + 4px) calc(100% - 6px), 28% calc(100% - 7px), calc(28% - 4px) calc(100% - 6px), calc(28% - 7px) calc(100% - 3.5px), calc(28% - 9px) calc(100% - 1.5px), calc(28% - 10px) 100%, 0% 100%)",
           }}
-          className="absolute inset-0 w-full h-full rounded-none bg-[#ece8dc] text-neutral-800 flex shadow-2xl border border-neutral-300 select-none overflow-hidden"
+          className="absolute inset-0 w-full h-full rounded-none bg-[#ece8dc] text-neutral-800 flex shadow-[0_20px_50px_rgba(0,0,0,0.22)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6)] border border-neutral-300 select-none overflow-hidden"
         >
           {/* 背面左联（对应正面的副券背面） */}
           <div className="w-[28%] h-full p-2 xs:p-2.5 sm:p-4 bg-[#e5e0d2] flex flex-col justify-between border-r-2 border-dashed border-neutral-400/80 font-mono text-[8px] xs:text-[9px] text-neutral-600 overflow-hidden">
@@ -263,7 +283,7 @@ export function TicketStub({
                 <div
                   style={{
                     clipPath:
-                      "polygon(0% 0%, 5% 0%, 7% 3%, 9% 0%, 14% 0%, 16% 3%, 18% 0%, 23% 0%, 25% 3%, 27% 0%, 32% 0%, 34% 3%, 36% 0%, 41% 0%, 43% 3%, 45% 0%, 50% 0%, 52% 3%, 54% 0%, 59% 0%, 61% 3%, 63% 0%, 68% 0%, 70% 3%, 72% 0%, 77% 0%, 79% 3%, 81% 0%, 86% 0%, 88% 3%, 90% 0%, 95% 0%, 97% 3%, 100% 0%, 100% 7%, 97% 9%, 100% 11%, 100% 18%, 97% 20%, 100% 22%, 100% 29%, 97% 31%, 100% 33%, 100% 40%, 97% 42%, 100% 44%, 100% 51%, 97% 53%, 100% 55%, 100% 62%, 97% 64%, 100% 66%, 100% 73%, 97% 75%, 100% 77%, 100% 84%, 97% 86%, 100% 88%, 100% 95%, 97% 97%, 100% 100%, 95% 100%, 93% 97%, 91% 100%, 86% 100%, 84% 97%, 82% 100%, 77% 100%, 75% 97%, 73% 100%, 68% 100%, 66% 97%, 64% 100%, 59% 100%, 57% 97%, 55% 100%, 50% 100%, 48% 97%, 46% 100%, 41% 100%, 39% 97%, 37% 100%, 32% 100%, 30% 97%, 28% 100%, 23% 100%, 21% 97%, 19% 100%, 14% 100%, 12% 97%, 10% 100%, 5% 100%, 3% 97%, 0% 100%, 0% 95%, 3% 93%, 0% 91%, 0% 84%, 3% 82%, 0% 80%, 0% 73%, 3% 71%, 0% 69%, 0% 62%, 3% 60%, 0% 58%, 0% 51%, 3% 49%, 0% 47%, 0% 40%, 3% 38%, 0% 36%, 0% 29%, 3% 27%, 0% 25%, 0% 18%, 3% 16%, 0% 14%, 0% 7%, 3% 5%, 0% 0%)",
+                      "polygon(0% 0%, 5% 0%, 7% 3%, 9% 0%, 14% 0%, 16% 3%, 18% 0%, 23% 0%, 25% 3%, 27% 0%, 32% 0%, 34% 3%, 36% 0%, 41% 0%, 43% 3%, 45% 0%, 50% 0%, 52% 3%, 54% 0%, 59% 0%, 61% 3%, 63% 0%, 68% 0%, 70% 3%, 72% 0%, 77% 0%, 79% 3%, 81% 0%, 86% 0%, 88% 3%, 90% 0%, 95% 0%, 97% 3%, 100% 0%, 100% 7%, 97% 9%, 100% 11%, 100% 18%, 97% 20%, 100% 22%, 100% 29%, 97% 31%, 100% 33%, 100% 40%, 97% 42%, 100% 44%, 100% 51%, 97% 53%, 100% 55%, 100% 62%, 97% 64%, 100% 66%, 100% 73%, 97% 75%, 100% 77%, 100% 84%, 97% 86%, 100% 88%, 100% 95%, 97% 97%, 100% 100%, 95% 100%, 93% 97%, 91% 100%, 86% 100%, 84% 97%, 82% 100%, 77% 100%, 75% 97%, 73% 100%, 68% 100%, 66% 97%, 64% 100%, 59% 100%, 57% 97%, 55% 100%, 50% 100%, 48% 97%, 46% 100%, 41% 100%, 39% 97%, 37% 100%, 32% 100%, 30% 97%, 28% 100%, 23% 100%, 21% 97%, 19% 100%, 14% 100%, 12% 97%, 10% 100%, 5% 100%, 3% 97%, 0% 100%, 0% 93%, 3% 91%, 0% 89%, 0% 82%, 3% 80%, 0% 78%, 0% 71%, 3% 69%, 0% 67%, 0% 60%, 3% 58%, 0% 56%, 0% 49%, 3% 47%, 0% 45%, 0% 38%, 3% 36%, 0% 34%, 0% 27%, 3% 25%, 0% 23%, 0% 16%, 3% 14%, 0% 12%, 0% 5%, 3% 3%, 0% 0%)",
                   }}
                   className="w-full h-full relative overflow-hidden shadow-md bg-neutral-900"
                 >
@@ -290,4 +310,4 @@ export function TicketStub({
       </div>
     </div>
   );
-}
+});
