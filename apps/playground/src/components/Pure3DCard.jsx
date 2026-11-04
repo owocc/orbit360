@@ -16,6 +16,7 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
     dragSensitivity = 0.42,
     style = {},
     onClick,
+    onAngleChange,
   },
   ref,
 ) {
@@ -65,6 +66,10 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
     clientRef.current = client;
 
     const offs = [
+      client.on("angle", (ev) => {
+        if (destroyed) return;
+        onAngleChange?.(ev.angle);
+      }),
       client.on("ready", () => {
         if (destroyed) return;
         setIsLoaded(true);

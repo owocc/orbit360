@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import { CardSwap } from "./CardSwap";
 import { Pure3DCard } from "./Pure3DCard";
 import { FoldingBill } from "./FoldingBill";
@@ -8,14 +8,22 @@ import { WakeSlider } from "./WakeSlider";
 
 export function ShowcaseSections() {
   const section2CardRef = useRef(null);
+  // 真实带符号角度，默认 0°，支持负数（-180°..+180°）
+  const [angleValue, setAngleValue] = useState(0);
 
-  const handleSliderChange = (val) => {
-    const targetDeg = (val / 100) * 360 - 180;
+  // 1. 滑块滑动 -> 直接将真实带符号角度驱动给 3D 画板
+  const handleSliderChange = (deg) => {
+    setAngleValue(deg);
     const client = section2CardRef.current?.getClient?.();
     if (client) {
-      client.setAngle?.(targetDeg);
+      client.setAngle?.(deg);
     }
   };
+
+  // 2. 直接在 3D 画板上拖拽旋转 -> 监听真实角度回传给滑块，负数与 0 真实显示
+  const handleCardAngleChange = useCallback((deg) => {
+    setAngleValue(Math.round(deg));
+  }, []);
 
   return (
     <div className="w-full space-y-28 pt-12 pb-24">
@@ -50,9 +58,9 @@ export function ShowcaseSections() {
         </div>
       </section>
 
-      {/* 模块 2: 左 3D 画板演示（支持拖拽旋转与 WakeSlider 联动） + 右文本（交叉进行） */}
+      {/* 模块 2: 左 3D 画板演示（支持拖拽旋转与 WakeSlider 双向深度联动） + 右文本 */}
       <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-        <div className="lg:col-span-6 flex flex-col items-center justify-center lg:items-start order-2 lg:order-1 space-y-4">
+        <div className="lg:col-span-6 flex flex-col items-center justify-center lg:items-start order-2 lg:order-1 space-y-3">
           <div className="w-full max-w-[420px] aspect-[4/5] relative">
             <Pure3DCard
               ref={section2CardRef}
@@ -60,16 +68,22 @@ export function ShowcaseSections() {
               aspectRatio="4/5"
               autoSpin={false}
               speed={0}
+              onAngleChange={handleCardAngleChange}
               className="w-full h-full"
             />
           </div>
 
-          {/* 嵌入 WakeSlider 尾波滑块实时操控板块 2 的旋转视角 */}
-          <div className="w-full max-w-[420px] flex items-center justify-between p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800">
-            <div className="text-[11px] font-mono font-medium text-neutral-500 dark:text-neutral-400">
-              尾波角度操控
-            </div>
-            <WakeSlider bars={36} wake={70} onChange={handleSliderChange} />
+          {/* 去除多余背景框与文本标签，直接极简通透呈现条形滑块与数值，默认0，支持负数 */}
+          <div className="w-full max-w-[420px] flex items-center justify-center pt-2">
+            <WakeSlider
+              bars={36}
+              wake={70}
+              min={-180}
+              max={180}
+              value={angleValue}
+              onChange={handleSliderChange}
+              className="p-0"
+            />
           </div>
         </div>
 
@@ -86,7 +100,7 @@ export function ShowcaseSections() {
 
           <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed max-w-lg">
             无需重度着色器计算或网格材质解包。orbit360 采用自研二进制容器标准，通过 Canvas
-            原生绘制离散帧序列。您可以直接在左侧画板上手指拖拽旋转，也可以滑动下方的尾波滑块精确调节视角。
+            原生绘制离散帧序列。您可以直接在左侧画板上手指拖拽旋转，下方的极简尾波滑块会自动双向跟随，亦可拖动滑块精确控制视角。
           </p>
 
           <div className="pt-2">
@@ -97,7 +111,7 @@ export function ShowcaseSections() {
         </div>
       </section>
 
-      {/* 模块 3: 左文本 + 右 FoldingBill 动态三维全彩折叠（再次交叉炫技） */}
+      {/* 模块 3: 左文本 + 右 FoldingBill 动态三维全彩折叠 */}
       <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-6 space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
@@ -129,7 +143,7 @@ export function ShowcaseSections() {
         </div>
       </section>
 
-      {/* 模块 4 (板块 5): 左 AspectRatio 自适应等面积变形演示 + 右文本（交错进行） */}
+      {/* 模块 4 (板块 5): 左 AspectRatio 自适应等面积变形演示 + 右文本 */}
       <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-6 flex justify-center lg:justify-start order-2 lg:order-1">
           <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800 flex items-center justify-center min-h-[360px]">
@@ -162,7 +176,7 @@ export function ShowcaseSections() {
         </div>
       </section>
 
-      {/* 模块 5 (板块 6): 左文本 + 右 TicketStub 3D 自由翻转全息视差票根（交错进行） */}
+      {/* 模块 5 (板块 6): 左文本 + 右 TicketStub 3D 自由翻转全息视差票根 */}
       <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-6 space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">

@@ -30,10 +30,16 @@ export function WakeSlider({
   bars = 36,
   /* how high the wake rises, 0..100 */
   wake = 60,
+  min = -180,
+  max = 180,
+  value: externalValue,
   onChange,
+  className = "",
 } = {}) {
   const n = Math.round(clamp(bars, 12, 64));
-  const [value, setValue] = useState(50);
+  const defaultValue = 0;
+  const [value, setValue] = useState(externalValue !== undefined ? externalValue : defaultValue);
+
   const track = useRef(null);
   const els = useRef([]);
   const st = useRef({
@@ -43,11 +49,23 @@ export function WakeSlider({
     lastT: 0,
     speed: 0,
     raf: 0,
-    at: 0.5, // the value as a fraction, without React in the way
+    at: clamp(
+      ((externalValue !== undefined ? externalValue : defaultValue) - min) / (max - min),
+      0,
+      1,
+    ),
     lastBar: -1,
   });
   const knob = useRef(wake);
   knob.current = wake;
+
+  // 外部传入真实角度数值（如 -180..180），未处于手动按住状态时同步刻度
+  useEffect(() => {
+    if (externalValue !== undefined && !st.current.down) {
+      setValue(externalValue);
+      st.current.at = clamp((externalValue - min) / (max - min), 0, 1);
+    }
+  }, [externalValue, min, max]);
 
   /* a new bar count is a new row */
   useEffect(() => {
@@ -95,9 +113,11 @@ export function WakeSlider({
     if (b !== s.lastBar) {
       s.lastBar = b;
     }
-    const nextVal = Math.round(f * 100);
-    setValue(nextVal);
-    onChange?.(nextVal);
+
+    // 将 0..1 真实换算为 min..max 范围的真实带符号数值（支持负数，默认 0）
+    const realValue = Math.round(min + f * (max - min));
+    setValue(realValue);
+    onChange?.(realValue);
     loop();
   };
 
@@ -106,27 +126,30 @@ export function WakeSlider({
     return (clientX - r.left) / r.width;
   };
 
-  const lit = Math.round((value / 100) * (n - 1));
+  // 处于 min..max 范围时的点亮条数计算（从最左侧点亮至当前进度）
+  const ratio = clamp((value - min) / (max - min), 0, 1);
+  const lit = Math.round(ratio * (n - 1));
+
+  // 格式化数值显示：正数保留原始数字，0 显示为 0，负数正确展示负号 -XX
+  const displayVal = value > 0 ? `+${value}` : `${value}`;
 
   return (
-    <div className="wks">
+    <div className={`wks ${className}`}>
       <div
         ref={track}
         className="wks-track"
         role="slider"
         tabIndex={0}
         aria-label="Value"
-        aria-valuemin={0}
-        aria-valuemax={100}
+        aria-valuemin={min}
+        aria-valuemax={max}
         aria-valuenow={value}
         style={{ width: n * (BAR + GAP) - GAP, height: H * 2.6 }}
         onPointerDown={(e) => {
           const s = st.current;
           try {
             e.currentTarget.setPointerCapture(e.pointerId);
-          } catch {
-            /* a scripted pointer */
-          }
+          } catch {}
           s.down = true;
           s.lastX = e.clientX;
           s.lastT = performance.now();
@@ -138,8 +161,6 @@ export function WakeSlider({
           if (!s.down) return;
           const now = performance.now();
           const dt = Math.max(0.008, (now - s.lastT) / 1000);
-          /* speed in px per second, smoothed so one jittery frame
-             cannot fake a fling */
           const v = Math.abs(e.clientX - s.lastX) / dt;
           s.speed = s.speed * 0.5 + v * 0.5;
           s.lastX = e.clientX;
@@ -150,9 +171,7 @@ export function WakeSlider({
           st.current.down = false;
           try {
             e.currentTarget.releasePointerCapture(e.pointerId);
-          } catch {
-            /* never captured */
-          }
+          } catch {}
         }}
         onPointerCancel={() => {
           st.current.down = false;
@@ -162,12 +181,11 @@ export function WakeSlider({
           let next = null;
           if (e.key === "ArrowRight" || e.key === "ArrowUp") next = value + step;
           if (e.key === "ArrowLeft" || e.key === "ArrowDown") next = value - step;
-          if (e.key === "Home") next = 0;
-          if (e.key === "End") next = 100;
+          if (e.key === "Home") next = min;
+          if (e.key === "End") next = max;
           if (next === null) return;
           e.preventDefault();
-          /* a key press is a small, quick step: a little wake */
-          to(clamp(next, 0, 100) / 100, 600);
+          to((clamp(next, min, max) - min) / (max - min), 600);
         }}
       >
         {Array.from({ length: n }, (_, i) => (
@@ -177,12 +195,12 @@ export function WakeSlider({
               els.current[i] = b;
             }}
             className="wks-bar"
-            data-on={(value > 0 && i <= lit) || undefined}
+            data-on={i <= lit || undefined}
             style={{ height: H }}
           />
         ))}
       </div>
-      <span className="wks-value">{value}</span>
+      <span className="wks-value font-mono">{displayVal}</span>
     </div>
   );
 }
