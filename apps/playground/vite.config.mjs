@@ -65,6 +65,11 @@ function siteAssets() {
       if (existsSync(resolve(repo, "_redirects"))) {
         copyFileSync(resolve(repo, "_redirects"), resolve(out, "_redirects"));
       }
+      // 兼容 Cloudflare Pages 默认在应用子目录下寻找 dist 的情况
+      const localDist = resolve(here, "dist");
+      if (out !== localDist) {
+        cpSync(out, localDist, { recursive: true });
+      }
     },
   };
 }
