@@ -8,7 +8,8 @@ export function TicketStub({
   title = "TRICK OR TREAT",
 } = {}) {
   const containerRef = useRef(null);
-  const cardRef = useRef(null);
+  const cardFrontRef = useRef(null);
+  const cardBackRef = useRef(null);
   const [rotate, setRotate] = useState({ x: 0, y: 0 });
   const [shine, setShine] = useState({ x: 50, y: 50, opacity: 0 });
   const isDraggingRef = useRef(false);
@@ -36,9 +37,8 @@ export function TicketStub({
     });
   }, []);
 
-  // 2. 拖拽全景旋转票根（支持直接翻转到票根背部查看）
+  // 2. 拖拽全景旋转票根（支持直接翻转到票根背部，前后 Canvas 角度实时同步联动）
   const handlePointerDown = (e) => {
-    // 如果是在内部的 3D 模型上滑动，交给内部 Canvas 处理
     if (e.target.closest(".ticket-canvas-wrap")) return;
 
     isDraggingRef.current = true;
@@ -57,16 +57,16 @@ export function TicketStub({
     if (isDraggingRef.current) {
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
-      // 水平自由 360° 旋转，俯仰角度受限
       const nextY = dragStartRef.current.rotY + dx * 0.7;
       const nextX = Math.max(-65, Math.min(65, dragStartRef.current.rotX - dy * 0.5));
       setRotate({ x: nextX, y: nextY });
 
-      // 同步驱动内部 360° 模型按比例旋转，与票根背部绝妙对齐！
-      const client = cardRef.current?.getClient?.();
-      if (client) {
-        client.setAngle?.(nextY);
-      }
+      // 同步驱动正面与背面的 360° Canvas 模型，当票根转到背部时，模型刚好展示背部视角！
+      const clientFront = cardFrontRef.current?.getClient?.();
+      if (clientFront) clientFront.setAngle?.(nextY);
+
+      const clientBack = cardBackRef.current?.getClient?.();
+      if (clientBack) clientBack.setAngle?.(nextY);
     } else {
       handlePointerMoveHover(e);
     }
@@ -150,7 +150,7 @@ export function TicketStub({
                   className="w-full h-full relative overflow-hidden shadow-md bg-neutral-900"
                 >
                   <Pure3DCard
-                    ref={cardRef}
+                    ref={cardFrontRef}
                     materialId={materialId}
                     aspectRatio="16/10"
                     autoSpin={true}
@@ -221,7 +221,7 @@ export function TicketStub({
           </div>
         </div>
 
-        {/* 背面（Backside Ticket）：旋转到背部（rotateY 180°）展示背部透视与票根规约 */}
+        {/* 背面（Backside Ticket）：翻转至 180°，背面同样内嵌邮票锯齿 360° Canvas，令人眼前一亮！ */}
         <div
           style={{
             transform: "rotateY(180deg)",
@@ -229,27 +229,58 @@ export function TicketStub({
             clipPath:
               "polygon(0% 0%, calc(28% - 10px) 0%, calc(28% - 10px) 0%, calc(28% - 9px) 1.5px, calc(28% - 7px) 3.5px, calc(28% - 4px) 6px, 28% 7px, calc(28% + 4px) 6px, calc(28% + 7px) 3.5px, calc(28% + 9px) 1.5px, calc(28% + 10px) 0%, 100% 0%, 100% 100%, calc(28% + 10px) 100%, calc(28% + 9px) calc(100% - 1.5px), calc(28% + 7px) calc(100% - 3.5px), calc(28% + 4px) calc(100% - 6px), 28% calc(100% - 7px), calc(28% - 4px) calc(100% - 6px), calc(28% - 7px) calc(100% - 3.5px), calc(28% - 9px) calc(100% - 1.5px), calc(28% - 10px) 100%, 0% 100%)",
           }}
-          className="absolute inset-0 w-full h-full rounded-none bg-[#ece8dc] text-neutral-800 p-6 flex flex-col justify-between shadow-2xl border border-neutral-300 select-none overflow-hidden"
+          className="absolute inset-0 w-full h-full rounded-none bg-[#ece8dc] text-neutral-800 flex shadow-2xl border border-neutral-300 select-none overflow-hidden"
         >
-          <div className="flex justify-between items-center border-b border-dashed border-neutral-400 pb-2 font-mono text-xs font-bold">
-            <span className="tracking-widest">ORBIT360 SPECIMEN TICKET · BACKSIDE</span>
-            <span className="text-[#ea580c]">180° REVERSE</span>
+          {/* 背面左联（对应正面的副券背面） */}
+          <div className="w-[28%] h-full p-3 sm:p-4 bg-[#e5e0d2] flex flex-col justify-between border-r-2 border-dashed border-neutral-400/80 font-mono text-[9px] text-neutral-600">
+            <div>
+              <div className="font-bold text-neutral-900 text-xs">SPECIMEN</div>
+              <div className="text-[#ea580c] font-black text-sm mt-0.5">180° REVERSE</div>
+            </div>
+            <div className="space-y-1 my-auto">
+              <div className="font-bold text-neutral-800">PERMITTED</div>
+              <p className="leading-tight text-[8px] text-neutral-500">
+                双面实体透视凭证。前后邮票视窗同轴联动。
+              </p>
+            </div>
+            <div className="pt-2 border-t border-dashed border-neutral-400/80 font-bold text-neutral-700">
+              OK · PASS
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 font-mono text-[11px] text-neutral-600 my-auto">
-            <div className="space-y-1">
-              <div className="text-neutral-900 font-bold">[01] 360° SYNCHRONIZATION</div>
-              <p>票根整体翻转与内嵌 Canvas 角度保持 1:1 物理角速度同步，直观感受背部透视。</p>
+          {/* 背面大联：同样拥有锯齿邮票 Canvas 视窗！ */}
+          <div className="flex-1 h-full p-3.5 sm:p-4 flex flex-col justify-between relative">
+            <div className="flex justify-between items-center font-mono text-[10px] text-neutral-600 font-bold border-b border-dashed border-neutral-400 pb-1">
+              <span>BACKSIDE 360° PERSPECTIVE</span>
+              <span className="text-[#ea580c] font-black">CANVAS INSIDE</span>
             </div>
-            <div className="space-y-1">
-              <div className="text-neutral-900 font-bold">[02] HOLOGRAPHIC PARALLAX</div>
-              <p>表面双面珠光涂层，配合陀螺仪与手势阻尼实现三维立体视差。</p>
-            </div>
-          </div>
 
-          <div className="flex justify-between items-end pt-2 border-t border-dashed border-neutral-400 font-mono text-[10px] text-neutral-500">
-            <div>VALID ON ALL WEBKIT & CHROMIUM BROWSERS</div>
-            <div className="font-bold text-neutral-700">★ ★ ★ ★ ★</div>
+            {/* 背面核心 3D 邮票锯齿画板 */}
+            <div className="my-1 w-full flex-1 relative flex items-center justify-center px-1 ticket-canvas-wrap">
+              <div className="w-full h-full max-h-[160px] relative flex items-center justify-center">
+                <div
+                  style={{
+                    clipPath:
+                      "polygon(0% 0%, 5% 0%, 7% 3%, 9% 0%, 14% 0%, 16% 3%, 18% 0%, 23% 0%, 25% 3%, 27% 0%, 32% 0%, 34% 3%, 36% 0%, 41% 0%, 43% 3%, 45% 0%, 50% 0%, 52% 3%, 54% 0%, 59% 0%, 61% 3%, 63% 0%, 68% 0%, 70% 3%, 72% 0%, 77% 0%, 79% 3%, 81% 0%, 86% 0%, 88% 3%, 90% 0%, 95% 0%, 97% 3%, 100% 0%, 100% 7%, 97% 9%, 100% 11%, 100% 18%, 97% 20%, 100% 22%, 100% 29%, 97% 31%, 100% 33%, 100% 40%, 97% 42%, 100% 44%, 100% 51%, 97% 53%, 100% 55%, 100% 62%, 97% 64%, 100% 66%, 100% 73%, 97% 75%, 100% 77%, 100% 84%, 97% 86%, 100% 88%, 100% 95%, 97% 97%, 100% 100%, 95% 100%, 93% 97%, 91% 100%, 86% 100%, 84% 97%, 82% 100%, 77% 100%, 75% 97%, 73% 100%, 68% 100%, 66% 97%, 64% 100%, 59% 100%, 57% 97%, 55% 100%, 50% 100%, 48% 97%, 46% 100%, 41% 100%, 39% 97%, 37% 100%, 32% 100%, 30% 97%, 28% 100%, 23% 100%, 21% 97%, 19% 100%, 14% 100%, 12% 97%, 10% 100%, 5% 100%, 3% 97%, 0% 100%, 0% 95%, 3% 93%, 0% 91%, 0% 84%, 3% 82%, 0% 80%, 0% 73%, 3% 71%, 0% 69%, 0% 62%, 3% 60%, 0% 58%, 0% 51%, 3% 49%, 0% 47%, 0% 40%, 3% 38%, 0% 36%, 0% 29%, 3% 27%, 0% 25%, 0% 18%, 3% 16%, 0% 14%, 0% 7%, 3% 5%, 0% 0%)",
+                  }}
+                  className="w-full h-full relative overflow-hidden shadow-md bg-neutral-900"
+                >
+                  <Pure3DCard
+                    ref={cardBackRef}
+                    materialId={materialId}
+                    aspectRatio="16/10"
+                    autoSpin={true}
+                    speed={15}
+                    className="w-full h-full rounded-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center font-mono text-[10px] text-neutral-500 pt-1 border-t border-dashed border-neutral-400">
+              <span>ORBIT360 DUAL-FACED PERSPECTIVE</span>
+              <span className="font-bold text-neutral-700">60FPS CANVAS</span>
+            </div>
           </div>
         </div>
       </div>
