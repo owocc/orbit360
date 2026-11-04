@@ -131,7 +131,7 @@ export function WakeSlider({
   const lit = Math.round(ratio * (n - 1));
 
   // 格式化数值显示：正数保留原始数字，0 显示为 0，负数正确展示负号 -XX
-  const displayVal = value > 0 ? `+${value}` : `${value}`;
+  const displayVal = value > 0 ? `+${value}°` : `${value}°`;
 
   return (
     <div className={`wks ${className}`}>

@@ -255,9 +255,10 @@
    faint after the value. Heights are written by the component */
 .wks {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 8px 16px;
+  gap: 6px;
+  padding: 6px 12px;
   color: var(--fill-on, #17181a);
 }
 
@@ -292,10 +293,11 @@
 }
 
 .wks-value {
-  min-width: 3ch;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
-  color: color-mix(in srgb, var(--fill-on, #17181a) 72%, var(--fill-slab, #fff));
+  color: color-mix(in srgb, var(--fill-on, #17181a) 65%, var(--fill-slab, #fff));
+  user-select: none;
+  text-align: center;
 }
