@@ -24,15 +24,15 @@ export function MinimalNav() {
 
       {/* 中间极简链接 */}
       <div className="hidden md:flex items-center gap-8 text-[13px] text-neutral-600 dark:text-neutral-400 font-medium font-sans">
-        <a href="#showcase" className="text-neutral-900 dark:text-white transition-colors">
-          Get Started
-        </a>
-        <a
-          href="#gallery"
-          className="hover:text-neutral-900 dark:hover:text-white transition-colors"
+        <Link to="/" className="text-neutral-900 dark:text-white transition-colors">
+          Home
+        </Link>
+        <Link
+          to="/gallery"
+          className="hover:text-neutral-900 dark:hover:text-white transition-colors font-medium"
         >
           Gallery
-        </a>
+        </Link>
         <a
           href="#features"
           className="hover:text-neutral-900 dark:hover:text-white transition-colors"
