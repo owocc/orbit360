@@ -90,7 +90,7 @@ export function TicketStub({
 
   return (
     <div
-      className="perspective-1000 select-none py-6 px-2 flex items-center justify-center w-full"
+      className="perspective-1000 select-none py-4 sm:py-6 px-1 sm:px-2 flex items-center justify-center w-full"
       style={{ perspective: "1200px" }}
     >
       <div
@@ -104,7 +104,7 @@ export function TicketStub({
           transform: `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg)`,
           transformStyle: "preserve-3d",
         }}
-        className="relative w-full max-w-[540px] h-[250px] sm:h-[270px] cursor-grab active:cursor-grabbing transition-transform duration-75 ease-out"
+        className="relative w-full max-w-[540px] aspect-[16/9.6] sm:aspect-[16/8.2] cursor-grab active:cursor-grabbing transition-transform duration-75 ease-out"
       >
         {/* 正面（Front Ticket）：直角票根 + 上下切入镂空的凹圆打孔 */}
         <div
@@ -125,19 +125,19 @@ export function TicketStub({
           />
 
           {/* 左侧大联：与中轴虚线留出通透空隙 */}
-          <div className="flex-1 h-full p-3.5 sm:p-4 flex flex-col justify-between relative border-r-2 border-dashed border-neutral-400/80">
-            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-neutral-500 tracking-wider">
+          <div className="flex-1 h-full p-2 xs:p-2.5 sm:p-4 flex flex-col justify-between relative border-r-2 border-dashed border-neutral-400/80 overflow-hidden">
+            <div className="flex items-center justify-between text-[9px] xs:text-[10px] font-mono font-bold text-neutral-500 tracking-wider">
               <span>{date}</span>
-              <span className="text-[#ea580c] font-black text-sm">{ticketNo}</span>
-              <div className="flex items-center gap-1.5">
-                <span>TRICK OR TREAT</span>
+              <span className="text-[#ea580c] font-black text-xs xs:text-sm">{ticketNo}</span>
+              <div className="flex items-center gap-1">
+                <span className="truncate max-w-[80px] xs:max-w-none">TRICK OR TREAT</span>
                 <span>+</span>
               </div>
             </div>
 
             {/* 核心视频画板：不规则邮票齿孔锯齿裁切 (Stamp Edge Clipping) */}
-            <div className="my-1.5 w-full flex-1 relative flex items-center justify-center px-1 ticket-canvas-wrap">
-              <div className="w-full h-full max-h-[160px] relative flex items-center justify-center">
+            <div className="my-1 w-full flex-1 relative flex items-center justify-center px-0.5 ticket-canvas-wrap min-h-0">
+              <div className="w-full h-full relative flex items-center justify-center min-h-0">
                 <span className="absolute -top-1 left-1 text-[10px] font-mono text-neutral-400 select-none z-20">
                   ✦
                 </span>
@@ -152,7 +152,7 @@ export function TicketStub({
                   <Pure3DCard
                     ref={cardFrontRef}
                     materialId={materialId}
-                    aspectRatio="16/10"
+                    aspectRatio="16/9.5"
                     autoSpin={true}
                     speed={15}
                     className="w-full h-full rounded-none"
@@ -161,31 +161,32 @@ export function TicketStub({
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] font-mono">
-              <span className="font-black tracking-widest uppercase text-neutral-800">{title}</span>
-              <span className="text-[10px] font-semibold text-neutral-600 tracking-tight">
-                Halloween · 360 SPECIMEN
+            <div className="flex items-center justify-between text-[9px] xs:text-[11px] font-mono">
+              <span className="font-black tracking-wider uppercase text-neutral-800 truncate">
+                {title}
+              </span>
+              <span className="text-[8px] xs:text-[10px] font-semibold text-neutral-600 tracking-tight whitespace-nowrap ml-1">
+                360 SPECIMEN
               </span>
             </div>
           </div>
-
           {/* 右侧副券 */}
-          <div className="w-[28%] h-full p-3 sm:p-4 bg-[#ede8dc] flex flex-col justify-between text-neutral-800 font-mono select-none">
-            <div className="space-y-1">
-              <div className="flex justify-between items-center text-[10px] font-bold text-neutral-500">
+          <div className="w-[28%] h-full p-1.5 xs:p-2 sm:p-4 bg-[#ede8dc] flex flex-col justify-between text-neutral-800 font-mono select-none overflow-hidden">
+            <div className="space-y-0.5 xs:space-y-1">
+              <div className="flex justify-between items-center text-[8px] xs:text-[10px] font-bold text-neutral-500">
                 <span>PASS</span>
                 <span>+</span>
               </div>
-              <div className="text-3xl sm:text-4xl font-black text-[#ea580c] leading-none tracking-tight">
+              <div className="text-2xl xs:text-3xl sm:text-4xl font-black text-[#ea580c] leading-none tracking-tight">
                 {ticketNo}
               </div>
-              <div className="text-[9px] font-bold tracking-tight text-neutral-600 uppercase">
+              <div className="text-[8px] xs:text-[9px] font-bold tracking-tight text-neutral-600 uppercase">
                 ORBIT ADMIT
               </div>
             </div>
 
-            <div className="text-[8px] font-mono text-neutral-500 leading-tight border-t border-dashed border-neutral-400/80 pt-1.5">
-              <div>2026-11-04</div>
+            <div className="text-[7px] xs:text-[8px] font-mono text-neutral-500 leading-tight border-t border-dashed border-neutral-400/80 pt-1">
+              <div>{date}</div>
               <div className="flex justify-between mt-0.5">
                 <span>HALL</span>
                 <span>SEAT</span>
@@ -198,8 +199,8 @@ export function TicketStub({
               </div>
             </div>
 
-            <div className="space-y-1">
-              <div className="w-full h-7 flex items-stretch gap-[1.5px] opacity-80">
+            <div className="space-y-0.5">
+              <div className="w-full h-5 xs:h-6 sm:h-7 flex items-stretch gap-[1px] xs:gap-[1.5px] opacity-80">
                 <span className="w-1 bg-black h-full" />
                 <span className="w-0.5 bg-black h-full" />
                 <span className="w-1.5 bg-black h-full" />
@@ -214,7 +215,7 @@ export function TicketStub({
                 <span className="w-0.5 bg-transparent h-full" />
                 <span className="w-1.5 bg-black h-full" />
               </div>
-              <div className="text-[8px] text-center tracking-widest text-neutral-600">
+              <div className="text-[7px] xs:text-[8px] text-center tracking-widest text-neutral-600">
                 4 952345 123459
               </div>
             </div>
@@ -232,32 +233,33 @@ export function TicketStub({
           className="absolute inset-0 w-full h-full rounded-none bg-[#ece8dc] text-neutral-800 flex shadow-2xl border border-neutral-300 select-none overflow-hidden"
         >
           {/* 背面左联（对应正面的副券背面） */}
-          <div className="w-[28%] h-full p-3 sm:p-4 bg-[#e5e0d2] flex flex-col justify-between border-r-2 border-dashed border-neutral-400/80 font-mono text-[9px] text-neutral-600">
+          <div className="w-[28%] h-full p-2 xs:p-2.5 sm:p-4 bg-[#e5e0d2] flex flex-col justify-between border-r-2 border-dashed border-neutral-400/80 font-mono text-[8px] xs:text-[9px] text-neutral-600 overflow-hidden">
             <div>
-              <div className="font-bold text-neutral-900 text-xs">SPECIMEN</div>
-              <div className="text-[#ea580c] font-black text-sm mt-0.5">180° REVERSE</div>
+              <div className="font-bold text-neutral-900 text-[10px] xs:text-xs">SPECIMEN</div>
+              <div className="text-[#ea580c] font-black text-xs xs:text-sm mt-0.5">
+                180° REVERSE
+              </div>
             </div>
-            <div className="space-y-1 my-auto">
-              <div className="font-bold text-neutral-800">PERMITTED</div>
-              <p className="leading-tight text-[8px] text-neutral-500">
-                双面实体透视凭证。前后邮票视窗同轴联动。
+            <div className="space-y-0.5 my-auto">
+              <div className="font-bold text-neutral-800 text-[8px] xs:text-[9px]">PERMITTED</div>
+              <p className="leading-tight text-[7px] xs:text-[8px] text-neutral-500">
+                双面实体透视凭证。前后邮票同轴联动。
               </p>
             </div>
-            <div className="pt-2 border-t border-dashed border-neutral-400/80 font-bold text-neutral-700">
+            <div className="pt-1 border-t border-dashed border-neutral-400/80 font-bold text-neutral-700 text-[8px] xs:text-[9px]">
               OK · PASS
             </div>
           </div>
 
           {/* 背面大联：同样拥有锯齿邮票 Canvas 视窗！ */}
-          <div className="flex-1 h-full p-3.5 sm:p-4 flex flex-col justify-between relative">
-            <div className="flex justify-between items-center font-mono text-[10px] text-neutral-600 font-bold border-b border-dashed border-neutral-400 pb-1">
+          <div className="flex-1 h-full p-2 xs:p-2.5 sm:p-4 flex flex-col justify-between relative overflow-hidden">
+            <div className="flex justify-between items-center font-mono text-[8px] xs:text-[10px] text-neutral-600 font-bold border-b border-dashed border-neutral-400 pb-0.5">
               <span>BACKSIDE 360° PERSPECTIVE</span>
               <span className="text-[#ea580c] font-black">CANVAS INSIDE</span>
             </div>
-
             {/* 背面核心 3D 邮票锯齿画板 */}
-            <div className="my-1 w-full flex-1 relative flex items-center justify-center px-1 ticket-canvas-wrap">
-              <div className="w-full h-full max-h-[160px] relative flex items-center justify-center">
+            <div className="my-1 w-full flex-1 relative flex items-center justify-center px-0.5 ticket-canvas-wrap min-h-0">
+              <div className="w-full h-full relative flex items-center justify-center min-h-0">
                 <div
                   style={{
                     clipPath:
@@ -268,7 +270,7 @@ export function TicketStub({
                   <Pure3DCard
                     ref={cardBackRef}
                     materialId={materialId}
-                    aspectRatio="16/10"
+                    aspectRatio="16/9.5"
                     autoSpin={true}
                     speed={15}
                     className="w-full h-full rounded-none"
@@ -277,9 +279,11 @@ export function TicketStub({
               </div>
             </div>
 
-            <div className="flex justify-between items-center font-mono text-[10px] text-neutral-500 pt-1 border-t border-dashed border-neutral-400">
-              <span>ORBIT360 DUAL-FACED PERSPECTIVE</span>
-              <span className="font-bold text-neutral-700">60FPS CANVAS</span>
+            <div className="flex justify-between items-center font-mono text-[8px] xs:text-[10px] text-neutral-500 pt-0.5 border-t border-dashed border-neutral-400">
+              <span className="truncate">ORBIT360 DUAL-FACED PERSPECTIVE</span>
+              <span className="font-bold text-neutral-700 whitespace-nowrap ml-1">
+                60FPS CANVAS
+              </span>
             </div>
           </div>
         </div>
