@@ -3,6 +3,8 @@ import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { cloudflare } from "@cloudflare/vite-plugin";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -49,29 +51,41 @@ function siteAssets() {
   return {
     name: "orbit360-site-assets",
     closeBundle() {
-      if (existsSync(resolve(repo, "assets"))) {
-        cpSync(resolve(repo, "assets"), resolve(out, "assets"), { recursive: true });
-      }
-      if (existsSync(resolve(repo, "catalog.json"))) {
-        copyFileSync(resolve(repo, "catalog.json"), resolve(out, "catalog.json"));
-      }
-      if (existsSync(resolve(repo, ".nojekyll"))) {
-        copyFileSync(resolve(repo, ".nojekyll"), resolve(out, ".nojekyll"));
-      }
-      if (existsSync(resolve(repo, "_headers"))) {
-        copyFileSync(resolve(repo, "_headers"), resolve(out, "_headers"));
-      }
-      if (existsSync(resolve(repo, "_redirects"))) {
-        copyFileSync(resolve(repo, "_redirects"), resolve(out, "_redirects"));
+      const clientOut = resolve(out, "client");
+      const targetDirs = [out, clientOut];
+
+      for (const target of targetDirs) {
+        if (!existsSync(target)) continue;
+        if (existsSync(resolve(repo, "assets"))) {
+          cpSync(resolve(repo, "assets"), resolve(target, "assets"), { recursive: true });
+        }
+        if (existsSync(resolve(repo, "catalog.json"))) {
+          copyFileSync(resolve(repo, "catalog.json"), resolve(target, "catalog.json"));
+        }
+        if (existsSync(resolve(repo, ".nojekyll"))) {
+          copyFileSync(resolve(repo, ".nojekyll"), resolve(target, ".nojekyll"));
+        }
+        if (existsSync(resolve(repo, "_headers"))) {
+          copyFileSync(resolve(repo, "_headers"), resolve(target, "_headers"));
+        }
+        if (existsSync(resolve(repo, "_redirects"))) {
+          copyFileSync(resolve(repo, "_redirects"), resolve(target, "_redirects"));
+        }
       }
     },
   };
 }
 
 export default defineConfig({
-  base: "./",
   publicDir: false,
-  plugins: lazyPlugins(() => [tailwindcss(), react(), repoStatic(), siteAssets()]),
+  plugins: lazyPlugins(() => [
+    tailwindcss(),
+    cloudflare({ viteEnvironment: { name: "ssr" } }),
+    tanstackStart(),
+    react(),
+    repoStatic(),
+    siteAssets(),
+  ]),
   build: {
     outDir: out,
     assetsDir: "web",

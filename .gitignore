@@ -22,6 +22,10 @@ npm-debug.log*
 # 构建产物
 /dist/
 apps/playground/dist/
+.wrangler/
+**/.wrangler/
+.tanstack/
+**/.tanstack/
 
 # npm 包内许可证：prepack 时从仓库根 LICENSE 复制，勿手改
 /sdk/js/LICENSE
