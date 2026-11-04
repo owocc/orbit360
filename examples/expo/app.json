@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "orbit360_expo",
+    "slug": "orbit360-expo",
+    "version": "0.1.0",
+    "orientation": "default",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#050608",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#050608"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#050608"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "assetBundlePatterns": ["assets/**/*"],
+    "plugins": ["expo-asset"]
+  }
+}
