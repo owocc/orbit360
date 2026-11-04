@@ -1,7 +1,37 @@
 import React from "react";
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
-import { SiteHeader } from "../components/SiteHeader";
-import { SiteFooter } from "../components/SiteFooter";
+import { MinimalNav } from "../components/MinimalNav";
+import { FlipFocusProvider } from "../components/FlipFocusModal";
+import { LanguageProvider, useI18n } from "../lib/I18nContext";
+
+function RootDocument({ children }) {
+  const { t } = useI18n();
+
+  return (
+    <html lang="zh-CN">
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <LanguageProvider>
+          <FlipFocusProvider>
+            <div className="min-h-screen bg-white dark:bg-[#0a0b0e] text-neutral-900 dark:text-neutral-100 flex flex-col justify-between font-sans transition-colors duration-200 overflow-x-hidden w-full max-w-full">
+              <MinimalNav />
+              <main className="flex-1 flex flex-col justify-center w-full max-w-full overflow-x-hidden">
+                {children}
+              </main>
+              <footer className="w-full py-8 max-w-7xl mx-auto px-6 sm:px-12 border-t border-neutral-100 dark:border-neutral-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-neutral-400 dark:text-neutral-500 font-sans">
+                <div>{t.footer.copy}</div>
+                <div>{t.footer.sub}</div>
+              </footer>
+            </div>
+          </FlipFocusProvider>
+        </LanguageProvider>
+        <Scripts />
+      </body>
+    </html>
+  );
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -27,19 +57,6 @@ export const Route = createRootRoute({
       },
     ],
   }),
-  component: RootComponent,
+  component: () => <Outlet />,
+  shellComponent: RootDocument,
 });
-
-function RootComponent() {
-  return (
-    <div className="min-h-screen bg-[#07090e] text-neutral-200 selection:bg-neutral-800 selection:text-white flex flex-col font-sans">
-      <HeadContent />
-      <SiteHeader />
-      <main className="flex-1">
-        <Outlet />
-      </main>
-      <SiteFooter />
-      <Scripts />
-    </div>
-  );
-}
