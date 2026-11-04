@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { Client } from "@orbit360/javascript/web-client";
+import { useFlipFocus } from "./FlipFocusModal";
 
 export const Pure3DCard = forwardRef(function Pure3DCard(
   {
@@ -21,6 +22,7 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
   const clientRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const pointerStartRef = useRef({ x: 0, y: 0, t: 0 });
+  const { isFocused } = useFlipFocus();
 
   useImperativeHandle(ref, () => ({
     getContainer: () => containerRef.current,
@@ -82,6 +84,9 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
   };
 
   const handlePointerUp = (e) => {
+    // 已经处于放大状态下时，点击只用于 360° 旋转，不重复触发展开
+    if (isFocused) return;
+
     const dx = Math.abs(e.clientX - pointerStartRef.current.x);
     const dy = Math.abs(e.clientY - pointerStartRef.current.y);
     const dt = Date.now() - pointerStartRef.current.t;
