@@ -6,11 +6,12 @@ import { displayAngle, ringGeometry, frameLabel } from "../lib/format";
 import { WakeSlider } from "./WakeSlider";
 import { UploadDropzone } from "./UploadDropzone.jsx";
 import { PopoverRoot, PopoverTrigger, PopoverContent } from "./ui/Popover.jsx";
+import { useI18n } from "../lib/I18nContext";
 
 const CATALOG_URL = "catalog.json";
 export default function PlaygroundPage() {
+  const { t } = useI18n();
   const [catalog, setCatalog] = useState(null);
-  const [activeItem, setActiveItem] = useState(null);
   const [currentAngle, setCurrentAngle] = useState(0);
   const [infoNotice, setInfoNotice] = useState("");
   const fileInputRef = useRef(null);
@@ -259,14 +260,13 @@ export default function PlaygroundPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-6 border-b border-neutral-100 dark:border-neutral-900">
         <div>
           <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 mb-2">
-            <span>LABORATORY & SANDBOX</span>
+            <span>{t.playground.tag}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
-            Orbit360 Playground
+            {t.playground.title}
           </h1>
           <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-            实时调试渲染核心所有参数：全息罗盘、陀螺仪体感、鼠标跟随、自动环绕与二进制 .orb
-            文件解析。
+            {t.playground.desc}
           </p>
         </div>
 
@@ -291,20 +291,20 @@ export default function PlaygroundPage() {
                   : "border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               }`}
             >
-              {fullscreen.active ? "退出全屏" : "全屏"}
+              {fullscreen.active ? t.playground.fullscreen_exit : t.playground.fullscreen_enter}
             </button>
           )}
 
           <PopoverRoot open={showUploadModal} onOpenChange={setShowUploadModal}>
             <PopoverTrigger className="px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors shadow-sm cursor-pointer">
-              上传
+              {t.playground.upload_btn}
             </PopoverTrigger>
 
             <PopoverContent side="bottom" align="end" sideOffset={10}>
               <div className="flex flex-col items-center">
                 <div className="w-full flex items-center justify-between mb-3 pb-2 border-b border-neutral-100 dark:border-neutral-800">
                   <span className="text-[11px] font-mono font-bold text-neutral-500 uppercase tracking-wider">
-                    UPLOAD SCENE (.ORB / .ZIP)
+                    {t.playground.upload_modal_title}
                   </span>
                   <button
                     type="button"
@@ -348,7 +348,7 @@ export default function PlaygroundPage() {
             </PopoverContent>
           </PopoverRoot>
           <button type="button" onClick={handleReset}>
-            重置 0°
+            {t.playground.reset_btn}
           </button>
         </div>
       </div>
@@ -384,7 +384,9 @@ export default function PlaygroundPage() {
                   onClick={fullscreen.toggle}
                   className="absolute top-6 right-6 z-50 px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white/90 text-xs font-mono backdrop-blur-md border border-white/20 transition-all cursor-pointer"
                 >
-                  ESC 退出全屏
+                  {fullscreen.active
+                    ? `ESC ${t.playground.fullscreen_exit}`
+                    : t.playground.fullscreen_enter}
                 </button>
               )}
             </div>
@@ -443,7 +445,7 @@ export default function PlaygroundPage() {
                   {displayAngle(orbit.angle)}°
                 </div>
                 <div className="text-[10px] text-neutral-500 uppercase tracking-wider">
-                  BEARING 方位角
+                  {t.playground.bearing_title}
                 </div>
               </div>
             </div>
@@ -452,13 +454,13 @@ export default function PlaygroundPage() {
               <div className="text-neutral-800 dark:text-neutral-200 font-semibold">
                 {frameLabel(orbit.frame)}
               </div>
-              <div className="text-[10px] text-neutral-400">单帧硬切渲染</div>
+              <div className="text-[10px] text-neutral-400">{t.playground.single_frame}</div>
             </div>
           </div>
 
           <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 space-y-3">
             <div className="text-xs font-mono font-bold text-neutral-500 uppercase tracking-wider flex justify-between items-center">
-              <span>SCENE PRESETS</span>
+              <span>{t.playground.presets_title}</span>
               <span className="text-[10px] text-neutral-400">
                 {catalog?.items?.length || 2} 项官方场景
               </span>
@@ -487,7 +489,7 @@ export default function PlaygroundPage() {
           {/* 2. 运动与交互控制（包含自动环绕、反向、惯性、鼠标跟随、填充） */}
           <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 space-y-4">
             <div className="text-xs font-mono font-bold text-neutral-500 uppercase tracking-wider">
-              INTERACTION & MOTION
+              {t.playground.motion_title}
             </div>
 
             {/* 常用状态切换网格按钮 */}
@@ -501,9 +503,58 @@ export default function PlaygroundPage() {
                     : "border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-800"
                 }`}
               >
-                <div>自动旋转</div>
+                <div>{t.playground.auto_spin}</div>
                 <div className="text-[10px] font-mono opacity-80 mt-0.5">
-                  {autoMode === "off" ? "关闭" : autoMode === "cw" ? "顺时针 CW" : "逆时针 CCW"}
+                  {autoMode === "off"
+                    ? t.playground.auto_off
+                    : autoMode === "cw"
+                      ? t.playground.auto_cw
+                      : t.playground.auto_ccw}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleToggleInvert}
+                className={`px-3 py-2 rounded-xl transition-all border text-left cursor-pointer ${
+                  state?.invert
+                    ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent font-semibold shadow-xs"
+                    : "border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-800"
+                }`}
+              >
+                <div>{t.playground.drag_invert}</div>
+                <div className="text-[10px] font-mono opacity-80 mt-0.5">
+                  {state?.invert ? t.playground.invert_on : t.playground.invert_off}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleToggleMouseFollow}
+                className={`px-3 py-2 rounded-xl transition-all border text-left cursor-pointer ${
+                  state?.mouseFollow?.enabled
+                    ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent font-semibold shadow-xs"
+                    : "border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-800"
+                }`}
+              >
+                <div>{t.playground.mouse_follow}</div>
+                <div className="text-[10px] font-mono opacity-80 mt-0.5">
+                  {state?.mouseFollow?.enabled ? t.playground.follow_on : t.playground.follow_off}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleToggleInertia}
+                className={`px-3 py-2 rounded-xl transition-all border text-left cursor-pointer ${
+                  state?.inertia !== false
+                    ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-transparent font-semibold shadow-xs"
+                    : "border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-800"
+                }`}
+              >
+                <div>{t.playground.inertia}</div>
+                <div className="text-[10px] font-mono opacity-80 mt-0.5">
+                  {state?.inertia !== false ? t.playground.inertia_on : t.playground.inertia_off}
                 </div>
               </button>
 
@@ -556,7 +607,7 @@ export default function PlaygroundPage() {
             {/* 自动转速调节条形尾波滑块 */}
             <div className="space-y-1 pt-1 text-xs">
               <div className="text-neutral-700 dark:text-neutral-300 font-medium">
-                自动旋转角速度
+                {t.playground.auto_speed}
               </div>
               <div className="w-full flex items-center justify-center">
                 <WakeSlider
@@ -577,8 +628,15 @@ export default function PlaygroundPage() {
             <div className="space-y-3 pt-2 border-t border-neutral-200 dark:border-neutral-800/80">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-neutral-700 dark:text-neutral-300 font-medium">
-                  画布裁剪模式
+                  {t.playground.fit_mode}
                 </span>
+                <button
+                  type="button"
+                  onClick={handleToggleFit}
+                  className="px-2.5 py-1 rounded-lg font-mono text-[11px] font-medium border border-neutral-200 dark:border-neutral-700 hover:bg-white dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                >
+                  {state?.fit === "cover" ? t.playground.fit_cover : t.playground.fit_contain}
+                </button>
                 <button
                   type="button"
                   onClick={handleToggleFit}
@@ -592,7 +650,7 @@ export default function PlaygroundPage() {
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs text-neutral-600 dark:text-neutral-400">
                   <span className="text-neutral-700 dark:text-neutral-300 font-medium">
-                    画面画幅比例
+                    {t.playground.aspect_ratio}
                   </span>
                   <span className="font-mono font-semibold text-neutral-900 dark:text-white">
                     {selectedRatio}
@@ -625,7 +683,7 @@ export default function PlaygroundPage() {
           {/* 3. 陀螺仪体感控制系统 (Gyroscope Controls) */}
           <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 space-y-4">
             <div className="text-xs font-mono font-bold text-neutral-500 uppercase tracking-wider flex justify-between items-center">
-              <span>GYROSCOPE / SENSORS</span>
+              <span>{t.playground.gyro_title}</span>
               <span
                 className={`text-[10px] font-mono font-semibold ${isGyroOn ? "text-green-600 dark:text-green-400" : "text-neutral-400"}`}
               >
@@ -643,9 +701,9 @@ export default function PlaygroundPage() {
                     : "border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-800"
                 }`}
               >
-                <div>陀螺仪开关</div>
+                <div>{t.playground.gyro_switch}</div>
                 <div className="text-[10px] font-mono opacity-80 mt-0.5">
-                  {isGyroOn ? "运行中" : state?.gyro?.pending ? "待授权" : "未开启"}
+                  {isGyroOn ? "ON" : state?.gyro?.pending ? "PENDING" : "OFF"}
                 </div>
               </button>
 
@@ -655,15 +713,17 @@ export default function PlaygroundPage() {
                 onClick={handleCalibrateGyro}
                 className="px-3 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-white dark:hover:bg-neutral-800 transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
-                <div>重新校准</div>
-                <div className="text-[10px] font-mono opacity-80 mt-0.5">零点归中</div>
+                <div>{t.playground.gyro_calibrate}</div>
+                <div className="text-[10px] font-mono opacity-80 mt-0.5">CALIBRATE</div>
               </button>
             </div>
 
             {/* 陀螺仪平滑与增益 */}
             <div className="space-y-3 pt-1 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-neutral-700 dark:text-neutral-300">抖动滤波平滑</span>
+                <span className="text-neutral-700 dark:text-neutral-300">
+                  {t.playground.gyro_smooth}
+                </span>
                 <button
                   type="button"
                   onClick={handleToggleGyroSmooth}
@@ -675,7 +735,7 @@ export default function PlaygroundPage() {
 
               <div className="space-y-1 pt-1 text-xs">
                 <div className="text-neutral-700 dark:text-neutral-300 font-medium">
-                  体感灵敏度增益
+                  {t.playground.gyro_gain}
                 </div>
                 <div className="w-full flex items-center justify-center">
                   <WakeSlider

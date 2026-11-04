@@ -1,10 +1,11 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
 import { Pure3DCard } from "./Pure3DCard";
 import { useFlipFocus } from "./FlipFocusModal";
-
+import { useI18n } from "../lib/I18nContext";
 export function HeroCardStack() {
   const cardRefs = useRef({});
   const { focusCard } = useFlipFocus();
+  const { t } = useI18n();
   const [activeIndex, setActiveIndex] = useState(2); // 默认中间第3张为当前焦点
 
   // 监听窗口宽度，大屏幕加大卡片间距步长
@@ -79,9 +80,9 @@ export function HeroCardStack() {
         </div>
 
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-neutral-900 dark:text-white leading-tight font-sans">
-          A place to display your
+          {t.hero.title_1}
           <br />
-          masterpiece.
+          {t.hero.title_2}
         </h1>
       </div>
 
@@ -176,8 +177,7 @@ export function HeroCardStack() {
       {/* 底部极简小副标题与双按钮 */}
       <div className="text-center max-w-md mx-auto space-y-6 px-4">
         <p className="text-xs sm:text-[13px] text-neutral-500 dark:text-neutral-400 leading-relaxed font-sans">
-          Artists can display their masterpieces, and buyers can discover and purchase works that
-          resonate with them.
+          {t.hero.subtitle}
         </p>
 
         <div className="flex items-center justify-center gap-3">
@@ -185,13 +185,13 @@ export function HeroCardStack() {
             href="#gallery"
             className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-medium hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors shadow-sm font-sans"
           >
-            Explore 360°
+            {t.hero.explore}
           </a>
           <a
             href="#features"
             className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors font-sans"
           >
-            Read more
+            {t.hero.read_more}
           </a>
         </div>
       </div>
