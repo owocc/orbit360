@@ -69,9 +69,6 @@ function siteAssets() {
           copyFileSync(resolve(repo, "_headers"), resolve(target, "_headers"));
         }
       }
-      if (existsSync(resolve(out, "index.html")) && existsSync(clientOut)) {
-        copyFileSync(resolve(out, "index.html"), resolve(clientOut, "index.html"));
-      }
     },
   };
 }

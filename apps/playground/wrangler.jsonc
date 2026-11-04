@@ -3,7 +3,7 @@
   "name": "orbit360",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "dist/server/server.js",
+  "main": "@tanstack/react-start/server-entry",
   "assets": {
     "directory": "dist",
     "binding": "ASSETS",
