@@ -14,6 +14,15 @@ export default function PlaygroundPage() {
   const [infoNotice, setInfoNotice] = useState("");
   const fileInputRef = useRef(null);
 
+  // 比例切换选项：16:9 宽屏, 4:3 经典, 1:1 正方, 9:16 竖屏
+  const ASPECT_RATIOS = [
+    { id: "16/9", label: "16:9", maxW: "max-w-full", aspect: "aspect-[16/9]" },
+    { id: "4/3", label: "4:3", maxW: "max-w-[720px]", aspect: "aspect-[4/3]" },
+    { id: "1/1", label: "1:1", maxW: "max-w-[560px]", aspect: "aspect-square" },
+    { id: "9/16", label: "9:16", maxW: "max-w-[360px]", aspect: "aspect-[9/16]" },
+  ];
+  const [selectedRatio, setSelectedRatio] = useState("16/9");
+  const currentRatioObj = ASPECT_RATIOS.find((r) => r.id === selectedRatio) || ASPECT_RATIOS[0];
   // 全屏 hook
   const fullscreen = useFullscreen();
 
@@ -286,14 +295,16 @@ export default function PlaygroundPage() {
       {/* 主界面：左侧大画板与极简尾波滑块 + 右侧集成式控制台 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start flex-1">
         {/* 左侧画板区 */}
-        <div className="lg:col-span-8 flex flex-col items-center">
+        <div className="lg:col-span-8 flex flex-col items-center w-full min-h-[500px] justify-center">
           <div
-            ref={orbit.stageRef}
-            className="w-full aspect-[16/10] sm:aspect-[16/9] max-h-[640px] rounded-3xl bg-neutral-950 relative overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.25)] flex items-center justify-center cursor-grab active:cursor-grabbing border border-neutral-800 select-none"
+            className={`w-full ${currentRatioObj.maxW} flex items-center justify-center transition-all duration-300 ease-out`}
           >
-            <canvas ref={orbit.canvasRef} className="w-full h-full block object-contain" />
-
-            {/* 画面干净纯粹，无悬浮覆盖层 */}
+            <div
+              ref={orbit.stageRef}
+              className={`w-full ${currentRatioObj.aspect} max-h-[640px] rounded-3xl bg-neutral-950 relative overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.25)] flex items-center justify-center cursor-grab active:cursor-grabbing border border-neutral-800 select-none transition-all duration-300`}
+            >
+              <canvas ref={orbit.canvasRef} className="w-full h-full block object-contain" />
+            </div>
           </div>
 
           {/* 画板下方尾波滑块控制 */}
@@ -477,15 +488,52 @@ export default function PlaygroundPage() {
             </div>
 
             {/* 视口排版模式 */}
-            <div className="flex items-center justify-between pt-1 text-xs">
-              <span className="text-neutral-700 dark:text-neutral-300">画布裁剪模式</span>
-              <button
-                type="button"
-                onClick={handleToggleFit}
-                className="px-3 py-1 rounded-lg font-mono font-medium border border-neutral-200 dark:border-neutral-700 hover:bg-white dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-              >
-                {state?.fit === "cover" ? "铺满 (Cover)" : "完整 (Contain)"}
-              </button>
+            {/* 画布排版与比例控制器 */}
+            <div className="space-y-3 pt-2 border-t border-neutral-200 dark:border-neutral-800/80">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-neutral-700 dark:text-neutral-300 font-medium">
+                  画布裁剪模式
+                </span>
+                <button
+                  type="button"
+                  onClick={handleToggleFit}
+                  className="px-2.5 py-1 rounded-lg font-mono text-[11px] font-medium border border-neutral-200 dark:border-neutral-700 hover:bg-white dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                >
+                  {state?.fit === "cover" ? "铺满 (Cover)" : "完整 (Contain)"}
+                </button>
+              </div>
+
+              {/* 搬运自 Home 的等比/比例控制器 (16:9, 4:3, 1:1, 9:16) */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-neutral-600 dark:text-neutral-400">
+                  <span className="text-neutral-700 dark:text-neutral-300 font-medium">
+                    画面画幅比例
+                  </span>
+                  <span className="font-mono font-semibold text-neutral-900 dark:text-white">
+                    {selectedRatio}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-neutral-200/60 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/60">
+                  {ASPECT_RATIOS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedRatio(item.id);
+                        showNotice(`画幅已切换至 ${item.label}`);
+                        setTimeout(() => orbit.clientRef.current?.resize?.(), 50);
+                      }}
+                      className={`py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                        selectedRatio === item.id
+                          ? "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-xs"
+                          : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
