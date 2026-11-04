@@ -9,7 +9,7 @@ export function HeroCardStack() {
   const cards = [
     {
       id: "c1",
-      src: "assets/maid/scene.orb",
+      materialId: "maid",
       aspect: "3/4",
       speed: 10,
       rotate: "-12deg",
@@ -18,7 +18,7 @@ export function HeroCardStack() {
     },
     {
       id: "c2",
-      src: "assets/orbit/scene.orb",
+      materialId: "orbit",
       aspect: "3/4",
       speed: 14,
       rotate: "-6deg",
@@ -27,7 +27,7 @@ export function HeroCardStack() {
     },
     {
       id: "c3",
-      src: "assets/maid/scene.orb",
+      materialId: "maid",
       aspect: "3/4",
       speed: -8,
       rotate: "0deg",
@@ -36,7 +36,7 @@ export function HeroCardStack() {
     },
     {
       id: "c4",
-      src: "assets/orbit/scene.orb",
+      materialId: "orbit",
       aspect: "3/4",
       speed: 12,
       rotate: "6deg",
@@ -45,7 +45,7 @@ export function HeroCardStack() {
     },
     {
       id: "c5",
-      src: "assets/maid/scene.orb",
+      materialId: "maid",
       aspect: "3/4",
       speed: -15,
       rotate: "12deg",
@@ -92,7 +92,7 @@ export function HeroCardStack() {
             >
               <Pure3DCard
                 ref={(el) => (cardRefs.current[card.id] = el)}
-                src={card.src}
+                materialId={card.materialId}
                 aspectRatio={card.aspect}
                 speed={card.speed}
                 className="w-full h-full"

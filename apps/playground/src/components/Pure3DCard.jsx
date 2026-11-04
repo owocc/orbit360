@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { Client } from "@orbit360/javascript/web-client";
 import { useFlipFocus } from "./FlipFocusModal";
+import { getMaterialBlob, resolveMaterial } from "../lib/materials";
 
 export const Pure3DCard = forwardRef(function Pure3DCard(
   {
     src,
+    materialId,
     aspectRatio = "1/1",
     className = "",
     autoSpin = true,
@@ -24,14 +26,17 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
   const pointerStartRef = useRef({ x: 0, y: 0, t: 0 });
   const { isFocused } = useFlipFocus();
 
+  const activeMaterial = resolveMaterial(materialId || src);
+
   useImperativeHandle(ref, () => ({
     getContainer: () => containerRef.current,
     getClient: () => clientRef.current,
     resize: () => clientRef.current?.resize(),
+    material: activeMaterial,
   }));
 
   useEffect(() => {
-    if (!canvasRef.current || !containerRef.current || !src) return;
+    if (!canvasRef.current || !containerRef.current || !activeMaterial.src) return;
 
     let destroyed = false;
 
@@ -69,7 +74,14 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
       }),
     ];
 
-    client.load(src).catch(() => {});
+    // 通过全局单例缓存池加载 Blob，相同 materialId 永不重复发起 HTTP 请求
+    getMaterialBlob(activeMaterial.id)
+      .then((blob) => {
+        if (!destroyed && clientRef.current) {
+          return clientRef.current.load(blob);
+        }
+      })
+      .catch(() => {});
 
     return () => {
       destroyed = true;
@@ -77,20 +89,18 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
       client.destroy();
       clientRef.current = null;
     };
-  }, [src, minAngle, maxAngle, speed, dragSensitivity]);
+  }, [activeMaterial.id, minAngle, maxAngle, speed, dragSensitivity]);
 
   const handlePointerDown = (e) => {
     pointerStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
   };
 
   const handlePointerUp = (e) => {
-    // 已经处于放大状态下时，点击只用于 360° 旋转，不重复触发展开
     if (isFocused) return;
 
     const dx = Math.abs(e.clientX - pointerStartRef.current.x);
     const dy = Math.abs(e.clientY - pointerStartRef.current.y);
     const dt = Date.now() - pointerStartRef.current.t;
-    // 位移小于 6px 且持续时间短，视为纯点击，避免与拖拽旋转冲突
     if (dx < 6 && dy < 6 && dt < 300) {
       onClick?.(e);
     }

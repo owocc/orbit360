@@ -29,26 +29,26 @@ const STEP_Z = 70;
 const CARDS = [
   {
     id: "maid-1",
+    materialId: "maid",
     title: "Maid Horizon · 360°",
-    src: "assets/maid/scene.orb",
     cover: "assets/maid/cover.webp",
   },
   {
     id: "orbit-1",
+    materialId: "orbit",
     title: "Orbit Perspective · 360°",
-    src: "assets/orbit/scene.orb",
     cover: "assets/orbit/cover.webp",
   },
   {
     id: "maid-2",
+    materialId: "maid",
     title: "Studio Light · 360°",
-    src: "assets/maid/scene.orb",
     cover: "assets/maid/cover.webp",
   },
   {
     id: "orbit-2",
+    materialId: "orbit",
     title: "Panorama Loop · 360°",
-    src: "assets/orbit/scene.orb",
     cover: "assets/orbit/cover.webp",
   },
 ];
@@ -201,7 +201,7 @@ export function CardSwap({
                 /* 前排卡片：实时 3D Canvas 正在持续自转炫技！ */
                 <div className="w-full h-full rounded-[17px] overflow-hidden">
                   <Pure3DCard
-                    src={c.src}
+                    materialId={c.materialId}
                     aspectRatio="3/4"
                     autoSpin={true}
                     speed={15}

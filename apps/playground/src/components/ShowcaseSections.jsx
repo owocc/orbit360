@@ -41,7 +41,7 @@ export function ShowcaseSections() {
         <div className="lg:col-span-6 flex justify-center lg:justify-start order-2 lg:order-1">
           <div className="w-full max-w-[420px] aspect-[4/5]">
             <Pure3DCard
-              src="assets/maid/scene.orb"
+              materialId="maid"
               aspectRatio="4/5"
               autoSpin={true}
               speed={14}

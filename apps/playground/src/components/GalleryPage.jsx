@@ -10,64 +10,55 @@ export default function GalleryPage() {
   const galleryItems = [
     {
       id: "gal-1",
-      src: "assets/maid/scene.orb",
-      cover: "assets/maid/cover.webp",
+      materialId: "maid",
       aspect: "3/4",
       speed: 12,
     },
     {
       id: "gal-2",
-      src: "assets/orbit/scene.orb",
-      cover: "assets/orbit/cover.webp",
+      materialId: "orbit",
       aspect: "1/1",
       speed: -10,
     },
     {
       id: "gal-3",
-      src: "assets/maid/scene.orb",
-      cover: "assets/maid/cover.webp",
+      materialId: "maid",
       aspect: "4/5",
       speed: 14,
     },
     {
       id: "gal-4",
-      src: "assets/orbit/scene.orb",
-      cover: "assets/orbit/cover.webp",
+      materialId: "orbit",
       aspect: "9/16",
       speed: 8,
     },
     {
       id: "gal-5",
-      src: "assets/maid/scene.orb",
-      cover: "assets/maid/cover.webp",
+      materialId: "maid",
       aspect: "1/1",
       speed: -15,
     },
     {
       id: "gal-6",
-      src: "assets/orbit/scene.orb",
-      cover: "assets/orbit/cover.webp",
+      materialId: "orbit",
       aspect: "3/4",
       speed: 16,
     },
     {
       id: "gal-7",
-      src: "assets/maid/scene.orb",
-      cover: "assets/maid/cover.webp",
+      materialId: "maid",
       aspect: "16/10",
       speed: 10,
     },
     {
       id: "gal-8",
-      src: "assets/orbit/scene.orb",
-      cover: "assets/orbit/cover.webp",
+      materialId: "orbit",
       aspect: "4/5",
       speed: -12,
     },
     {
       id: "gal-9",
-      src: "assets/maid/scene.orb",
-      cover: "assets/maid/cover.webp",
+      materialId: "maid",
       aspect: "3/4",
       speed: 15,
     },
@@ -92,8 +83,7 @@ export default function GalleryPage() {
           <div key={item.id} className="break-inside-avoid w-full">
             <LazyCoverCard
               ref={(el) => (cardRefs.current[item.id] = el)}
-              src={item.src}
-              coverSrc={item.cover}
+              materialId={item.materialId}
               aspectRatio={item.aspect}
               speed={item.speed}
               onFocusRequest={(cardHandle) => {

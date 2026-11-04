@@ -1,18 +1,32 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef } from "react";
 import { Pure3DCard } from "./Pure3DCard";
+import { resolveMaterial } from "../lib/materials";
 
 export const LazyCoverCard = forwardRef(function LazyCoverCard(
-  { src, coverSrc, aspectRatio = "3/4", speed = 12, className = "", style = {}, onFocusRequest },
+  {
+    src,
+    materialId,
+    coverSrc,
+    aspectRatio = "3/4",
+    speed = 12,
+    className = "",
+    style = {},
+    onFocusRequest,
+  },
   ref,
 ) {
   const [isActivated, setIsActivated] = useState(false);
   const cardRef = useRef(null);
   const containerRef = useRef(null);
 
+  const material = resolveMaterial(materialId || src);
+  const actualCover = coverSrc || material.cover;
+
   useImperativeHandle(ref, () => ({
     getContainer: () => (isActivated ? cardRef.current?.getContainer() : containerRef.current),
     getClient: () => cardRef.current?.getClient(),
     resize: () => cardRef.current?.resize(),
+    material,
   }));
 
   const handlePointerDown = () => {
@@ -39,7 +53,7 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
       {isActivated ? (
         <Pure3DCard
           ref={cardRef}
-          src={src}
+          materialId={material.id}
           aspectRatio={aspectRatio}
           speed={speed}
           className="w-full h-full rounded-3xl"
@@ -49,8 +63,8 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
         <div className="relative w-full h-full overflow-hidden">
           {/* 轻量静态 Cover 图片 */}
           <img
-            src={coverSrc}
-            alt="360 specimen preview"
+            src={actualCover}
+            alt={material.title}
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
