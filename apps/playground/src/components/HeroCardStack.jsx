@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import { Pure3DCard } from "./Pure3DCard";
 import { useFlipFocus } from "./FlipFocusModal";
 
@@ -6,6 +6,17 @@ export function HeroCardStack() {
   const cardRefs = useRef({});
   const { focusCard } = useFlipFocus();
   const [activeIndex, setActiveIndex] = useState(2); // 默认中间第3张为当前焦点
+
+  // 监听窗口宽度，大屏幕加大卡片间距步长
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1200,
+  );
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const cards = [
     { id: "c1", materialId: "maid", aspect: "3/4", speed: 10 },
@@ -43,8 +54,19 @@ export function HeroCardStack() {
     }
   };
 
+  // 响应式步长与优雅间距：收敛大屏最大步长，确保卡片尺寸克制，比例平衡
+  const getStepX = () => {
+    if (windowWidth >= 1280) return 250;
+    if (windowWidth >= 1024) return 220;
+    if (windowWidth >= 768) return 190;
+    if (windowWidth >= 480) return 160;
+    return 135;
+  };
+
+  const stepX = getStepX();
+
   return (
-    <div className="w-full flex flex-col items-center pt-6 sm:pt-8 pb-16 overflow-hidden max-w-full">
+    <div className="w-full flex flex-col items-center pt-6 sm:pt-10 pb-20 overflow-x-clip max-w-full">
       {/* 核心标题区 */}
       <div className="relative text-center max-w-2xl mx-auto mb-8 sm:mb-14 px-4 select-none">
         {/* 左侧用户浮动气泡 */}
@@ -64,27 +86,25 @@ export function HeroCardStack() {
         </h1>
       </div>
 
-      {/* 全屏幕宽度裁剪视窗：左右滑动轮播，卡片大幅放大，纯手势/圆点切换，无左右按钮 */}
+      {/* 限制整体展台的最大宽度 max-w-6xl，卡片尺寸收敛克制，整体沉稳高级 */}
       <div
         id="showcase"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className="relative w-full h-[360px] xs:h-[390px] sm:h-[440px] md:h-[480px] flex items-center justify-center mb-8 sm:mb-12 overflow-hidden select-none cursor-ew-resize"
+        className="relative w-full max-w-6xl mx-auto h-[360px] xs:h-[390px] sm:h-[430px] md:h-[460px] lg:h-[480px] flex items-center justify-center mb-8 sm:mb-10 select-none cursor-ew-resize overflow-visible"
       >
         {/* 展台中心定位：通过计算相对于 activeIndex 的偏移实现全屏幕居中轮播 */}
         <div className="relative w-full h-full flex items-center justify-center">
           {cards.map((card, i) => {
-            // 计算当前卡片相对于活动卡片的偏移量 (-2, -1, 0, 1, 2)
             const offset = i - activeIndex;
             const absOffset = Math.abs(offset);
 
             // 动态响应式计算：居中放大卡片，两侧卡片层叠倾斜后退
-            const rotateDeg = offset * 6;
-            const translateY = absOffset * 10;
-            const scale = 1 - absOffset * 0.1;
+            const rotateDeg = offset * (windowWidth >= 1024 ? 4.5 : 6);
+            const translateY = absOffset * (windowWidth >= 1024 ? 8 : 10);
+            const scale = 1 - absOffset * 0.08;
             const zIndex = 30 - absOffset * 5;
-            // 移动端卡片水平步长
-            const translateX = offset * 140;
+            const translateX = offset * stepX;
 
             return (
               <div
@@ -113,15 +133,24 @@ export function HeroCardStack() {
                   opacity: absOffset > 2 ? 0 : 1,
                   pointerEvents: absOffset > 2 ? "none" : "auto",
                 }}
-                className="absolute w-52 xs:w-56 sm:w-64 md:w-72 aspect-[3/4] transition-all duration-500 ease-out cursor-pointer"
+                className="absolute w-44 xs:w-48 sm:w-56 md:w-60 lg:w-64 max-w-[280px] aspect-[3/4] transition-all duration-500 ease-out cursor-pointer group"
               >
+                {/* 强化全局与底部接触阴影：采用环境泛光 + 底部投射阴影，保证浅色与深色背景下均立体透出 */}
+                <div
+                  className={`absolute inset-0 rounded-3xl pointer-events-none transition-all duration-500 ${
+                    offset === 0
+                      ? "shadow-[0_20px_45px_-8px_rgba(0,0,0,0.22),0_10px_20px_-6px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.05)] dark:shadow-[0_24px_50px_-10px_rgba(0,0,0,0.75),0_12px_24px_-6px_rgba(0,0,0,0.65)]"
+                      : "shadow-[0_14px_30px_-8px_rgba(0,0,0,0.16),0_6px_14px_-5px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
+                  }`}
+                />
+
                 <Pure3DCard
                   ref={(el) => (cardRefs.current[card.id] = el)}
                   materialId={card.materialId}
                   aspectRatio={card.aspect}
                   speed={card.speed}
                   autoSpin={offset === 0}
-                  className="w-full h-full shadow-[0_25px_60px_rgba(0,0,0,0.22)]"
+                  className="w-full h-full !shadow-none"
                 />
               </div>
             );
