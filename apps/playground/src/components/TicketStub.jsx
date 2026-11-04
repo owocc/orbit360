@@ -42,6 +42,8 @@ export function TicketStub({
       className="perspective-1000 select-none py-6 px-2 flex items-center justify-center w-full"
       style={{ perspective: "1000px" }}
     >
+      {/* 隐藏的 SVG 剪裁路径：直角票根 + 上下精确切除的凹圆齿孔 */}
+
       <div
         ref={containerRef}
         onPointerMove={handlePointerMove}
@@ -49,10 +51,13 @@ export function TicketStub({
         style={{
           transform: `rotateX(${rotate.x}deg) rotateY(${rotate.y}deg)`,
           transformStyle: "preserve-3d",
+          /* 直角票根 + SVG 镂空上下半圆缺口（彻底去除白色残留） */
+          clipPath:
+            "polygon(0% 0%, calc(72% - 10px) 0%, calc(72% - 10px) 0%, calc(72% - 9px) 1.5px, calc(72% - 7px) 3.5px, calc(72% - 4px) 6px, 72% 7px, calc(72% + 4px) 6px, calc(72% + 7px) 3.5px, calc(72% + 9px) 1.5px, calc(72% + 10px) 0%, 100% 0%, 100% 100%, calc(72% + 10px) 100%, calc(72% + 9px) calc(100% - 1.5px), calc(72% + 7px) calc(100% - 3.5px), calc(72% + 4px) calc(100% - 6px), 72% calc(100% - 7px), calc(72% - 4px) calc(100% - 6px), calc(72% - 7px) calc(100% - 3.5px), calc(72% - 9px) calc(100% - 1.5px), calc(72% - 10px) 100%, 0% 100%)",
         }}
-        className="relative w-full max-w-[540px] h-[250px] sm:h-[270px] rounded-2xl bg-[#f5f3ec] text-neutral-900 border border-neutral-300 dark:border-neutral-700 shadow-[0_25px_60px_rgba(0,0,0,0.28)] transition-transform duration-150 ease-out cursor-grab active:cursor-grabbing overflow-hidden flex"
+        className="relative w-full max-w-[540px] h-[250px] sm:h-[270px] rounded-none bg-[#f5f3ec] text-neutral-900 shadow-[0_25px_60px_rgba(0,0,0,0.32)] transition-transform duration-150 ease-out cursor-grab active:cursor-grabbing flex"
       >
-        {/* 全息珠光流光视差层 (Holographic Sheen) */}
+        {/* 全息珠光流光视差层 */}
         <div
           className="absolute inset-0 pointer-events-none z-30 transition-opacity duration-300 mix-blend-color-dodge"
           style={{
@@ -61,14 +66,10 @@ export function TicketStub({
           }}
         />
 
-        {/* 顶部与底部的凹圆齿孔卡槽 (Perforated Ticket Notches) */}
-        <div className="absolute top-0 right-[28%] -translate-y-1/2 w-5 h-5 rounded-full bg-white dark:bg-[#0a0b0e] border border-neutral-300 dark:border-neutral-700 z-40" />
-        <div className="absolute bottom-0 right-[28%] translate-y-1/2 w-5 h-5 rounded-full bg-white dark:bg-[#0a0b0e] border border-neutral-300 dark:border-neutral-700 z-40" />
-
-        {/* 左侧大联：拟真邮票齿孔外框 + 内嵌实时 360° Canvas 模型 */}
-        <div className="flex-1 h-full p-3.5 sm:p-4 flex flex-col justify-between relative border-r-2 border-dashed border-neutral-400/80">
+        {/* 左侧大联：视频画布直接紧贴虚线分割线（边距清零） */}
+        <div className="flex-1 h-full pt-3.5 pb-3.5 pl-4 pr-0 flex flex-col justify-between relative border-r-2 border-dashed border-neutral-400/80">
           {/* 顶部微型元信息 */}
-          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-neutral-500 tracking-wider">
+          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-neutral-500 tracking-wider pr-3">
             <span>{date}</span>
             <span className="text-[#ea580c] font-black text-sm">{ticketNo}</span>
             <div className="flex items-center gap-1.5">
@@ -77,37 +78,29 @@ export function TicketStub({
             </div>
           </div>
 
-          {/* 仿邮票齿孔质感框 (Stamp Perforations Frame) */}
-          <div className="my-1 w-full flex-1 relative flex items-center justify-center p-1.5">
-            <div
-              style={{
-                clipPath: "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)",
-              }}
-              className="w-full h-full p-2 bg-[#eae5d8] border-2 border-dashed border-neutral-400/70 rounded-xl relative flex items-center justify-center shadow-inner"
-            >
+          {/* 核心视频画板：右边距彻底清零，与中轴虚线完全贴合 */}
+          <div className="my-1.5 w-full flex-1 relative flex items-center justify-end">
+            <div className="w-full h-full max-h-[168px] relative flex items-center justify-end overflow-hidden pr-0">
               {/* 四角星芒小装饰 */}
-              <span className="absolute top-1 left-2 text-[10px] font-mono text-neutral-400 select-none">
-                ✦
-              </span>
-              <span className="absolute top-1 right-2 text-[10px] font-mono text-neutral-400 select-none">
+              <span className="absolute top-1 left-2 text-[10px] font-mono text-neutral-400 select-none z-20">
                 ✦
               </span>
 
-              {/* 核心 360° Canvas 实时模型视窗 */}
-              <div className="w-full h-full rounded-lg overflow-hidden relative shadow-md">
+              {/* 核心 360° Canvas 实时模型视窗：紧贴虚线，直角对齐 */}
+              <div className="w-full h-full rounded-l-xl rounded-r-none overflow-hidden relative shadow-sm border-y border-l border-neutral-300 dark:border-neutral-700 bg-black">
                 <Pure3DCard
                   materialId={materialId}
                   aspectRatio="16/10"
                   autoSpin={true}
                   speed={15}
-                  className="w-full h-full rounded-lg"
+                  className="w-full h-full rounded-none"
                 />
               </div>
             </div>
           </div>
 
           {/* 底部艺术大字题与 Halloween 标识 */}
-          <div className="flex items-center justify-between text-[11px] font-mono">
+          <div className="flex items-center justify-between text-[11px] font-mono pr-3">
             <span className="font-black tracking-widest uppercase text-neutral-800">{title}</span>
             <span className="text-[10px] font-semibold text-neutral-600 tracking-tight">
               Halloween · 360 SPECIMEN
@@ -115,7 +108,7 @@ export function TicketStub({
           </div>
         </div>
 
-        {/* 右侧副券：橙色粗体编号 + 防伪条形码与凭证打孔 */}
+        {/* 右侧副券：条形码 + 存根信息 */}
         <div className="w-[28%] h-full p-3 sm:p-4 bg-[#ede8dc] flex flex-col justify-between text-neutral-800 font-mono select-none">
           <div className="space-y-1">
             <div className="flex justify-between items-center text-[10px] font-bold text-neutral-500">
