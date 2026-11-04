@@ -293,47 +293,7 @@ export default function PlaygroundPage() {
           >
             <canvas ref={orbit.canvasRef} className="w-full h-full block object-contain" />
 
-            {/* 画布左上角精致罗盘 HUD */}
-            <div className="absolute top-4 left-4 p-2 rounded-2xl bg-black/50 backdrop-blur-md border border-white/10 flex items-center gap-3 text-white pointer-events-none select-none">
-              <svg className="w-12 h-12" viewBox="0 0 132 132" aria-hidden="true">
-                <circle
-                  cx="66"
-                  cy="66"
-                  r="52"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.2)"
-                  strokeWidth="1.5"
-                />
-                <circle
-                  cx="66"
-                  cy="66"
-                  r="52"
-                  fill="none"
-                  stroke="#38bdf8"
-                  strokeWidth="3"
-                  strokeDasharray={ring.dash}
-                  transform="rotate(-90 66 66)"
-                />
-                <line
-                  x1="66"
-                  y1="66"
-                  x2={66 + Math.sin((orbit.angle * Math.PI) / 180) * 44}
-                  y2={66 - Math.cos((orbit.angle * Math.PI) / 180) * 44}
-                  stroke="#ef4444"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="pr-1.5 font-mono">
-                <div className="text-sm font-bold tracking-tight">{displayAngle(orbit.angle)}°</div>
-                <div className="text-[10px] text-neutral-400 uppercase">BEARING</div>
-              </div>
-            </div>
-
-            {/* 画布右下角帧率与序列指标 */}
-            <div className="absolute bottom-4 right-4 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md text-white text-[11px] font-mono flex items-center gap-2.5 pointer-events-none select-none border border-white/10">
-              <span>{frameLabel(orbit.frame)}</span>
-            </div>
+            {/* 画面干净纯粹，无悬浮覆盖层 */}
           </div>
 
           {/* 画板下方尾波滑块控制 */}
@@ -351,7 +311,57 @@ export default function PlaygroundPage() {
 
         {/* 右侧完整控制台（集成历史 ControlPanel 中的全部专业控制项） */}
         <div className="lg:col-span-4 space-y-5">
-          {/* 1. 场景与素材切换 */}
+          {/* 实时方位角与帧率监控 HUD 卡片 */}
+          <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <svg className="w-12 h-12 flex-shrink-0" viewBox="0 0 132 132" aria-hidden="true">
+                <circle
+                  cx="66"
+                  cy="66"
+                  r="52"
+                  fill="none"
+                  stroke="currentColor"
+                  className="text-neutral-200 dark:text-neutral-800"
+                  strokeWidth="1.5"
+                />
+                <circle
+                  cx="66"
+                  cy="66"
+                  r="52"
+                  fill="none"
+                  stroke="#38bdf8"
+                  strokeWidth="3.5"
+                  strokeDasharray={ring.dash}
+                  transform="rotate(-90 66 66)"
+                />
+                <line
+                  x1="66"
+                  y1="66"
+                  x2={66 + Math.sin((orbit.angle * Math.PI) / 180) * 44}
+                  y2={66 - Math.cos((orbit.angle * Math.PI) / 180) * 44}
+                  stroke="#ef4444"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="font-mono">
+                <div className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">
+                  {displayAngle(orbit.angle)}°
+                </div>
+                <div className="text-[10px] text-neutral-500 uppercase tracking-wider">
+                  BEARING 方位角
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right font-mono text-[11px] text-neutral-500 dark:text-neutral-400 space-y-0.5">
+              <div className="text-neutral-800 dark:text-neutral-200 font-semibold">
+                {frameLabel(orbit.frame)}
+              </div>
+              <div className="text-[10px] text-neutral-400">单帧硬切渲染</div>
+            </div>
+          </div>
+
           <div className="p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 space-y-3">
             <div className="text-xs font-mono font-bold text-neutral-500 uppercase tracking-wider flex justify-between items-center">
               <span>SCENE PRESETS</span>
