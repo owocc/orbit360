@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ThemeSelector } from "./ThemeSelector";
 import { LanguageSelector } from "./LanguageSelector";
 import { useI18n } from "../lib/I18nContext";
-
+import { PopoverRoot, PopoverTrigger, PopoverContent } from "./ui/Popover";
 export function MinimalNav() {
   const { t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -53,52 +53,54 @@ export function MinimalNav() {
           <ThemeSelector />
 
           {/* 移动端菜单折叠展开按钮 */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            aria-label="Toggle menu"
-            className="md:hidden px-2.5 py-1 text-xs font-mono font-medium rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 cursor-pointer"
-          >
-            {mobileMenuOpen ? "CLOSE" : "MENU"}
-          </button>
+          {/* 移动端菜单 Popover 气泡弹层展示，绝对不挤压页面布局 */}
+          <div className="md:hidden">
+            <PopoverRoot open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <PopoverTrigger className="px-2.5 py-1 text-xs font-mono font-medium rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 cursor-pointer">
+                {mobileMenuOpen ? "CLOSE" : "MENU"}
+              </PopoverTrigger>
+
+              <PopoverContent
+                side="bottom"
+                align="end"
+                sideOffset={8}
+                className="w-48 p-2 rounded-2xl bg-white/95 dark:bg-neutral-900/95 border border-neutral-200 dark:border-neutral-800 shadow-2xl backdrop-blur-xl flex flex-col gap-1 font-sans text-xs"
+              >
+                <Link
+                  to="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-xl text-neutral-900 dark:text-white font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  {t.nav.home}
+                </Link>
+                <Link
+                  to="/gallery"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  {t.nav.gallery}
+                </Link>
+                <Link
+                  to="/playground"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  {t.nav.playground}
+                </Link>
+                <a
+                  href="https://github.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  {t.nav.source}
+                </a>
+              </PopoverContent>
+            </PopoverRoot>
+          </div>
         </div>
       </div>
-
-      {/* 移动端展开抽屉菜单 */}
-      {mobileMenuOpen && (
-        <div className="md:hidden mt-3 p-4 rounded-2xl bg-neutral-50/95 dark:bg-neutral-900/95 border border-neutral-200 dark:border-neutral-800 shadow-xl flex flex-col gap-3 font-sans text-sm animate-fade-in">
-          <Link
-            to="/"
-            onClick={() => setMobileMenuOpen(false)}
-            className="py-1 text-neutral-900 dark:text-white font-medium"
-          >
-            {t.nav.home}
-          </Link>
-          <Link
-            to="/gallery"
-            onClick={() => setMobileMenuOpen(false)}
-            className="py-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-          >
-            {t.nav.gallery}
-          </Link>
-          <Link
-            to="/playground"
-            onClick={() => setMobileMenuOpen(false)}
-            className="py-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-          >
-            {t.nav.playground}
-          </Link>
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => setMobileMenuOpen(false)}
-            className="py-1 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
-          >
-            {t.nav.source}
-          </a>
-        </div>
-      )}
     </nav>
   );
 }
