@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 import { CardSwap } from "./CardSwap";
 import { Pure3DCard } from "./Pure3DCard";
 import { FoldingBill } from "./FoldingBill";
@@ -8,10 +8,8 @@ import { WakeSlider } from "./WakeSlider";
 
 export function ShowcaseSections() {
   const section2CardRef = useRef(null);
-  const [sliderAngle, setSliderAngle] = useState(50); // 0..100 映射到 -180..180 角度
 
   const handleSliderChange = (val) => {
-    setSliderAngle(val);
     const targetDeg = (val / 100) * 360 - 180;
     const client = section2CardRef.current?.getClient?.();
     if (client) {
@@ -71,7 +69,7 @@ export function ShowcaseSections() {
             <div className="text-[11px] font-mono font-medium text-neutral-500 dark:text-neutral-400">
               尾波角度操控
             </div>
-            <WakeSlider bars={36} wake={70} value={sliderAngle} onChange={handleSliderChange} />
+            <WakeSlider bars={36} wake={70} onChange={handleSliderChange} />
           </div>
         </div>
 

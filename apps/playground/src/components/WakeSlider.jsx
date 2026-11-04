@@ -30,14 +30,10 @@ export function WakeSlider({
   bars = 36,
   /* how high the wake rises, 0..100 */
   wake = 60,
-  value: controlledValue,
-  defaultValue = 50,
   onChange,
 } = {}) {
   const n = Math.round(clamp(bars, 12, 64));
-  const [internalValue, setInternalValue] = useState(defaultValue);
-  const value = controlledValue !== undefined ? controlledValue : internalValue;
-
+  const [value, setValue] = useState(50);
   const track = useRef(null);
   const els = useRef([]);
   const st = useRef({
@@ -47,18 +43,11 @@ export function WakeSlider({
     lastT: 0,
     speed: 0,
     raf: 0,
-    at: value / 100, // the value as a fraction, without React in the way
+    at: 0.5, // the value as a fraction, without React in the way
     lastBar: -1,
   });
   const knob = useRef(wake);
   knob.current = wake;
-
-  /* 同步受控值 */
-  useEffect(() => {
-    if (controlledValue !== undefined) {
-      st.current.at = clamp(controlledValue / 100, 0, 1);
-    }
-  }, [controlledValue]);
 
   /* a new bar count is a new row */
   useEffect(() => {
@@ -107,9 +96,7 @@ export function WakeSlider({
       s.lastBar = b;
     }
     const nextVal = Math.round(f * 100);
-    if (controlledValue === undefined) {
-      setInternalValue(nextVal);
-    }
+    setValue(nextVal);
     onChange?.(nextVal);
     loop();
   };
