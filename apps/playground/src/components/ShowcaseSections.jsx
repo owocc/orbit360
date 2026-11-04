@@ -3,6 +3,7 @@ import { CardSwap } from "./CardSwap";
 import { Pure3DCard } from "./Pure3DCard";
 import { FoldingBill } from "./FoldingBill";
 import { AspectRatio } from "./AspectRatio";
+import { TicketStub } from "./TicketStub";
 
 export function ShowcaseSections() {
   return (
@@ -137,6 +138,38 @@ export function ShowcaseSections() {
             <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
               提示：点击或通过方向键切换下方的 4:3 / 1:1 / 3:4 比例控制条
             </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 模块 5 (板块 6): 左文本 + 右 TicketStub 全息视差票根（交错进行） */}
+      <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="lg:col-span-6 space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
+            <span>HOLOGRAPHIC TICKET & PARALLAX</span>
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans leading-tight">
+            全息视差票根，
+            <br />
+            实体凭证与实时 3D 的跨界融合。
+          </h2>
+
+          <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed max-w-lg">
+            参考复古入场券与邮票齿孔版式设计。票根支持跟随鼠标与手势方向产生实时三维立体视差，表面覆盖流动的全息珠光反光层。左侧大联邮票内部直接嵌入实时
+            360° Orbit360 Canvas，右侧附带存根与防伪条形码。
+          </p>
+
+          <div className="flex items-center gap-4 pt-2">
+            <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
+              提示：晃动鼠标体验票根 3D 倾斜视差，直接滑动邮票内部旋转模型
+            </span>
+          </div>
+        </div>
+
+        <div className="lg:col-span-6 flex justify-center lg:justify-end">
+          <div className="p-4 sm:p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800 flex items-center justify-center w-full">
+            <TicketStub materialId="orbit" ticketNo="02" title="TRICK OR TREAT" date="2026-11-04" />
           </div>
         </div>
       </section>
