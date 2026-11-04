@@ -68,9 +68,6 @@ function siteAssets() {
         if (existsSync(resolve(repo, "_headers"))) {
           copyFileSync(resolve(repo, "_headers"), resolve(target, "_headers"));
         }
-        if (existsSync(resolve(repo, "_redirects"))) {
-          copyFileSync(resolve(repo, "_redirects"), resolve(target, "_redirects"));
-        }
       }
     },
   };
