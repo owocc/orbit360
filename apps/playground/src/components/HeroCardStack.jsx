@@ -64,12 +64,12 @@ export function HeroCardStack() {
         </h1>
       </div>
 
-      {/* 全屏幕宽度裁剪视窗：左右滑动轮播，卡片大幅放大并具备景深遮罩裁剪 */}
+      {/* 全屏幕宽度裁剪视窗：左右滑动轮播，卡片大幅放大，纯手势/圆点切换，无左右按钮 */}
       <div
         id="showcase"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className="relative w-screen left-1/2 -translate-x-1/2 h-[340px] xs:h-[370px] sm:h-[420px] md:h-[450px] flex items-center justify-center mb-8 sm:mb-12 overflow-hidden select-none cursor-ew-resize"
+        className="relative w-full h-[360px] xs:h-[390px] sm:h-[440px] md:h-[480px] flex items-center justify-center mb-8 sm:mb-12 overflow-hidden select-none cursor-ew-resize"
       >
         {/* 展台中心定位：通过计算相对于 activeIndex 的偏移实现全屏幕居中轮播 */}
         <div className="relative w-full h-full flex items-center justify-center">
@@ -127,41 +127,6 @@ export function HeroCardStack() {
             );
           })}
         </div>
-
-        {/* 左右滑动手势指示器与切卡按钮 */}
-        <button
-          type="button"
-          onClick={prevCard}
-          aria-label="Previous card"
-          className="absolute left-3 sm:left-8 z-40 w-9 h-9 rounded-full bg-white/70 dark:bg-neutral-900/70 hover:bg-white dark:hover:bg-neutral-800 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-md flex items-center justify-center text-neutral-700 dark:text-neutral-200 transition-all opacity-70 hover:opacity-100"
-        >
-          <svg
-            className="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-          >
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-
-        <button
-          type="button"
-          onClick={nextCard}
-          aria-label="Next card"
-          className="absolute right-3 sm:right-8 z-40 w-9 h-9 rounded-full bg-white/70 dark:bg-neutral-900/70 hover:bg-white dark:hover:bg-neutral-800 backdrop-blur-md border border-neutral-200 dark:border-neutral-800 shadow-md flex items-center justify-center text-neutral-700 dark:text-neutral-200 transition-all opacity-70 hover:opacity-100"
-        >
-          <svg
-            className="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-          >
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
       </div>
 
       {/* 轮播圆点指示器 */}
