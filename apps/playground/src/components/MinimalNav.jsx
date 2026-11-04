@@ -7,15 +7,7 @@ export function MinimalNav() {
     <nav className="w-full pt-8 pb-4 px-6 sm:px-12 flex items-center justify-between">
       {/* 品牌标识 */}
       <div className="flex items-center gap-3">
-        <Link to="/" className="flex items-center gap-2.5">
-          <svg
-            className="w-5 h-5 text-neutral-800 dark:text-neutral-100"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-          >
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
+        <Link to="/" className="flex items-center">
           <span className="text-base font-semibold tracking-tight text-neutral-900 dark:text-white font-sans">
             Orbit360
           </span>
@@ -33,12 +25,12 @@ export function MinimalNav() {
         >
           Gallery
         </Link>
-        <a
-          href="#features"
+        <Link
+          to="/playground"
           className="hover:text-neutral-900 dark:hover:text-white transition-colors"
         >
-          Capabilities
-        </a>
+          Playground
+        </Link>
         <a
           href="https://github.com"
           target="_blank"

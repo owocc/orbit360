@@ -25,7 +25,14 @@ export const galleryRoute = createRoute({
   component: lazyRouteComponent(() => import("./components/GalleryPage")),
 });
 
-export const routeTree = rootRoute.addChildren([indexRoute, galleryRoute]);
+// 单独 Playground 页面，支持文件导入与交互控制
+export const playgroundRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/playground",
+  component: lazyRouteComponent(() => import("./components/PlaygroundPage")),
+});
+
+export const routeTree = rootRoute.addChildren([indexRoute, galleryRoute, playgroundRoute]);
 
 export function getRouter() {
   return createRouter({
