@@ -11,6 +11,7 @@
   "dependencies": {
     "@orbit360/javascript": "workspace:*",
     "@types/three": "^0.187.0",
+    "framer-motion": "^14.9.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "three": "^0.187.0"

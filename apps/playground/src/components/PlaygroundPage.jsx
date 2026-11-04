@@ -4,7 +4,7 @@ import { useFullscreen } from "../hooks/useFullscreen";
 import { resolveCatalogSource } from "../lib/catalog";
 import { displayAngle, ringGeometry, frameLabel } from "../lib/format";
 import { WakeSlider } from "./WakeSlider";
-
+import { UploadDropzone } from "./UploadDropzone.jsx";
 const CATALOG_URL = "catalog.json";
 
 export default function PlaygroundPage() {
@@ -13,7 +13,7 @@ export default function PlaygroundPage() {
   const [currentAngle, setCurrentAngle] = useState(0);
   const [infoNotice, setInfoNotice] = useState("");
   const fileInputRef = useRef(null);
-
+  const [showUploadModal, setShowUploadModal] = useState(false);
   // 比例切换选项：16:9 宽屏, 4:3 经典, 1:1 正方, 9:16 竖屏
   const ASPECT_RATIOS = [
     { id: "16/9", label: "16:9", maxW: "max-w-full", aspect: "aspect-[16/9]" },
@@ -274,12 +274,11 @@ export default function PlaygroundPage() {
 
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setShowUploadModal(true)}
             className="px-4 py-2 rounded-xl text-xs font-semibold bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors shadow-sm cursor-pointer"
           >
-            导入 .orb 文件
+            拖拽上传 .orb
           </button>
-
           <button
             type="button"
             onClick={handleReset}
@@ -294,6 +293,54 @@ export default function PlaygroundPage() {
       {infoNotice && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-neutral-900/90 text-white dark:bg-white/95 dark:text-neutral-900 text-xs font-mono shadow-xl backdrop-blur-md animate-fade-in pointer-events-none">
           {infoNotice}
+        </div>
+      )}
+
+      {/* Bencho 拖拽上传弹窗组件 */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            className="relative p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex items-center justify-between mb-4 pb-2 border-b border-neutral-100 dark:border-neutral-800">
+              <span className="text-xs font-mono font-bold text-neutral-500 uppercase tracking-wider">
+                BENCHO UPLOAD DROPZONE
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowUploadModal(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <UploadDropzone
+              onFileUploaded={async (uploaded) => {
+                const targetFile =
+                  uploaded && "file" in uploaded && uploaded.file
+                    ? uploaded.file
+                    : uploaded instanceof File
+                      ? uploaded
+                      : null;
+                if (targetFile) {
+                  showNotice(`正在挂载文件：${targetFile.name}`);
+                  setActiveItem({ id: "custom", title: targetFile.name });
+                  try {
+                    await orbit.load(targetFile);
+                    showNotice(`已成功挂载渲染：${targetFile.name}`);
+                    setTimeout(() => setShowUploadModal(false), 900);
+                  } catch (err) {
+                    showNotice(`挂载失败: ${err.message}`, 4000);
+                  }
+                } else {
+                  showNotice(`演示素材已上传：${uploaded.name}`);
+                  setTimeout(() => setShowUploadModal(false), 1200);
+                }
+              }}
+            />
+          </div>
         </div>
       )}
 

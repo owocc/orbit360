@@ -7,7 +7,7 @@ import {
 import React from "react";
 import { SiteShell } from "./components/SiteShell";
 import { IndexHome } from "./components/IndexHome";
-
+import PlaygroundPage from "./components/PlaygroundPage";
 export const rootRoute = createRootRoute({
   component: SiteShell,
 });
@@ -29,7 +29,7 @@ export const galleryRoute = createRoute({
 export const playgroundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/playground",
-  component: lazyRouteComponent(() => import("./components/PlaygroundPage")),
+  component: PlaygroundPage,
 });
 
 export const routeTree = rootRoute.addChildren([indexRoute, galleryRoute, playgroundRoute]);
