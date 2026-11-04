@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@orbit360/javascript": "workspace:*",
+    "@types/three": "^0.187.0",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@base-ui/react": "^1.9.0",

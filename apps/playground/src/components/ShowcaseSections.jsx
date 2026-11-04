@@ -1,10 +1,11 @@
 import React from "react";
 import { CardSwap } from "./CardSwap";
 import { Pure3DCard } from "./Pure3DCard";
+import { FoldingBill } from "./FoldingBill";
 
 export function ShowcaseSections() {
   return (
-    <div className="w-full space-y-24 pt-12 pb-24">
+    <div className="w-full space-y-28 pt-12 pb-24">
       {/* 模块 1: 左文本 + 右 CardSwap 炫技展示 */}
       <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-6 space-y-6">
@@ -19,7 +20,7 @@ export function ShowcaseSections() {
           </h2>
 
           <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed max-w-lg">
-            基于三维景深排列与动力学手势阻尼。轻按顶部卡片即可甩动翻转至栈底，其余卡片同步步进前移。支持自动定时轮播与触摸交互瞬时无缝接管。
+            基于三维景深排列与动力学手势阻尼。轻按顶部卡片即可甩动翻转至栈底，其余卡片同步步进前移。最前排卡片实时自转，交互瞬时无缝接管。
           </p>
 
           <div className="flex items-center gap-4 pt-2">
@@ -70,6 +71,38 @@ export function ShowcaseSections() {
             <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
               单帧内存开销低于常规三维模型 85%
             </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 模块 3: 左文本 + 右 FoldingBill 动态三维布料雕刻折叠（再次交叉炫技） */}
+      <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="lg:col-span-6 space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
+            <span>PHYSICAL CLOTH & ENGRAVING</span>
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans leading-tight">
+            动态布料折叠，
+            <br />
+            将素材化作触手可及的晶体雕刻。
+          </h2>
+
+          <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed max-w-lg">
+            将项目的模型封面纹理印制于半透明三维玻璃晶体之上。基于 Verlet
+            动力学弹簧网格与凸起凹版印刷工艺。用手抓住一角即可折叠揉捏，松手后弹性平滑自适应还原。
+          </p>
+
+          <div className="flex items-center gap-4 pt-2">
+            <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
+              提示：用鼠标或手指直接拖拽右侧纸钞一角进行弯折捏揉
+            </span>
+          </div>
+        </div>
+
+        <div className="lg:col-span-6 flex justify-center lg:justify-end">
+          <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-100 dark:border-neutral-800 flex items-center justify-center min-h-[320px] overflow-hidden">
+            <FoldingBill print="Print" artSrc="assets/maid/cover.webp" stiffness={38} settle={10} />
           </div>
         </div>
       </section>
