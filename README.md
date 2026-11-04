@@ -32,10 +32,11 @@ python3 scripts/serve_tls.py 8443    # 手机 https://<本机IP>:8443/（需 HTT
 ```
 
 仓库里已经带了两个 `.orb` 示例（`assets/orbit/`、`assets/maid/`），开箱即用。
-GitHub Pages 发布 `dist/` 目录（`vp run build` 的产物）；`.github/workflows/pages.yml`
-会在推送到 `main` 时自动构建并部署。
+支持两种云端托管部署：
 
-自己的视频：用 `scripts/bundle.py` 生成 `.orb`，再挂进示例清单，页面源码不用改，重新构建即可——
+- **GitHub Pages**：发布 `dist/` 产物（`.github/workflows/pages.yml`）；
+- **Cloudflare Pages**：原生支持 Range 请求与 SPA 路由重定向（附带 `_headers` 与 `_redirects`，通过 `.github/workflows/cloudflare-pages.yml` 或 Cloudflare 仪表盘连接部署）。
+  自己的视频：用 `scripts/bundle.py` 生成 `.orb`，再挂进示例清单，页面源码不用改，重新构建即可——
 
 ```bash
 python3 scripts/bundle.py build assets/<id>/scene.orb <视频路径> \
