@@ -59,6 +59,12 @@ function siteAssets() {
       if (existsSync(resolve(repo, ".nojekyll"))) {
         copyFileSync(resolve(repo, ".nojekyll"), resolve(out, ".nojekyll"));
       }
+      if (existsSync(resolve(repo, "_headers"))) {
+        copyFileSync(resolve(repo, "_headers"), resolve(out, "_headers"));
+      }
+      if (existsSync(resolve(repo, "_redirects"))) {
+        copyFileSync(resolve(repo, "_redirects"), resolve(out, "_redirects"));
+      }
     },
   };
 }

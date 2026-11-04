@@ -1,0 +1,26 @@
+# Cloudflare Pages Headers Configuration
+# 确保所有路由正确支持 CORS、Range 请求与静态文件 MIME 类型
+
+# 全局静态资源规则
+/*
+  X-Content-Type-Options: nosniff
+  Access-Control-Allow-Origin: *
+  Accept-Ranges: bytes
+
+# 核心 .orb 二进制场景包规则
+/assets/*.orb
+  Content-Type: application/octet-stream
+  Cache-Control: public, max-age=31536000, immutable
+  Accept-Ranges: bytes
+  Access-Control-Allow-Origin: *
+  Access-Control-Expose-Headers: Content-Length, Content-Range, Accept-Ranges
+
+# 示例清单文件
+/catalog.json
+  Content-Type: application/json; charset=utf-8
+  Cache-Control: public, max-age=60, s-maxage=300
+  Access-Control-Allow-Origin: *
+
+# 网页静态资源
+/web/*
+  Cache-Control: public, max-age=31536000, immutable
