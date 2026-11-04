@@ -54,7 +54,7 @@ export function ThemeSelector() {
       }}
       items={themeItems}
     >
-      <SelectTrigger className="border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-700 shadow-xs px-2.5 py-1 text-xs">
+      <SelectTrigger className="border-0 bg-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white px-1.5 py-1 text-xs font-sans font-medium shadow-none cursor-pointer">
         <SelectValue placeholder="Theme" />
       </SelectTrigger>
 

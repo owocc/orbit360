@@ -56,7 +56,7 @@ export function MinimalNav() {
           {/* 移动端菜单 Popover 气泡弹层展示，绝对不挤压页面布局 */}
           <div className="md:hidden">
             <PopoverRoot open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <PopoverTrigger className="px-2.5 py-1 text-xs font-mono font-medium rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 cursor-pointer">
+              <PopoverTrigger className="border-0 bg-transparent text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white px-1.5 py-1 text-xs font-mono font-medium shadow-none cursor-pointer">
                 {mobileMenuOpen ? "CLOSE" : "MENU"}
               </PopoverTrigger>
 
