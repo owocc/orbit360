@@ -1,13 +1,15 @@
 import { copyFileSync, cpSync, createReadStream, existsSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { cloudflare } from "@cloudflare/vite-plugin";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../..");
-const out = resolve(repo, "dist");
-
+const out = resolve(here, "dist");
 const MIME = {
   ".json": "application/json; charset=utf-8",
   ".orb": "application/octet-stream",
@@ -49,23 +51,38 @@ function siteAssets() {
   return {
     name: "orbit360-site-assets",
     closeBundle() {
-      if (existsSync(resolve(repo, "assets"))) {
-        cpSync(resolve(repo, "assets"), resolve(out, "assets"), { recursive: true });
-      }
-      if (existsSync(resolve(repo, "catalog.json"))) {
-        copyFileSync(resolve(repo, "catalog.json"), resolve(out, "catalog.json"));
-      }
-      if (existsSync(resolve(repo, ".nojekyll"))) {
-        copyFileSync(resolve(repo, ".nojekyll"), resolve(out, ".nojekyll"));
+      const clientOut = resolve(out, "client");
+      const targetDirs = [out, clientOut];
+
+      for (const target of targetDirs) {
+        if (!existsSync(target)) continue;
+        if (existsSync(resolve(repo, "assets"))) {
+          cpSync(resolve(repo, "assets"), resolve(target, "assets"), { recursive: true });
+        }
+        if (existsSync(resolve(repo, "catalog.json"))) {
+          copyFileSync(resolve(repo, "catalog.json"), resolve(target, "catalog.json"));
+        }
+        if (existsSync(resolve(repo, ".nojekyll"))) {
+          copyFileSync(resolve(repo, ".nojekyll"), resolve(target, ".nojekyll"));
+        }
+        if (existsSync(resolve(repo, "_headers"))) {
+          copyFileSync(resolve(repo, "_headers"), resolve(target, "_headers"));
+        }
       }
     },
   };
 }
 
 export default defineConfig({
-  base: "./",
   publicDir: false,
-  plugins: lazyPlugins(() => [react(), repoStatic(), siteAssets()]),
+  plugins: lazyPlugins(() => [
+    tailwindcss(),
+    cloudflare({ viteEnvironment: { name: "ssr" } }),
+    tanstackStart(),
+    react(),
+    repoStatic(),
+    siteAssets(),
+  ]),
   build: {
     outDir: out,
     assetsDir: "web",
