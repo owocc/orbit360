@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vp run build:sdk && vp run --filter @orbit360/playground dev",
     "build": "vp run build:sdk && vp run --filter @orbit360/playground build",
-    "build:sdk": "vp run --filter @orbit360/javascript build && vp run --filter @orbit360/expo-render build",
+    "build:sdk": "vp run --filter @orbit360/javascript build && vp run --filter @orbit360/expo-render build && vp run --filter @orbit360/wechat-miniprogram build",
     "preview": "vp run --filter @orbit360/playground preview",
     "check": "vp check",
     "test": "vp run --filter @orbit360/javascript test",

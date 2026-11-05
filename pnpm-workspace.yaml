@@ -2,6 +2,7 @@ packages:
   - apps/playground
   - sdk/js
   - sdk/expo
+  - sdk/wechat-miniprogram
   - examples/expo
 
 allowBuilds:

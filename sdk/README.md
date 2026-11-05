@@ -13,6 +13,14 @@ sdk/
     vite.config.ts    Vite+ pack 配置（ESM / CJS / IIFE + dts）
     dist/             构建产物
     README.md         包说明与完整 API
+  wechat-miniprogram/
+    package.json      npm 包 @orbit360/wechat-miniprogram
+    src/orb.ts        小程序版解析器（ArrayBuffer / base64）
+    src/client.ts     微信小程序 Canvas 2D 渲染核心
+    src/index.ts      入口
+    vite.config.ts    ESM / CJS / 单文件 CJS
+    dist/             构建产物
+    README.md         小程序 API 与平台差异
 ```
 
 ## 安装
@@ -48,6 +56,29 @@ console.log(client.getAngle(), client.getState());
   const client = new Orbit360.Client(canvas, { container: stage, input: stage });
 </script>
 ```
+
+## 微信小程序
+
+安装 `@orbit360/wechat-miniprogram`，或者直接把 `dist/orbit360-miniprogram.js` 复制进小程序。
+
+```js
+const { createClient } = require("./sdk/orbit360.js");
+
+const client = await createClient({
+  selector: "#orbit-canvas",
+  component: this, // 组件内需要；页面可省略
+  config: { auto: { enabled: true, dir: "cw" } },
+});
+
+await client.load("/assets/maid/scene.orb");
+client.setAutoRotate("cw");
+client.setFit("cover");
+```
+
+小程序没有 DOM，触摸事件需要在 WXML 上绑定后调用 `client.touchStart / touchMove / touchEnd`；
+陀螺仪使用 `wx.startDeviceMotionListening`。完整示例见
+[`examples/wechat-miniprogram/`](../examples/wechat-miniprogram/)，API 与平台差异见
+[wechat-miniprogram/README.md](wechat-miniprogram/README.md)。
 
 完整 API、配置和事件见 [js/README.md](js/README.md)，文件格式见仓库根 README。
 

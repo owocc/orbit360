@@ -59,6 +59,14 @@ jobs:
       - name: 检查 javascript 发布内容
         working-directory: sdk/js
         run: pnpm exec vp pm pack -- --dry-run
+      - name: 校验微信小程序 SDK
+        run: >-
+          node -e "const m=require('./sdk/wechat-miniprogram/dist/orbit360-miniprogram.js');
+          if(typeof m.createClient!=='function'||typeof m.Orbit360Client!=='function'||typeof m.parseOrb!=='function')process.exit(1);
+          console.log('wechat miniprogram',m.VERSION);"
+      - name: 检查微信小程序发布内容
+        working-directory: sdk/wechat-miniprogram
+        run: pnpm exec vp pm pack -- --dry-run
 
   publish-javascript:
     name: 发布 @orbit360/javascript
@@ -84,6 +92,35 @@ jobs:
         run: pnpm exec vp run build:sdk
       - name: 发布到 npm
         working-directory: sdk/js
+        run: pnpm exec vp pm publish -- --access public --provenance
+        env:
+          # 占位：填入仓库 Secrets 里的 NPM_TOKEN 后即可发布
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-wechat:
+    name: 发布 @orbit360/wechat-miniprogram
+    needs: verify
+    if: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: 安装依赖
+        run: pnpm dlx --package=vite-plus@1.0.0 vp install --frozen-lockfile
+      - name: 构建 SDK
+        run: pnpm exec vp run build:sdk
+      - name: 发布到 npm
+        working-directory: sdk/wechat-miniprogram
         run: pnpm exec vp pm publish -- --access public --provenance
         env:
           # 占位：填入仓库 Secrets 里的 NPM_TOKEN 后即可发布
