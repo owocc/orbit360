@@ -1,0 +1,39 @@
+{
+  "default": "maid",
+  "items": [
+    {
+      "id": "maid",
+      "title": "沙发少女",
+      "orb": "assets/maid/scene.orb",
+      "defaults": {
+        "auto": {
+          "enabled": true,
+          "dir": "cw"
+        }
+      },
+      "source": {
+        "width": 3840,
+        "height": 2160,
+        "frames": 239,
+        "durationSec": 9.963
+      }
+    },
+    {
+      "id": "orbit",
+      "title": "环绕视角",
+      "orb": "assets/orbit/scene.orb",
+      "defaults": {
+        "auto": {
+          "enabled": true,
+          "dir": "cw"
+        }
+      },
+      "source": {
+        "width": 1280,
+        "height": 720,
+        "frames": 240,
+        "durationSec": 10.027
+      }
+    }
+  ]
+}
