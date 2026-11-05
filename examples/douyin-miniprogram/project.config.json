@@ -1,0 +1,19 @@
+{
+  "description": "orbit360 抖音小程序示例",
+  "miniprogramRoot": "miniprogram/",
+  "projectname": "orbit360-douyin-example",
+  "appid": "ttfa058cb8647ac28501",
+  "douyinProjectType": "native",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": false,
+    "newFeature": true,
+    "autoCompile": true,
+    "compileHotReLoad": true,
+    "nativeCompile": true,
+    "useCompilerPlugins": []
+  }
+}

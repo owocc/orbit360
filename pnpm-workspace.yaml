@@ -3,6 +3,7 @@ packages:
   - sdk/js
   - sdk/expo
   - sdk/wechat-miniprogram
+  - sdk/douyin-miniprogram
   - examples/expo
 
 allowBuilds:

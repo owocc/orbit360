@@ -1,0 +1,56 @@
+<view class="stage">
+  <canvas
+    type="2d"
+    id="orbit-canvas"
+    class="scene"
+    bindtouchstart="onTouchStart"
+    catchtouchmove="onTouchMove"
+    bindtouchend="onTouchEnd"
+    bindtouchcancel="onTouchCancel"
+  ></canvas>
+
+  <view class="hud-top" tt:if="{{ready}}">
+    <view class="title">{{title}}</view>
+    <view class="sub">
+      {{angleText}} · 第 {{frameText}} 帧<text tt:if="{{missing > 0}}"> · 缺帧 {{missing}}</text>
+    </view>
+  </view>
+
+  <view tt:if="{{!ready && !loading && !error}}" class="empty">
+    <view class="empty-title">导入 .orb 场景</view>
+    <view class="empty-text">
+      把 .orb 上传到可访问的 CDN 后填下面的地址；也可以复制地址后点底部按钮读取剪贴板。
+    </view>
+    <view class="url-box">
+      <input
+        class="url-input"
+        value="{{url}}"
+        placeholder="https://example.com/scene.orb"
+        confirm-type="go"
+        bindinput="onUrlInput"
+        bindconfirm="loadUrl"
+      />
+      <view class="btn url-load" bindtap="loadUrl">加载</view>
+    </view>
+    <view class="btn demo" tt:if="{{demoUrl}}" bindtap="loadDemo">加载演示场景</view>
+  </view>
+
+  <view tt:if="{{loading}}" class="loading">
+    <view class="progress"><view class="bar" style="width: {{progress}}%;"></view></view>
+    <view class="progress-text">{{progress}}% · 解码帧</view>
+  </view>
+
+  <view tt:if="{{error}}" class="error">{{error}}</view>
+
+  <view class="hud-bottom">
+    <view class="hint" tt:if="{{ready}}">左右拖拽旋转 · 倾斜手机环视</view>
+    <view class="controls" tt:if="{{ready}}">
+      <view class="btn {{auto ? 'on' : ''}}" bindtap="toggleAuto">自动环绕</view>
+      <view class="btn {{gyro ? 'on' : ''}}" bindtap="toggleGyro">陀螺仪</view>
+      <view class="btn" bindtap="toggleFit">{{fitText}}</view>
+    </view>
+    <view class="btn import" bindtap="importScene">
+      {{canChooseFile ? '＋ 从聊天导入 .orb' : '从剪贴板粘贴 .orb 地址'}}
+    </view>
+  </view>
+</view>

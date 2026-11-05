@@ -307,6 +307,15 @@ importers:
         specifier: ~6.0.3
         version: 6.0.3
 
+  sdk/douyin-miniprogram:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.0.0(@types/node@26.6.6)(@vitest/ui@5.0.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@5.9.3)
+
   sdk/expo:
     dependencies:
       react-native:
