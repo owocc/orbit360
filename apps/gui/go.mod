@@ -2,7 +2,10 @@ module orbit360/gui
 
 go 1.27.3
 
-require github.com/egoist/mygo v0.7.4
+require (
+	github.com/egoist/mygo v0.7.4
+	github.com/owocc/orbit360/sdk/mygo v0.0.0
+)
 
 require (
 	github.com/ebitengine/purego v0.11.1 // indirect
@@ -13,3 +16,5 @@ require (
 )
 
 tool github.com/egoist/mygo/cmd/mygo
+
+replace github.com/owocc/orbit360/sdk/mygo => ../../sdk/mygo

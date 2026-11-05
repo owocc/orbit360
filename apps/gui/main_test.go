@@ -1,12 +1,14 @@
 package main
 
 import (
+	"image"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+	orbit360 "github.com/owocc/orbit360/sdk/mygo"
 )
 
 // 视图能在没有窗口的情况下渲染出画面，且空日志、有日志、构建中三种状态都不出错。
@@ -31,7 +33,7 @@ func TestViewRenders(t *testing.T) {
 		}},
 		{"finished", func(a *app) {
 			a.lastOut, a.lastID = "/tmp/assets/gen", "gen"
-			a.setStatus("完成，点「打开预览」看看", false)
+			a.setStatus("完成，已切到桌面预览", false)
 			a.appendLog("场景包: /tmp/assets/gen/scene.orb  1280x710  webp  120 帧  2.4 MB")
 			a.appendLog("  v1: 120 帧 1280x710 @12fps 放在 (0,0) 1280x710  2.4 MB")
 			a.appendLog("错误：示例")
@@ -74,14 +76,18 @@ func TestBuildArgs(t *testing.T) {
 		fps: 12, longEdge: 1280, quality: 80, orbitSpan: 360, initialAngle: 15,
 		codec: 2, orbitDir: 1, orbitAxis: 1, minAngle: -170, maxAngle: 170, updateCatalog: true,
 	}
-	got := strings.Join(a.buildArgs("/repo/assets/gen/scene.orb"), " ")
-	want := "/repo/scripts/bundle.py build /repo/assets/gen/scene.orb /tmp/a.mp4" +
-		" --fps 12 --long-edge 1280 --codec jpeg --quality 80 --title 生成视频" +
-		" --initial-angle 15 --orbit-span 360 --orbit-dir ccw --axis y --min-angle -170 --max-angle 170 --catalog /repo/catalog.json"
+	got := strings.Join(a.buildArgs(filepath.Join("/repo", "assets", "gen", "scene.orb")), " ")
+	want := strings.Join([]string{
+		filepath.Join("/repo", "scripts", "bundle.py"), "build",
+		filepath.Join("/repo", "assets", "gen", "scene.orb"), "/tmp/a.mp4",
+		"--fps", "12", "--long-edge", "1280", "--codec", "jpeg", "--quality", "80", "--title", "生成视频",
+		"--initial-angle", "15", "--orbit-span", "360", "--orbit-dir", "ccw", "--axis", "y",
+		"--min-angle", "-170", "--max-angle", "170", "--catalog", filepath.Join("/repo", "catalog.json"),
+	}, " ")
 	if got != want {
 		t.Fatalf("参数不对\n got: %s\nwant: %s", got, want)
 	}
-	if a.outPath() != "/repo/assets/gen/scene.orb" {
+	if a.outPath() != filepath.Join("/repo", "assets", "gen", "scene.orb") {
 		t.Fatalf("产物路径不对: %s", a.outPath())
 	}
 }
@@ -140,7 +146,47 @@ func TestHelpers(t *testing.T) {
 	if got := trimNum(6.5); got != "6.5" {
 		t.Fatalf("trimNum: %q", got)
 	}
-	if got := withPath([]string{"HOME=/x", "PATH=/a:/b"}, "/bin"); got[1] != "PATH=/bin:/a:/b" {
+	sep := string(os.PathListSeparator)
+	if got := withPath([]string{"HOME=/x", "PATH=/a:/b"}, "/bin"); got[1] != "PATH=/bin"+sep+"/a:/b" {
 		t.Fatalf("withPath: %v", got)
 	}
+}
+
+// 预览页：没加载时是提示，加载仓库示例后能直接渲染出画面。
+func TestPreviewViewRenders(t *testing.T) {
+	a := &app{root: "../../", tab: 1}
+	a.setStatus("预览", false)
+	img := ui.Render(a.view, 900, 760, 1)
+	if img == nil || img.Bounds().Dx() != 900 || img.Bounds().Dy() != 760 {
+		t.Fatalf("渲染结果不对: %v", img)
+	}
+	if uniformImage(img) {
+		t.Fatal("预览页是纯色的")
+	}
+
+	path := filepath.Join("..", "..", "assets", "orbit", "scene.orb")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("仓库示例不在")
+	}
+	client := orbit360.NewClient(nil)
+	if err := client.LoadFile(path); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	a.preview, a.previewPath = client, path
+	if img := ui.Render(a.view, 900, 760, 1); img == nil || uniformImage(img) {
+		t.Fatal("加载 .orb 后预览页没有画面")
+	}
+}
+
+func uniformImage(img *image.RGBA) bool {
+	first := img.RGBAAt(0, 0)
+	for y := 0; y < img.Bounds().Dy(); y += 7 {
+		for x := 0; x < img.Bounds().Dx(); x += 7 {
+			if img.RGBAAt(x, y) != first {
+				return false
+			}
+		}
+	}
+	return true
 }
