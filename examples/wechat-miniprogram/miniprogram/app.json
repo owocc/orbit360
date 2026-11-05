@@ -1,0 +1,14 @@
+{
+  "pages": ["pages/index/index"],
+  "window": {
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "orbit360",
+    "backgroundColor": "#050608",
+    "backgroundTextStyle": "dark"
+  },
+  "renderer": "webview",
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

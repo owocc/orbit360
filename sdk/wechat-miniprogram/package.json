@@ -1,0 +1,60 @@
+{
+  "name": "@orbit360/wechat-miniprogram",
+  "version": "0.1.0",
+  "description": "ORB3 (.orb) scene bundle parser and Canvas 2D renderer for WeChat Mini Program",
+  "keywords": [
+    "360",
+    "canvas",
+    "miniprogram",
+    "orb",
+    "orb3",
+    "orbit360",
+    "panorama",
+    "wechat"
+  ],
+  "homepage": "https://github.com/owocc/orbit360#readme",
+  "bugs": {
+    "url": "https://github.com/owocc/orbit360/issues"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/owocc/orbit360.git",
+    "directory": "sdk/wechat-miniprogram"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "commonjs",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "vp pack --watch",
+    "build": "vp pack",
+    "test": "vp check",
+    "prepack": "node -e \"require('fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
+    "prepublishOnly": "vp pack && vp check"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

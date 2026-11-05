@@ -302,6 +302,64 @@ client.on("state", (state) => {});
 解析器约定见 [sdk/js/README.md](sdk/js/README.md)，其他语言实现放在 `sdk/<lang>/`，
 总约定见 [sdk/README.md](sdk/README.md)。
 
+### 微信小程序里怎么用
+
+`sdk/wechat-miniprogram/` 提供 `@orbit360/wechat-miniprogram`：解析器 + Canvas 2D 渲染，
+API 与 web client 基本一致，去掉了 DOM 依赖，只支持 ORB3（`.orb`）。
+
+```js
+const { createClient } = require("./sdk/orbit360.js");
+
+const client = await createClient({
+  selector: "#orbit-canvas",
+  component: this,
+  config: { auto: { enabled: true, dir: "cw", degPerSec: 12 } },
+});
+
+await client.load("/assets/maid/scene.orb"); // 包内路径 / https URL / ArrayBuffer
+```
+
+也可以直接导入微信聊天里的 `.orb` 文件：
+
+```js
+wx.chooseMessageFile({
+  count: 1,
+  type: "file",
+  extension: ["orb"],
+  success: async (res) => {
+    await client.load(res.tempFiles[0]); // { path, name, size }
+  },
+});
+```
+
+触摸事件需要在 WXML 上绑定后转发给 SDK：
+
+```html
+<canvas
+  type="2d"
+  id="orbit-canvas"
+  bindtouchstart="onTouchStart"
+  catchtouchmove="onTouchMove"
+  bindtouchend="onTouchEnd"
+  bindtouchcancel="onTouchCancel"
+/>
+```
+
+```js
+onTouchStart(e) {
+  this.client.touchStart(e);
+},
+onTouchMove(e) {
+  this.client.touchMove(e);
+},
+onTouchEnd(e) {
+  this.client.touchEnd(e);
+},
+```
+
+完整示例在 [`examples/wechat-miniprogram/`](examples/wechat-miniprogram/)，用微信开发者工具导入即可运行；
+API、加载方式和小程序平台差异见 [sdk/wechat-miniprogram/README.md](sdk/wechat-miniprogram/README.md)。
+
 修改 SDK（`sdk/js/src/client.ts`）或页面（`apps/playground/src/`）后重新构建：
 
 ```bash
@@ -489,7 +547,7 @@ CREDITS.md          致谢、独立实现声明、素材归属
 .nojekyll           GitHub Pages：关闭 Jekyll 处理
 assets/<id>/        发布产物，每个示例只放 scene.orb
   scene.orb         ORB3 二进制场景包（帧 + meta + 索引）
-examples/           示例源视频（用于重新生成，不参与页面加载）
+videos/             示例源视频（用于重新生成，不参与页面加载）
   orbit-sample.mp4   1280×720 / 10s
   anime-maid.mp4     3840×2160 / 10s
 sdk/                多语言 SDK
@@ -502,6 +560,16 @@ sdk/                多语言 SDK
     vite.config.ts   Vite+ pack 配置（ESM / CJS / IIFE + dts）
     dist/            构建产物（IIFE 暴露 window.Orbit360）
     README.md        解析器 + web client 完整 API
+  wechat-miniprogram/ npm 包 @orbit360/wechat-miniprogram
+    src/orb.ts       ORB3 解析器（二进制 + base64 data URL）
+    src/client.ts    微信小程序 Canvas 2D 渲染核心
+    src/index.ts     入口（client + 解析器）
+    dist/            构建产物（含单文件 CJS orbit360-miniprogram.js）
+    README.md        小程序 API、触摸 / 陀螺仪 / 加载说明
+examples/
+  wechat-miniprogram/ 可直接导入微信开发者工具的完整示例
+  expo/               Expo / React Native 示例
+  flutter/            Flutter 示例
 apps/
   playground/       Vite + React 示例页面
   gui/              原生窗口 GUI（MyGo native UI，Go + scripts/bundle.py）
@@ -523,6 +591,10 @@ scripts/
 Canvas + `Image` + `ResizeObserver`。陀螺仪需要安全上下文
 （`https://` 或 `localhost`），iOS 需在用户手势内调用 `DeviceOrientationEvent.requestPermission()`；
 Android 优先使用 `deviceorientationabsolute` 的绝对朝向，无传感器时自动回退到拖拽。
+
+微信小程序使用 `sdk/wechat-miniprogram/`：Canvas 2D + `canvas.createImage()` + base64 帧，
+陀螺仪通过 `wx.startDeviceMotionListening` / `wx.onDeviceMotionChange` 获取，
+只支持 ORB3（`.orb`），不支持旧版 zip。
 
 ## 许可
 
