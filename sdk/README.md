@@ -21,6 +21,11 @@ sdk/
     vite.config.ts    ESM / CJS / 单文件 CJS
     dist/             构建产物
     README.md         小程序 API 与平台差异
+  mygo/
+    go.mod            Go 模块 github.com/owocc/orbit360/sdk/mygo
+    orb.go            ORB3 解析器（Header / Meta / Index / Frame）
+    client.go         MyGo 原生渲染（拖拽 / 自动环绕 / fit / 帧缓存）
+    README.md         Go API、MyGo 集成与解码支持
 ```
 
 ## 安装
@@ -81,6 +86,26 @@ client.setFit("cover");
 [wechat-miniprogram/README.md](wechat-miniprogram/README.md)。
 
 完整 API、配置和事件见 [js/README.md](js/README.md)，文件格式见仓库根 README。
+
+## MyGo 桌面
+
+`github.com/owocc/orbit360/sdk/mygo` 用 Go 解析 `.orb`，并在 MyGo 原生窗口里渲染；
+不启动浏览器、不依赖 WebView。`apps/gui/` 的「预览」页直接用了它：
+
+```go
+preview := orbit360.NewClient(nil, orbit360.Options{Fit: orbit360.FitContain})
+if err := preview.LoadFile("assets/maid/scene.orb"); err != nil {
+	log.Fatal(err)
+}
+defer preview.Close()
+
+ui.Column(c).Fill().Children(func() {
+	preview.View(c).Grow(1)
+})
+```
+
+支持拖拽、自动环绕、角度限制和帧缓存；解码走 MyGo 的 WebP / JPEG / PNG，AVIF 不支持。
+详见 [mygo/README.md](mygo/README.md)。
 
 ## 发布
 
