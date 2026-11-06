@@ -105,20 +105,20 @@ Windows 上如果 `PATH` 里的 scoop shim 被脚本覆盖，启动 `ffmpeg` 会
 `...\scoop\apps\ffmpeg\current\bin\ffmpeg.exe`。`scripts/bundle.py` 也支持
 `ORBIT360_FFMPEG` / `ORBIT360_FFPROBE` 环境变量，GUI 会自动设置。
 
-| 位置                       | 作用                                                                                          |
-| -------------------------- | --------------------------------------------------------------------------------------------- |
-| 源视频                     | `选择…` 后自动用 ffprobe 读尺寸，并把「每帧长边」收窄到源的长边（上限 1280）                  |
-| 示例 id / 标题             | `id` 决定唯一产物 `assets/<id>/scene.orb`，并写进 `catalog.json`                              |
-| 帧率 / 每帧长边            | `--fps` / `--long-edge`                                                                       |
-| 帧质量 / 帧编码            | `--quality`（0–100，默认 80）/ `--codec`（webp / avif / jpeg）                                |
-| 初始角度 / 环向 / 环绕角度 | `--initial-angle` / `--orbit-dir` / `--orbit-span`                                            |
-| 旋转轴                     | `--axis x\|y`；X 为水平环绕，Y 为垂直环绕，一条视频只用一个轴                                 |
-| 最小/最大角度              | `--min-angle` / `--max-angle`，`-180..180`，分别限制；默认 `-180` / `180` 整圈                |
-| 更新 catalog               | `--catalog`，扫描 `assets/<id>/scene.orb` 重写清单                                            |
-| 开始生成                   | 起 `python3 scripts/bundle.py build assets/<id>/scene.orb …`，日志实时贴在下半屏，可中途停止  |
-| 桌面预览                   | 生成完成后自动切到「预览」页，用 Go 直接解码帧、在窗口里拖拽转动；不用浏览器       |
-| 浏览器                     | 需要手机陀螺仪时仍可起 `scripts/serve.py 8787`，打开 `http://127.0.0.1:8787/?e=<id>` |
-| 打开输出目录               | 在 Finder / 资源管理器里定位 `assets/<id>`                                                    |
+| 位置                       | 作用                                                                                         |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| 源视频                     | `选择…` 后自动用 ffprobe 读尺寸，并把「每帧长边」收窄到源的长边（上限 1280）                 |
+| 示例 id / 标题             | `id` 决定唯一产物 `assets/<id>/scene.orb`，并写进 `catalog.json`                             |
+| 帧率 / 每帧长边            | `--fps` / `--long-edge`                                                                      |
+| 帧质量 / 帧编码            | `--quality`（0–100，默认 80）/ `--codec`（webp / avif / jpeg）                               |
+| 初始角度 / 环向 / 环绕角度 | `--initial-angle` / `--orbit-dir` / `--orbit-span`                                           |
+| 旋转轴                     | `--axis x\|y`；X 为水平环绕，Y 为垂直环绕，一条视频只用一个轴                                |
+| 最小/最大角度              | `--min-angle` / `--max-angle`，`-180..180`，分别限制；默认 `-180` / `180` 整圈               |
+| 更新 catalog               | `--catalog`，扫描 `assets/<id>/scene.orb` 重写清单                                           |
+| 开始生成                   | 起 `python3 scripts/bundle.py build assets/<id>/scene.orb …`，日志实时贴在下半屏，可中途停止 |
+| 桌面预览                   | 生成完成后自动切到「预览」页，用 Go 直接解码帧、在窗口里拖拽转动；不用浏览器                 |
+| 浏览器                     | 需要手机陀螺仪时仍可起 `scripts/serve.py 8787`，打开 `http://127.0.0.1:8787/?e=<id>`         |
+| 打开输出目录               | 在 Finder / 资源管理器里定位 `assets/<id>`                                                   |
 
 设置（上一次的视频、路径、参数）存在 `~/Library/Application Support/orbit360-gui/settings.json`
 （Linux 在 `$XDG_CONFIG_HOME`，Windows 在 `%AppData%`）。

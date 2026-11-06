@@ -92,18 +92,18 @@ func main() {
 }
 ```
 
-| 方法 | 作用 |
-| --- | --- |
-| `NewClient(b, Options{...})` | 创建客户端；`b` 可为 `nil`，稍后 `LoadFile` / `SetBundle` |
-| `LoadFile(path)` / `SetBundle(b)` | 打开 / 替换场景 |
-| `View(c)` | 构建渲染元素（拖拽转动、自动环绕、帧映射） |
-| `SetAuto(AutoOff / AutoCW / AutoCCW)` | 自动环绕 |
-| `SetFit(FitContain / FitCover)` | 自适应 / 铺满 |
-| `SetSpeed(degPerSec)` / `SetInvert(bool)` | 自动速度 / 翻转拖拽 |
-| `SetAngle(deg)` / `RotateBy(deg)` / `Reset()` | 角度控制 |
-| `Angle()` / `FrameIndex()` / `Meta()` / `Bundle()` | 读取状态 |
-| `Error()` | 最近一次加载 / 解码错误 |
-| `Close()` | 关闭场景包并释放帧缓存 |
+| 方法                                               | 作用                                                      |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `NewClient(b, Options{...})`                       | 创建客户端；`b` 可为 `nil`，稍后 `LoadFile` / `SetBundle` |
+| `LoadFile(path)` / `SetBundle(b)`                  | 打开 / 替换场景                                           |
+| `View(c)`                                          | 构建渲染元素（拖拽转动、自动环绕、帧映射）                |
+| `SetAuto(AutoOff / AutoCW / AutoCCW)`              | 自动环绕                                                  |
+| `SetFit(FitContain / FitCover)`                    | 自适应 / 铺满                                             |
+| `SetSpeed(degPerSec)` / `SetInvert(bool)`          | 自动速度 / 翻转拖拽                                       |
+| `SetAngle(deg)` / `RotateBy(deg)` / `Reset()`      | 角度控制                                                  |
+| `Angle()` / `FrameIndex()` / `Meta()` / `Bundle()` | 读取状态                                                  |
+| `Error()`                                          | 最近一次加载 / 解码错误                                   |
+| `Close()`                                          | 关闭场景包并释放帧缓存                                    |
 
 `Options.CacheSize` 默认缓存最近 24 帧（1280×720 的 RGBA 约 3.7 MB/帧）。场景很大时可以调小；
 来回拖拽时缓存命中，不会重复解码。
