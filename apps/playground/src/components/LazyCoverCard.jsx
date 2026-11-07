@@ -60,6 +60,7 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
           ref={cardRef}
           materialId={src ? undefined : material.id}
           src={src}
+          poster={actualCover || undefined}
           aspectRatio={aspectRatio}
           speed={speed}
           className="w-full h-full rounded-3xl"

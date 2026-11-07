@@ -168,3 +168,11 @@ export function extractOrbCover(buffer, header, meta) {
     return null;
   }
 }
+
+/** 由 meta.canvas / 视频尺寸得到显示比例，可选择性限制极端比例。 */
+export function orbAspectRatio(width, height, { min = 0, max = Infinity } = {}) {
+  const w = Number(width);
+  const h = Number(height);
+  if (!(w > 0 && h > 0)) return 16 / 9;
+  return Math.min(Math.max(w / h, min), max);
+}

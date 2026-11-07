@@ -15,6 +15,7 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
     maxAngle = 180,
     dragSensitivity = 0.42,
     style = {},
+    poster,
     onClick,
     onAngleChange,
   },
@@ -125,9 +126,17 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
       <canvas ref={canvasRef} className="h-full w-full block object-cover" />
 
       {/* 极轻微骨架占位 */}
-      {!isLoaded && (
-        <div className="absolute inset-0 bg-neutral-100/80 animate-pulse pointer-events-none" />
-      )}
+      {!isLoaded &&
+        (poster ? (
+          <img
+            src={poster}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-neutral-100/80 animate-pulse pointer-events-none" />
+        ))}
     </div>
   );
 });

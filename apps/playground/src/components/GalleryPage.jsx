@@ -2,12 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import { fromBlob } from "@orbit360/javascript";
 import { LazyCoverCard } from "./LazyCoverCard";
+import { Pure3DCard } from "./Pure3DCard";
 import { UploadDropzone } from "./UploadDropzone.jsx";
 import { useFlipFocus } from "./FlipFocusModal";
 import {
   MAX_COVER_BYTES,
   MAX_ORB_BYTES,
   coverExtension,
+  orbAspectRatio,
   sniffImageType,
   validateBrowserOrbFile,
 } from "../lib/orb-file.js";
@@ -19,13 +21,8 @@ function formatSize(bytes) {
 }
 
 function uploadAspect(item) {
-  const width = Number(item.width);
-  const height = Number(item.height);
-  if (width > 0 && height > 0) {
-    const ratio = Math.min(Math.max(width / height, 0.75), 1.6);
-    return `${ratio}`;
-  }
-  return "4 / 3";
+  const ratio = Number(item.aspectRatio) || orbAspectRatio(item.width, item.height);
+  return `${Math.min(Math.max(ratio, 0.75), 1.6)}`;
 }
 
 function formatDate(value) {
@@ -90,14 +87,18 @@ async function buildDraft(file) {
 
   const cover = new File([frame], `cover.${ext}`, { type });
   const meta = bundle.meta || {};
+  const width = Number(meta.canvas?.width) || null;
+  const height = Number(meta.canvas?.height) || null;
   return {
     file,
     cover,
     coverUrl: URL.createObjectURL(cover),
+    previewUrl: URL.createObjectURL(file),
     meta,
     frameCount: meta.totalFrames ?? bundle.header.frameCount,
-    width: Number(meta.canvas?.width) || null,
-    height: Number(meta.canvas?.height) || null,
+    width,
+    height,
+    aspectRatio: orbAspectRatio(width, height),
     title: (typeof meta.title === "string" ? meta.title : file.name.replace(/\.orb$/i, "")).slice(
       0,
       120,
@@ -123,6 +124,7 @@ export default function GalleryPage() {
   useEffect(
     () => () => {
       if (draft?.coverUrl) URL.revokeObjectURL(draft.coverUrl);
+      if (draft?.previewUrl) URL.revokeObjectURL(draft.previewUrl);
     },
     [draft],
   );
@@ -364,10 +366,13 @@ export default function GalleryPage() {
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <img
-                      src={draft.coverUrl}
-                      alt={m.gallery_cover()}
-                      className="w-full aspect-video object-cover rounded-2xl bg-neutral-100 dark:bg-neutral-800"
+                    <Pure3DCard
+                      src={draft.previewUrl}
+                      poster={draft.coverUrl}
+                      aspectRatio={draft.aspectRatio}
+                      autoSpin
+                      speed={12}
+                      className="w-full"
                     />
                     <div className="mt-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 space-y-2 text-[11px] font-mono text-neutral-600 dark:text-neutral-400">
                       <div className="text-neutral-400 uppercase tracking-wider">
