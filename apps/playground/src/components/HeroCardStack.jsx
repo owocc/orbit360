@@ -2,18 +2,18 @@ import React, { useRef, useState, useCallback, useEffect } from "react";
 import { Pure3DCard } from "./Pure3DCard";
 import { useFlipFocus } from "./FlipFocusModal";
 import { useI18n } from "../lib/I18nContext";
+import { ClientOnly } from "./ui/ClientOnly";
 export function HeroCardStack() {
   const cardRefs = useRef({});
   const { focusCard } = useFlipFocus();
   const { t } = useI18n();
   const [activeIndex, setActiveIndex] = useState(2); // 默认中间第3张为当前焦点
 
-  // 监听窗口宽度，大屏幕加大卡片间距步长
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== "undefined" ? window.innerWidth : 1200,
-  );
+  // 统一服务端渲染基准宽度为 1200，挂载后再同步真实窗口宽度，避免水合失配
+  const [windowWidth, setWindowWidth] = useState(1200);
 
   useEffect(() => {
+    setWindowWidth(window.innerWidth);
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -94,68 +94,76 @@ export function HeroCardStack() {
         className="relative w-full max-w-6xl mx-auto h-[360px] xs:h-[390px] sm:h-[430px] md:h-[460px] lg:h-[480px] flex items-center justify-center mb-8 sm:mb-10 select-none cursor-ew-resize overflow-visible"
       >
         {/* 展台中心定位：通过计算相对于 activeIndex 的偏移实现全屏幕居中轮播 */}
-        <div className="relative w-full h-full flex items-center justify-center">
-          {cards.map((card, i) => {
-            const offset = i - activeIndex;
-            const absOffset = Math.abs(offset);
+        <ClientOnly
+          fallback={
+            <div className="relative w-full h-full flex items-center justify-center">
+              <div className="w-44 xs:w-48 sm:w-56 md:w-60 lg:w-64 max-w-[280px] aspect-[3/4] rounded-3xl bg-neutral-100 dark:bg-neutral-800/60 shadow-xl" />
+            </div>
+          }
+        >
+          <div className="relative w-full h-full flex items-center justify-center">
+            {cards.map((card, i) => {
+              const offset = i - activeIndex;
+              const absOffset = Math.abs(offset);
 
-            // 动态响应式计算：居中放大卡片，两侧卡片层叠倾斜后退
-            const rotateDeg = offset * (windowWidth >= 1024 ? 5.5 : 7);
-            const translateY = absOffset * (windowWidth >= 1024 ? 10 : 12);
-            const scale = 1 - absOffset * 0.06;
-            const zIndex = 30 - absOffset * 5;
-            const translateX = offset * stepX;
+              // 动态响应式计算：居中放大卡片，两侧卡片层叠倾斜后退
+              const rotateDeg = offset * (windowWidth >= 1024 ? 5.5 : 7);
+              const translateY = absOffset * (windowWidth >= 1024 ? 10 : 12);
+              const scale = 1 - absOffset * 0.06;
+              const zIndex = 30 - absOffset * 5;
+              const translateX = offset * stepX;
 
-            return (
-              <div
-                key={card.id}
-                onClick={() => {
-                  // 点击非当前居中卡片直接居中；若已是居中卡片则进入 FLIP 聚焦大图
-                  if (offset !== 0) {
-                    setActiveIndex(i);
-                  } else {
-                    const cardHandle = cardRefs.current[card.id];
-                    const containerEl = cardHandle?.getContainer();
-                    if (containerEl) {
-                      focusCard(
-                        {
-                          id: card.id,
-                          clientRef: { current: cardHandle.getClient() },
-                        },
-                        containerEl,
-                      );
-                    }
-                  }
-                }}
-                style={{
-                  transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotateDeg}deg) scale(${scale})`,
-                  zIndex,
-                  opacity: absOffset > 2 ? 0 : 1,
-                  pointerEvents: absOffset > 2 ? "none" : "auto",
-                }}
-                className="absolute w-44 xs:w-48 sm:w-56 md:w-60 lg:w-64 max-w-[280px] aspect-[3/4] transition-all duration-500 ease-out cursor-pointer group"
-              >
-                {/* 强化全局与底部接触阴影：采用环境泛光 + 底部投射阴影，保证浅色与深色背景下均立体透出 */}
+              return (
                 <div
-                  className={`absolute inset-0 rounded-3xl pointer-events-none transition-all duration-500 ${
-                    offset === 0
-                      ? "shadow-[0_20px_45px_-8px_rgba(0,0,0,0.22),0_10px_20px_-6px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.05)] dark:shadow-[0_24px_50px_-10px_rgba(0,0,0,0.75),0_12px_24px_-6px_rgba(0,0,0,0.65)]"
-                      : "shadow-[0_14px_30px_-8px_rgba(0,0,0,0.16),0_6px_14px_-5px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
-                  }`}
-                />
+                  key={card.id}
+                  onClick={() => {
+                    // 点击非当前居中卡片直接居中；若已是居中卡片则进入 FLIP 聚焦大图
+                    if (offset !== 0) {
+                      setActiveIndex(i);
+                    } else {
+                      const cardHandle = cardRefs.current[card.id];
+                      const containerEl = cardHandle?.getContainer();
+                      if (containerEl) {
+                        focusCard(
+                          {
+                            id: card.id,
+                            clientRef: { current: cardHandle.getClient() },
+                          },
+                          containerEl,
+                        );
+                      }
+                    }
+                  }}
+                  style={{
+                    transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotateDeg}deg) scale(${scale})`,
+                    zIndex,
+                    opacity: absOffset > 2 ? 0 : 1,
+                    pointerEvents: absOffset > 2 ? "none" : "auto",
+                  }}
+                  className="absolute w-44 xs:w-48 sm:w-56 md:w-60 lg:w-64 max-w-[280px] aspect-[3/4] transition-all duration-500 ease-out cursor-pointer group"
+                >
+                  {/* 强化全局与底部接触阴影：采用环境泛光 + 底部投射阴影，保证浅色与深色背景下均立体透出 */}
+                  <div
+                    className={`absolute inset-0 rounded-3xl pointer-events-none transition-all duration-500 ${
+                      offset === 0
+                        ? "shadow-[0_20px_45px_-8px_rgba(0,0,0,0.22),0_10px_20px_-6px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.05)] dark:shadow-[0_24px_50px_-10px_rgba(0,0,0,0.75),0_12px_24px_-6px_rgba(0,0,0,0.65)]"
+                        : "shadow-[0_14px_30px_-8px_rgba(0,0,0,0.16),0_6px_14px_-5px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.6)]"
+                    }`}
+                  />
 
-                <Pure3DCard
-                  ref={(el) => (cardRefs.current[card.id] = el)}
-                  materialId={card.materialId}
-                  aspectRatio={card.aspect}
-                  speed={card.speed}
-                  autoSpin={offset === 0}
-                  className="w-full h-full !shadow-none"
-                />
-              </div>
-            );
-          })}
-        </div>
+                  <Pure3DCard
+                    ref={(el) => (cardRefs.current[card.id] = el)}
+                    materialId={card.materialId}
+                    aspectRatio={card.aspect}
+                    speed={card.speed}
+                    autoSpin={offset === 0}
+                    className="w-full h-full !shadow-none"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </ClientOnly>
       </div>
 
       {/* 轮播圆点指示器 */}

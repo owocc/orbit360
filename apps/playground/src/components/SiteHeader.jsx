@@ -81,7 +81,7 @@ export function SiteHeader() {
           </Dialog>
 
           <a
-            href="https://github.com"
+            href="https://github.com/owocc/orbit360"
             target="_blank"
             rel="noreferrer"
             className="px-3 py-1.5 text-xs font-mono rounded bg-white text-neutral-950 font-medium hover:bg-neutral-200 transition-colors"

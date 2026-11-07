@@ -7,6 +7,7 @@ export const DICTIONARY = {
     nav: {
       home: "首页",
       gallery: "画廊",
+      create: "创建指南",
       playground: "游乐场",
       source: "源码",
       language: "语言",
@@ -103,6 +104,7 @@ export const DICTIONARY = {
     nav: {
       home: "Home",
       gallery: "Gallery",
+      create: "Create",
       playground: "Playground",
       source: "Source",
       language: "Language",
@@ -204,13 +206,18 @@ const LanguageContext = createContext({
 });
 
 export function LanguageProvider({ children }) {
-  const [lang, setLangState] = useState(() => {
-    if (typeof window === "undefined") return "zh";
+  const [lang, setLangState] = useState("zh");
+
+  useEffect(() => {
     const saved = localStorage.getItem(LANG_STORAGE_KEY);
-    if (saved === "en" || saved === "zh") return saved;
+    if (saved === "en" || saved === "zh") {
+      setLangState(saved);
+      return;
+    }
     const nav = navigator.language?.toLowerCase() || "";
-    return nav.startsWith("zh") ? "zh" : "en";
-  });
+    const detected = nav.startsWith("zh") ? "zh" : "en";
+    setLangState(detected);
+  }, []);
 
   const setLang = (next) => {
     setLangState(next);

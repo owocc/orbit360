@@ -372,21 +372,25 @@ export default function PlaygroundPage() {
               ref={orbit.stageRef}
               className={`w-full ${
                 fullscreen.active
-                  ? "w-screen h-screen fixed inset-0 z-[9999] rounded-none border-none max-h-none"
+                  ? "w-screen h-dvh fixed inset-0 z-[9999] rounded-none border-none max-h-none"
                   : `${currentRatioObj.aspect} max-h-[640px] rounded-3xl border border-neutral-800 shadow-[0_25px_60px_rgba(0,0,0,0.25)]`
               } bg-neutral-950 relative overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing select-none transition-all duration-300`}
             >
               <canvas ref={orbit.canvasRef} className="w-full h-full block object-contain" />
 
-              {/* 全屏状态下右上角浮动退出全屏按钮 */}
+              {/* 全屏状态下右上角浮动退出全屏按钮（含 iOS 灵动岛 / 凹口 safe-area 安全边距） */}
               {fullscreen.active && (
                 <button
                   type="button"
                   onClick={fullscreen.toggle}
-                  className="absolute top-6 right-6 z-50 px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white/90 text-xs font-mono backdrop-blur-md border border-white/20 transition-all cursor-pointer"
+                  className="absolute top-6 right-6 z-50 px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white/90 text-xs font-mono backdrop-blur-md border border-white/20 transition-all cursor-pointer shadow-lg active:scale-95"
+                  style={{
+                    top: "max(1.5rem, env(safe-area-inset-top, 1.5rem))",
+                    right: "max(1.5rem, env(safe-area-inset-right, 1.5rem))",
+                  }}
                 >
                   {fullscreen.active
-                    ? `ESC ${t.playground.fullscreen_exit}`
+                    ? `✕ ${t.playground.fullscreen_exit}`
                     : t.playground.fullscreen_enter}
                 </button>
               )}

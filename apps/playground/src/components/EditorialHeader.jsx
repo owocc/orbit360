@@ -75,7 +75,7 @@ export function EditorialHeader() {
           </Dialog>
 
           <a
-            href="https://github.com"
+            href="https://github.com/owocc/orbit360"
             target="_blank"
             rel="noreferrer"
             className="px-4 py-1 text-xs font-mono font-bold border-2 border-neutral-900 bg-neutral-900 text-white shadow-[2px_2px_0px_#000000] hover:bg-neutral-800 transition-all"

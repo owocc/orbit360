@@ -56,6 +56,13 @@ export const Route = createRootRoute({
         content: "零 WebGL 显存负担，单个 .orb 二进制容器，手机陀螺仪与多实例响应式并发渲染。",
       },
     ],
+    links: [
+      {
+        rel: "icon",
+        type: "image/svg+xml",
+        href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' stroke='%23ffffff' stroke-width='8' fill='none'/><circle cx='50' cy='20' r='8' fill='%23ffffff'/></svg>",
+      },
+    ],
   }),
   component: () => <Outlet />,
   shellComponent: RootDocument,

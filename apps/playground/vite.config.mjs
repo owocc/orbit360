@@ -28,8 +28,12 @@ function repoStatic() {
       server.middlewares.use((req, res, next) => {
         if (req.method !== "GET" && req.method !== "HEAD") return next();
         const pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+        if (pathname === "/favicon.ico") {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
         if (pathname !== "/catalog.json" && !pathname.startsWith("/assets/")) return next();
-
         const file = resolve(repo, `.${pathname}`);
         if (!file.startsWith(repo + sep) || !existsSync(file) || !statSync(file).isFile()) {
           return next();

@@ -10,11 +10,14 @@ const themeItems = [
 ];
 
 export function ThemeSelector() {
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === "undefined") return "auto";
-    return localStorage.getItem(THEME_STORAGE_KEY) || "auto";
-  });
+  const [theme, setTheme] = useState("auto");
 
+  useEffect(() => {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved && (saved === "light" || saved === "dark" || saved === "auto")) {
+      setTheme(saved);
+    }
+  }, []);
   useEffect(() => {
     const root = document.documentElement;
 

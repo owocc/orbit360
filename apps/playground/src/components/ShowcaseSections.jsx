@@ -6,7 +6,7 @@ import { AspectRatio } from "./AspectRatio";
 import { TicketStub } from "./TicketStub";
 import { WakeSlider } from "./WakeSlider";
 import { useI18n } from "../lib/I18nContext";
-
+import { ClientOnly } from "./ui/ClientOnly";
 export function ShowcaseSections() {
   const { t } = useI18n();
   const section2CardRef = useRef(null);
@@ -68,7 +68,13 @@ export function ShowcaseSections() {
         </div>
 
         <div className="lg:col-span-6 flex justify-center lg:justify-end">
-          <CardSwap auto={false} />
+          <ClientOnly
+            fallback={
+              <div className="w-[280px] h-[373px] rounded-[24px] bg-neutral-100 dark:bg-neutral-800/60" />
+            }
+          >
+            <CardSwap auto={false} />
+          </ClientOnly>
         </div>
       </section>
 
@@ -148,7 +154,13 @@ export function ShowcaseSections() {
 
         <div className="lg:col-span-6 flex justify-center lg:justify-end">
           <div className="w-full max-w-[500px] flex items-center justify-center min-h-[300px] overflow-hidden">
-            <FoldingBill materialId="maid" stiffness={38} settle={10} />
+            <ClientOnly
+              fallback={
+                <div className="w-full h-[300px] rounded-2xl bg-neutral-100 dark:bg-neutral-900 animate-pulse" />
+              }
+            >
+              <FoldingBill materialId="maid" stiffness={38} settle={10} />
+            </ClientOnly>
           </div>
         </div>
       </section>
@@ -157,7 +169,13 @@ export function ShowcaseSections() {
       <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-6 flex justify-center lg:justify-start order-2 lg:order-1">
           <div className="w-full max-w-[500px] flex items-center justify-center min-h-[340px]">
-            <AspectRatio materialId="maid" interactive3D={true} morph={50} corner={24} />
+            <ClientOnly
+              fallback={
+                <div className="w-[276px] h-[368px] rounded-[24px] bg-neutral-100 dark:bg-neutral-800/60" />
+              }
+            >
+              <AspectRatio materialId="maid" interactive3D={true} morph={50} corner={24} />
+            </ClientOnly>
           </div>
         </div>
 
@@ -210,17 +228,22 @@ export function ShowcaseSections() {
 
         <div className="lg:col-span-6 flex flex-col items-center justify-center lg:items-end w-full space-y-3">
           <div className="w-full max-w-[540px] flex items-center justify-center">
-            <TicketStub
-              ref={ticketRef}
-              materialId="orbit"
-              ticketNo="02"
-              title="TRICK OR TREAT"
-              date="2026-11-04"
-              angle={ticketAngle}
-              onAngleChange={handleTicketAngleChange}
-            />
+            <ClientOnly
+              fallback={
+                <div className="w-full max-w-[500px] h-[200px] rounded-2xl bg-neutral-100 dark:bg-neutral-800/60" />
+              }
+            >
+              <TicketStub
+                ref={ticketRef}
+                materialId="orbit"
+                ticketNo="02"
+                title="TRICK OR TREAT"
+                date="2026-11-04"
+                angle={ticketAngle}
+                onAngleChange={handleTicketAngleChange}
+              />
+            </ClientOnly>
           </div>
-
           <div className="w-full max-w-[540px] flex items-center justify-center pt-2">
             <WakeSlider
               bars={36}
