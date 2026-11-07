@@ -3,14 +3,20 @@
  * 保证相同 materialId 的 .orb 资源全站全局只发起一次 HTTP 请求。
  */
 
+import { assetPath } from "./asset.js";
+import { getCachedOrb, putCachedOrb } from "./orb-cache.js";
+
+const UPLOADED_ORB_PATTERN = /^\/api\/orbs\/[0-9a-f-]{36}$/i;
+const ORB_FILE_PATTERN = /\.orb(?:$|[?#])/i;
+
 // 1. 结构化素材 ID 编排
 export const MATERIAL_REGISTRY = {
   maid: {
     id: "maid",
     title: "Maid Horizon",
     category: "character",
-    src: "assets/maid/scene.orb",
-    cover: "assets/maid/cover.webp",
+    src: "/assets/maid/scene.orb",
+    cover: "/assets/maid/cover.webp",
     aspectRatio: "3/4",
     frames: 239,
   },
@@ -18,8 +24,8 @@ export const MATERIAL_REGISTRY = {
     id: "orbit",
     title: "Orbit Perspective",
     category: "environment",
-    src: "assets/orbit/scene.orb",
-    cover: "assets/orbit/cover.webp",
+    src: "/assets/orbit/scene.orb",
+    cover: "/assets/orbit/cover.webp",
     aspectRatio: "16/9",
     frames: 240,
   },
@@ -34,12 +40,13 @@ export function resolveMaterial(idOrSrc) {
   if (match) return match;
 
   // 兜底返回虚拟素材
+  const src = assetPath(idOrSrc);
   return {
     id: idOrSrc || "default",
     title: "Specimen 360",
     category: "general",
-    src: idOrSrc,
-    cover: idOrSrc.replace(/\.orb$/, "/cover.webp"),
+    src,
+    cover: src.replace(/\.orb$/, "/cover.webp"),
     aspectRatio: "1/1",
     frames: 240,
   };
@@ -69,10 +76,21 @@ export async function getMaterialBlob(idOrSrc) {
 
   const promise = (async () => {
     try {
+      const useIdbCache =
+        UPLOADED_ORB_PATTERN.test(material.src) || ORB_FILE_PATTERN.test(material.src);
+      if (useIdbCache) {
+        const cached = await getCachedOrb(material.src);
+        if (cached) {
+          blobCache.set(cacheKey, cached);
+          return cached;
+        }
+      }
+
       const res = await fetch(material.src, { cache: "force-cache" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
       blobCache.set(cacheKey, blob);
+      if (useIdbCache) void putCachedOrb(material.src, blob);
       return blob;
     } finally {
       inflightRequests.delete(cacheKey);

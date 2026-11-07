@@ -34,7 +34,7 @@ export function EditorialFooter() {
             T-A-P-E-R MATRIX
           </a>
           <a
-            href="https://github.com"
+            href="https://github.com/owocc/orbit360"
             target="_blank"
             rel="noreferrer"
             className="text-neutral-600 hover:text-black hover:underline"

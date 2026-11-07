@@ -8,14 +8,14 @@ export function ShowcaseSection() {
     maid: {
       id: "maid",
       title: "沙发少女 (高精度 3840x2160 源)",
-      path: "assets/maid/scene.orb",
+      path: "/assets/maid/scene.orb",
       aspect: "16/9",
       desc: "高分辨率人像模型展示，验证微小光影细节与连续角度下的流畅质感。",
     },
     orbit: {
       id: "orbit",
       title: "环绕视角 (标准 1280x720 源)",
-      path: "assets/orbit/scene.orb",
+      path: "/assets/orbit/scene.orb",
       aspect: "16/9",
       desc: "全景环绕闭环测试模型，首尾闭环率 0.952，支持全角度无缝无限自旋与拖拽。",
     },
@@ -100,7 +100,7 @@ export function ShowcaseSection() {
               <div className="w-full h-[260px]">
                 <OrbitViewer
                   src={
-                    selectedScene === "maid" ? "assets/orbit/scene.orb" : "assets/maid/scene.orb"
+                    selectedScene === "maid" ? "/assets/orbit/scene.orb" : "/assets/maid/scene.orb"
                   }
                   title={selectedScene === "maid" ? "次级对比: 环绕视角" : "次级对比: 沙发少女"}
                   aspectRatio="4/5"
@@ -141,7 +141,7 @@ export function ShowcaseSection() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="h-48 sm:h-56">
               <OrbitViewer
-                src="assets/maid/scene.orb"
+                src="/assets/maid/scene.orb"
                 title="视角 A"
                 aspectRatio="1/1"
                 autoSpin={true}
@@ -152,7 +152,7 @@ export function ShowcaseSection() {
             </div>
             <div className="h-48 sm:h-56">
               <OrbitViewer
-                src="assets/orbit/scene.orb"
+                src="/assets/orbit/scene.orb"
                 title="视角 B"
                 aspectRatio="1/1"
                 autoSpin={true}
@@ -163,7 +163,7 @@ export function ShowcaseSection() {
             </div>
             <div className="h-48 sm:h-56">
               <OrbitViewer
-                src="assets/maid/scene.orb"
+                src="/assets/maid/scene.orb"
                 title="视角 C"
                 aspectRatio="1/1"
                 autoSpin={true}
@@ -174,7 +174,7 @@ export function ShowcaseSection() {
             </div>
             <div className="h-48 sm:h-56">
               <OrbitViewer
-                src="assets/orbit/scene.orb"
+                src="/assets/orbit/scene.orb"
                 title="视角 D"
                 aspectRatio="1/1"
                 autoSpin={true}

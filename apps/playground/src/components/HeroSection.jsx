@@ -125,7 +125,7 @@ export function HeroSection() {
           <div ref={previewRef} className="lg:col-span-6">
             <div className="relative rounded-xl p-2 bg-gradient-to-b from-neutral-800/40 via-neutral-900/20 to-transparent border border-neutral-800/80 shadow-2xl">
               <OrbitViewer
-                src="assets/maid/scene.orb"
+                src="/assets/maid/scene.orb"
                 title="首屏实时模型: 沙发少女"
                 aspectRatio="16/10"
                 autoSpin={true}

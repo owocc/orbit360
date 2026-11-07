@@ -2,10 +2,9 @@ import React, { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ThemeSelector } from "./ThemeSelector";
 import { LanguageSelector } from "./LanguageSelector";
-import { useI18n } from "../lib/I18nContext";
+import * as m from "../paraglide/messages.js";
 import { PopoverRoot, PopoverTrigger, PopoverContent } from "./ui/Popover";
 export function MinimalNav() {
-  const { t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -21,29 +20,51 @@ export function MinimalNav() {
         </div>
 
         {/* 桌面端中间极简链接 */}
-        <div className="hidden md:flex items-center gap-8 text-[13px] text-neutral-600 dark:text-neutral-400 font-medium font-sans">
-          <Link to="/" className="text-neutral-900 dark:text-white transition-colors">
-            {t.nav.home}
+        <div className="hidden md:flex items-center gap-8 text-[13px] font-medium font-sans">
+          <Link
+            to="/"
+            activeOptions={{ exact: true }}
+            className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+            activeProps={{
+              className: "!text-neutral-950 dark:!text-white font-semibold",
+            }}
+          >
+            {m.nav_home()}
           </Link>
           <Link
             to="/gallery"
-            className="hover:text-neutral-900 dark:hover:text-white transition-colors font-medium"
+            className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+            activeProps={{
+              className: "!text-neutral-950 dark:!text-white font-semibold",
+            }}
           >
-            {t.nav.gallery}
+            {m.nav_gallery()}
+          </Link>
+          <Link
+            to="/create"
+            className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+            activeProps={{
+              className: "!text-neutral-950 dark:!text-white font-semibold",
+            }}
+          >
+            {m.nav_create()}
           </Link>
           <Link
             to="/playground"
-            className="hover:text-neutral-900 dark:hover:text-white transition-colors"
+            className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+            activeProps={{
+              className: "!text-neutral-950 dark:!text-white font-semibold",
+            }}
           >
-            {t.nav.playground}
+            {m.nav_playground()}
           </Link>
           <a
-            href="https://github.com"
+            href="https://github.com/owocc/orbit360"
             target="_blank"
             rel="noreferrer"
-            className="hover:text-neutral-900 dark:hover:text-white transition-colors"
+            className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
           >
-            {t.nav.source}
+            {m.nav_source()}
           </a>
         </div>
 
@@ -68,33 +89,57 @@ export function MinimalNav() {
               >
                 <Link
                   to="/"
+                  activeOptions={{ exact: true }}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-3 py-2 rounded-xl text-neutral-900 dark:text-white font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  className="px-3 py-2 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  activeProps={{
+                    className:
+                      "px-3 py-2 rounded-xl !text-neutral-950 dark:!text-white !font-bold bg-neutral-100 dark:bg-neutral-800 transition-colors",
+                  }}
                 >
-                  {t.nav.home}
+                  {m.nav_home()}
                 </Link>
                 <Link
                   to="/gallery"
                   onClick={() => setMobileMenuOpen(false)}
                   className="px-3 py-2 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  activeProps={{
+                    className:
+                      "px-3 py-2 rounded-xl !text-neutral-950 dark:!text-white !font-bold bg-neutral-100 dark:bg-neutral-800 transition-colors",
+                  }}
                 >
-                  {t.nav.gallery}
+                  {m.nav_gallery()}
+                </Link>
+                <Link
+                  to="/create"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  activeProps={{
+                    className:
+                      "px-3 py-2 rounded-xl !text-neutral-950 dark:!text-white !font-bold bg-neutral-100 dark:bg-neutral-800 transition-colors",
+                  }}
+                >
+                  {m.nav_create()}
                 </Link>
                 <Link
                   to="/playground"
                   onClick={() => setMobileMenuOpen(false)}
                   className="px-3 py-2 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  activeProps={{
+                    className:
+                      "px-3 py-2 rounded-xl !text-neutral-950 dark:!text-white !font-bold bg-neutral-100 dark:bg-neutral-800 transition-colors",
+                  }}
                 >
-                  {t.nav.playground}
+                  {m.nav_playground()}
                 </Link>
                 <a
-                  href="https://github.com"
+                  href="https://github.com/owocc/orbit360"
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => setMobileMenuOpen(false)}
                   className="px-3 py-2 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  {t.nav.source}
+                  {m.nav_source()}
                 </a>
               </PopoverContent>
             </PopoverRoot>

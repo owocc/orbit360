@@ -7,6 +7,9 @@ export default defineConfig({
   fmt: {
     ignorePatterns: [
       "dist/**",
+      "apps/playground/project.inlang/cache/**",
+      "apps/playground/src/paraglide/**",
+      "**/routeTree.gen.ts",
       "sdk/js/dist/**",
       "sdk/expo/dist/**",
       "sdk/wechat-miniprogram/dist/**",
@@ -19,6 +22,9 @@ export default defineConfig({
   lint: {
     ignorePatterns: [
       "dist/**",
+      "apps/playground/project.inlang/cache/**",
+      "apps/playground/src/paraglide/**",
+      "**/routeTree.gen.ts",
       "sdk/js/dist/**",
       "sdk/expo/dist/**",
       "sdk/wechat-miniprogram/dist/**",

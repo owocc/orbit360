@@ -1,6 +1,7 @@
 import { copyFileSync, cpSync, createReadStream, existsSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { cloudflare } from "@cloudflare/vite-plugin";
@@ -28,8 +29,12 @@ function repoStatic() {
       server.middlewares.use((req, res, next) => {
         if (req.method !== "GET" && req.method !== "HEAD") return next();
         const pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+        if (pathname === "/favicon.ico") {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
         if (pathname !== "/catalog.json" && !pathname.startsWith("/assets/")) return next();
-
         const file = resolve(repo, `.${pathname}`);
         if (!file.startsWith(repo + sep) || !existsSync(file) || !statSync(file).isFile()) {
           return next();
@@ -80,6 +85,9 @@ export default defineConfig({
     cloudflare({ viteEnvironment: { name: "ssr" } }),
     tanstackStart(),
     react(),
+    paraglideVitePlugin({
+      project: "./project.inlang",
+    }),
     repoStatic(),
     siteAssets(),
   ]),

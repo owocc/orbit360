@@ -1,12 +1,16 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef } from "react";
 import { Pure3DCard } from "./Pure3DCard";
 import { resolveMaterial } from "../lib/materials";
+import { beginPress, isSingleClick } from "../lib/card-interaction.js";
 
 export const LazyCoverCard = forwardRef(function LazyCoverCard(
   {
     src,
     materialId,
     coverSrc,
+    title,
+    subtitle,
+    badge,
     aspectRatio = "3/4",
     speed = 12,
     className = "",
@@ -16,11 +20,14 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
   ref,
 ) {
   const [isActivated, setIsActivated] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const cardRef = useRef(null);
   const containerRef = useRef(null);
+  const pressRef = useRef(null);
 
   const material = resolveMaterial(materialId || src);
-  const actualCover = coverSrc || material.cover;
+  const actualCover = coverSrc === undefined ? material.cover : coverSrc;
+  const displayTitle = title || material.title;
 
   useImperativeHandle(ref, () => ({
     getContainer: () => (isActivated ? cardRef.current?.getContainer() : containerRef.current),
@@ -29,21 +36,39 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
     material,
   }));
 
-  const handlePointerDown = () => {
-    if (!isActivated) {
-      setIsActivated(true);
-      setTimeout(() => {
-        onFocusRequest?.(cardRef.current);
-      }, 50);
-    } else {
-      onFocusRequest?.(cardRef.current);
-    }
+  const handlePointerDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    pressRef.current = beginPress(event);
+    // 首次按下只负责把静态封面切换成可交互 Canvas，不立即打开弹窗。
+    if (!isActivated) setIsActivated(true);
   };
+
+  const handlePointerUp = (event) => {
+    const press = pressRef.current;
+    pressRef.current = null;
+    if (!isSingleClick(press, event)) return;
+    requestAnimationFrame(() => onFocusRequest?.(cardRef.current));
+  };
+
+  const handlePointerCancel = () => {
+    pressRef.current = null;
+  };
+
+  const cardCaption = (
+    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/75 via-black/35 to-transparent text-white pointer-events-none">
+      <div className="text-sm font-semibold leading-snug">{displayTitle}</div>
+      {subtitle ? (
+        <div className="mt-0.5 font-mono text-[10px] text-white/70">{subtitle}</div>
+      ) : null}
+    </div>
+  );
 
   return (
     <div
       ref={containerRef}
       onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       style={{
         aspectRatio,
         ...style,
@@ -51,23 +76,46 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
       className={`relative w-full rounded-3xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 select-none shadow-[0_20px_50px_rgba(0,0,0,0.14)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.22)] transition-shadow duration-300 cursor-pointer group ${className}`}
     >
       {isActivated ? (
-        <Pure3DCard
-          ref={cardRef}
-          materialId={material.id}
-          aspectRatio={aspectRatio}
-          speed={speed}
-          className="w-full h-full rounded-3xl"
-          onClick={() => onFocusRequest?.(cardRef.current)}
-        />
+        <div className="relative w-full h-full">
+          <Pure3DCard
+            ref={cardRef}
+            materialId={src ? undefined : material.id}
+            src={src}
+            poster={actualCover || undefined}
+            aspectRatio={aspectRatio}
+            speed={speed}
+            className="w-full h-full rounded-3xl"
+          />
+          {cardCaption}
+        </div>
       ) : (
         <div className="relative w-full h-full overflow-hidden">
-          {/* 轻量静态 Cover 图片 */}
-          <img
-            src={actualCover}
-            alt={material.title}
-            loading="lazy"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+          {actualCover && !coverFailed ? (
+            <>
+              <img
+                src={actualCover}
+                alt={displayTitle}
+                loading="lazy"
+                onError={() => setCoverFailed(true)}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              {cardCaption}
+            </>
+          ) : (
+            <div className="w-full h-full bg-[radial-gradient(circle_at_30%_20%,#3b82f6_0%,#1e293b_45%,#0f172a_100%)] flex flex-col justify-between p-5 text-white">
+              {badge ? (
+                <span className="self-start rounded-full bg-white/15 px-2 py-0.5 font-mono text-[10px] tracking-wider backdrop-blur-sm">
+                  {badge}
+                </span>
+              ) : null}
+              <div className="space-y-1">
+                <div className="text-lg font-semibold leading-snug">{displayTitle}</div>
+                {subtitle ? (
+                  <div className="font-mono text-[11px] text-white/60">{subtitle}</div>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           {/* 交互提示微型徽章 */}
           <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors flex items-center justify-center">

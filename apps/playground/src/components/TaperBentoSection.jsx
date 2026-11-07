@@ -12,7 +12,7 @@ export function TaperBentoSection() {
       desc: "零视频解码开销，毫秒级 Canvas 离散帧精确硬切，低功耗极致性能。",
       bg: "#ff4e7e", // 亮粉色
       mask: "squircle",
-      src: "assets/maid/scene.orb",
+      src: "/assets/maid/scene.orb",
     },
     {
       letter: "A",
@@ -21,7 +21,7 @@ export function TaperBentoSection() {
       desc: "单文件 .orb 二进制容器，HTTP Range Header 按需获取视角切片。",
       bg: "#ffb703", // 亮金黄色
       mask: "arch",
-      src: "assets/orbit/scene.orb",
+      src: "/assets/orbit/scene.orb",
     },
     {
       letter: "P",
@@ -30,7 +30,7 @@ export function TaperBentoSection() {
       desc: "电商商品全景、虚拟展厅多机位、工业零部件 360° 联动交互。",
       bg: "#fb8500", // 橙色
       mask: "diamond",
-      src: "assets/maid/scene.orb",
+      src: "/assets/maid/scene.orb",
     },
     {
       letter: "E",
@@ -39,7 +39,7 @@ export function TaperBentoSection() {
       desc: "手机陀螺仪方位角映射、桌面阻尼惯性衰减与弹性边界碰撞。",
       bg: "#0077b6", // 蓝色
       mask: "hex",
-      src: "assets/orbit/scene.orb",
+      src: "/assets/orbit/scene.orb",
     },
     {
       letter: "R",
@@ -49,7 +49,7 @@ export function TaperBentoSection() {
       bg: "#2b2d42", // 深炭色（白字）
       isDark: true,
       mask: "stamp",
-      src: "assets/maid/scene.orb",
+      src: "/assets/maid/scene.orb",
     },
   ];
 

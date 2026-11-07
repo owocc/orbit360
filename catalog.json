@@ -4,7 +4,7 @@
     {
       "id": "maid",
       "title": "沙发少女",
-      "orb": "assets/maid/scene.orb",
+      "orb": "/assets/maid/scene.orb",
       "defaults": {
         "auto": {
           "enabled": true,
@@ -21,7 +21,7 @@
     {
       "id": "orbit",
       "title": "环绕视角",
-      "orb": "assets/orbit/scene.orb",
+      "orb": "/assets/orbit/scene.orb",
       "defaults": {
         "auto": {
           "enabled": true,

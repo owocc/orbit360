@@ -3,7 +3,21 @@
   "name": "orbit360",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
+  "main": "./src/server.js",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "orbit360",
+      "database_id": "641d58c5-1924-474c-b56c-9524e78dc35a",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ORBS",
+      "bucket_name": "orbit360-orbs",
+    },
+  ],
   "assets": {
     "directory": "dist",
     "binding": "ASSETS",

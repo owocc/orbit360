@@ -37,3 +37,6 @@ apps/playground/dist/
 
 # npm 包内许可证：prepack 时从仓库根 LICENSE 复制，勿手改
 /sdk/js/LICENSE
+
+# Paraglide 编译缓存
+**/project.inlang/cache/

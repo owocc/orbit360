@@ -8,97 +8,169 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as GalleryRouteImport } from "./routes/gallery";
-import { Route as PlaygroundRouteImport } from "./routes/playground";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as CreateRouteImport } from './routes/create'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as PlaygroundRouteImport } from './routes/playground'
+import { Route as ApiOrbsRouteImport } from './routes/api/orbs'
+import { Route as ApiOrbsIdRouteImport } from './routes/api/orbs/$id'
 
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const CreateRoute = CreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GalleryRoute = GalleryRouteImport.update({
-  id: "/gallery",
-  path: "/gallery",
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const PlaygroundRoute = PlaygroundRouteImport.update({
-  id: "/playground",
-  path: "/playground",
+  id: '/playground',
+  path: '/playground',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
+const ApiOrbsRoute = ApiOrbsRouteImport.update({
+  id: '/api/orbs',
+  path: '/api/orbs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOrbsIdRoute = ApiOrbsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiOrbsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/gallery": typeof GalleryRoute;
-  "/playground": typeof PlaygroundRoute;
+  '/': typeof IndexRoute
+  '/create': typeof CreateRoute
+  '/gallery': typeof GalleryRoute
+  '/playground': typeof PlaygroundRoute
+  '/api/orbs': typeof ApiOrbsRouteWithChildren
+  '/api/orbs/$id': typeof ApiOrbsIdRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/gallery": typeof GalleryRoute;
-  "/playground": typeof PlaygroundRoute;
+  '/': typeof IndexRoute
+  '/create': typeof CreateRoute
+  '/gallery': typeof GalleryRoute
+  '/playground': typeof PlaygroundRoute
+  '/api/orbs': typeof ApiOrbsRouteWithChildren
+  '/api/orbs/$id': typeof ApiOrbsIdRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/gallery": typeof GalleryRoute;
-  "/playground": typeof PlaygroundRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/create': typeof CreateRoute
+  '/gallery': typeof GalleryRoute
+  '/playground': typeof PlaygroundRoute
+  '/api/orbs': typeof ApiOrbsRouteWithChildren
+  '/api/orbs/$id': typeof ApiOrbsIdRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/gallery" | "/playground";
-  fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/gallery" | "/playground";
-  id: "__root__" | "/" | "/gallery" | "/playground";
-  fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
+    '/' | '/create' | '/gallery' | '/playground' | '/api/orbs' | '/api/orbs/$id'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    '/' | '/create' | '/gallery' | '/playground' | '/api/orbs' | '/api/orbs/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/create'
+    | '/gallery'
+    | '/playground'
+    | '/api/orbs'
+    | '/api/orbs/$id'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  GalleryRoute: typeof GalleryRoute;
-  PlaygroundRoute: typeof PlaygroundRoute;
+  IndexRoute: typeof IndexRoute
+  CreateRoute: typeof CreateRoute
+  GalleryRoute: typeof GalleryRoute
+  PlaygroundRoute: typeof PlaygroundRoute
+  ApiOrbsRoute: typeof ApiOrbsRouteWithChildren
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/gallery": {
-      id: "/gallery";
-      path: "/gallery";
-      fullPath: "/gallery";
-      preLoaderRoute: typeof GalleryRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/playground": {
-      id: "/playground";
-      path: "/playground";
-      fullPath: "/playground";
-      preLoaderRoute: typeof PlaygroundRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create': {
+      id: '/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof CreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/orbs': {
+      id: '/api/orbs'
+      path: '/api/orbs'
+      fullPath: '/api/orbs'
+      preLoaderRoute: typeof ApiOrbsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/orbs/$id': {
+      id: '/api/orbs/$id'
+      path: '/$id'
+      fullPath: '/api/orbs/$id'
+      preLoaderRoute: typeof ApiOrbsIdRouteImport
+      parentRoute: typeof ApiOrbsRoute
+    }
   }
 }
 
+interface ApiOrbsRouteChildren {
+  ApiOrbsIdRoute: typeof ApiOrbsIdRoute
+}
+
+const ApiOrbsRouteChildren: ApiOrbsRouteChildren = {
+  ApiOrbsIdRoute: ApiOrbsIdRoute,
+}
+
+const ApiOrbsRouteWithChildren =
+  ApiOrbsRoute._addFileChildren(ApiOrbsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CreateRoute: CreateRoute,
   GalleryRoute: GalleryRoute,
   PlaygroundRoute: PlaygroundRoute,
-};
+  ApiOrbsRoute: ApiOrbsRouteWithChildren,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.jsx";
-import type { createStart } from "@tanstack/react-start";
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.jsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }

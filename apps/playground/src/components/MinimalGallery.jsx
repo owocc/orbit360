@@ -9,25 +9,25 @@ export function MinimalGallery() {
   const items = [
     {
       id: "g1",
-      src: "assets/maid/scene.orb",
+      src: "/assets/maid/scene.orb",
       aspect: "1/1",
       speed: 12,
     },
     {
       id: "g2",
-      src: "assets/orbit/scene.orb",
+      src: "/assets/orbit/scene.orb",
       aspect: "4/5",
       speed: -10,
     },
     {
       id: "g3",
-      src: "assets/maid/scene.orb",
+      src: "/assets/maid/scene.orb",
       aspect: "3/4",
       speed: 16,
     },
     {
       id: "g4",
-      src: "assets/orbit/scene.orb",
+      src: "/assets/orbit/scene.orb",
       aspect: "16/10",
       speed: 8,
     },
