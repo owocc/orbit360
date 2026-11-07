@@ -31,7 +31,7 @@ const rate = (speed) => 1.6 - (speed / 100) * 1.2;
 
 /* SHEEP was Bencho's own pictures, which is not licensed
    to travel. Point this at yours. */
-const SHEEP = "assets/maid/cover.webp";
+const SHEEP = "/assets/maid/cover.webp";
 
 /* ══ Aspect ═══════════════════════════════════════════════
    A picture and three shapes to put it in.

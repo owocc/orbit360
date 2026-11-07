@@ -31,25 +31,25 @@ const CARDS = [
     id: "maid-1",
     materialId: "maid",
     title: "Maid Horizon · 360°",
-    cover: "assets/maid/cover.webp",
+    cover: "/assets/maid/cover.webp",
   },
   {
     id: "orbit-1",
     materialId: "orbit",
     title: "Orbit Perspective · 360°",
-    cover: "assets/orbit/cover.webp",
+    cover: "/assets/orbit/cover.webp",
   },
   {
     id: "maid-2",
     materialId: "maid",
     title: "Studio Light · 360°",
-    cover: "assets/maid/cover.webp",
+    cover: "/assets/maid/cover.webp",
   },
   {
     id: "orbit-2",
     materialId: "orbit",
     title: "Panorama Loop · 360°",
-    cover: "assets/orbit/cover.webp",
+    cover: "/assets/orbit/cover.webp",
   },
 ];
 

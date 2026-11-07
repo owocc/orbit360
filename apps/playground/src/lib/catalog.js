@@ -1,3 +1,5 @@
+import { assetPath } from "./asset.js";
+
 export const QUALITY_ORDER = ["std", "hd", "uhd"];
 export const QUALITY_LABEL = { uhd: "超清", hd: "高清", std: "标准" };
 
@@ -49,10 +51,10 @@ export function resolveCatalogSource(catalog, params, prefQuality) {
   const forceZip = params.get("fmt") === "zip" || params.has("q");
   const quality = pickQuality(entry, { urlQuality: params.get("q"), prefQuality });
   const useOrb = !forceZip && !!entry.orb;
-  const url = useOrb ? entry.orb : quality ? entry.packs[quality] : null;
-  if (!url) throw new Error("找不到可用的示例包（catalog.json）");
+  const rawUrl = useOrb ? entry.orb : quality ? entry.packs[quality] : null;
+  if (!rawUrl) throw new Error("找不到可用的示例包（catalog.json）");
   return {
-    url,
+    url: assetPath(rawUrl),
     quality: useOrb ? null : quality,
     useOrb,
     entry,

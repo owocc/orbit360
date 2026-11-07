@@ -12,7 +12,7 @@ import { QUALITY_LABEL, availableQualities, resolveCatalogSource } from "./lib/c
 import { hintForAxis } from "./lib/format.js";
 import { readQualityPref, readUserConfig, writeAutoPref, writeQualityPref } from "./lib/prefs.js";
 
-const CATALOG_URL = "catalog.json";
+const CATALOG_URL = "/catalog.json";
 
 export default function App() {
   const params = useMemo(() => new URLSearchParams(location.search), []);

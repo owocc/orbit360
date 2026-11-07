@@ -78,7 +78,7 @@ export function HeroEditorial() {
           <div className="lg:col-span-5 flex justify-center">
             <div className="w-full max-w-[340px] sm:max-w-[380px]">
               <MaskedOrbitViewer
-                src="assets/maid/scene.orb"
+                src="/assets/maid/scene.orb"
                 title="HERO SPECIMEN · 360°"
                 showBadge={false}
                 maskShape="arch"

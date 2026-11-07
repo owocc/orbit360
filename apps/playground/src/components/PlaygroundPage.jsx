@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { useOrbitClient } from "../hooks/useOrbitClient";
 import { useFullscreen } from "../hooks/useFullscreen";
 import { resolveCatalogSource } from "../lib/catalog";
+import { assetPath } from "../lib/asset.js";
 import { displayAngle, ringGeometry, frameLabel } from "../lib/format";
 import { WakeSlider } from "./WakeSlider";
 import { UploadDropzone } from "./UploadDropzone.jsx";
 import { PopoverRoot, PopoverTrigger, PopoverContent } from "./ui/Popover.jsx";
 import * as m from "../paraglide/messages.js";
 
-const CATALOG_URL = "catalog.json";
+const CATALOG_URL = "/catalog.json";
 export default function PlaygroundPage() {
   const [catalog, setCatalog] = useState(null);
   const [activeItem, setActiveItem] = useState(null);
@@ -137,7 +138,7 @@ export default function PlaygroundPage() {
   // 2. 切换官方预设场景
   const handleSelectExample = async (item) => {
     setActiveItem(item);
-    const resolvedUrl = item.orb || item.packs?.uhd || item.packs?.hd || item.packs?.std;
+    const resolvedUrl = assetPath(item.orb || item.packs?.uhd || item.packs?.hd || item.packs?.std);
     if (resolvedUrl && client) {
       try {
         await orbit.load(resolvedUrl);
