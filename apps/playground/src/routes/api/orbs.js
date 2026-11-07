@@ -33,9 +33,15 @@ async function discardBody(request) {
 export const Route = createFileRoute("/api/orbs")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
         try {
-          return Response.json({ items: await listOrbs() });
+          const params = new URL(request.url).searchParams;
+          return Response.json(
+            await listOrbs({
+              cursor: params.get("cursor"),
+              limit: params.get("limit"),
+            }),
+          );
         } catch (error) {
           return errorResponse(error);
         }

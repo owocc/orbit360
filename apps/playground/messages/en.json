@@ -104,5 +104,7 @@
   "gallery_error_too_large": "File must be 10 MB or smaller",
   "gallery_error_bad_name": "Only .orb files are allowed",
   "gallery_error_invalid": "Not a valid ORB3 file",
-  "gallery_frames": "{count} frames"
+  "gallery_frames": "{count} frames",
+  "gallery_loading_more": "Loading more creations…",
+  "gallery_no_more": "You've reached the end"
 }

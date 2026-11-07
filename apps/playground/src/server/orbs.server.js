@@ -93,15 +93,50 @@ function toItem(row) {
   };
 }
 
-export async function listOrbs() {
+export const ORB_PAGE_SIZE = 20;
+
+function encodeCursor(row) {
+  return btoa(JSON.stringify([row.created_at, row.id]));
+}
+
+function decodeCursor(cursor) {
+  if (!cursor) return null;
+  try {
+    const value = JSON.parse(atob(cursor));
+    if (Array.isArray(value) && typeof value[0] === "string" && typeof value[1] === "string") {
+      return { createdAt: value[0], id: value[1] };
+    }
+  } catch {
+    // 非法 cursor 按第一页处理。
+  }
+  return null;
+}
+
+/** 游标分页，单次最多 20 条，避免一次性扫描/返回全部数据。 */
+export async function listOrbs({ cursor = null, limit = ORB_PAGE_SIZE } = {}) {
   await ensureSchema();
-  const { results } = await database()
-    .prepare(
-      `SELECT id, name, title, description, size, frame_count, width, height, created_at
-       FROM orbs ORDER BY created_at DESC LIMIT 100`,
-    )
-    .all();
-  return results.map(toItem);
+  const pageSize = Math.min(Math.max(Number(limit) || ORB_PAGE_SIZE, 1), ORB_PAGE_SIZE);
+  const after = decodeCursor(cursor);
+  const db = database();
+  const select = `SELECT id, name, title, description, size, frame_count, width, height, created_at FROM orbs`;
+
+  const statement = after
+    ? db
+        .prepare(
+          `${select}
+           WHERE (created_at < ? OR (created_at = ? AND id < ?))
+           ORDER BY created_at DESC, id DESC LIMIT ?`,
+        )
+        .bind(after.createdAt, after.createdAt, after.id, pageSize + 1)
+    : db.prepare(`${select} ORDER BY created_at DESC, id DESC LIMIT ?`).bind(pageSize + 1);
+
+  const { results } = await statement.all();
+  const hasMore = results.length > pageSize;
+  const page = results.slice(0, pageSize);
+  return {
+    items: page.map(toItem),
+    nextCursor: hasMore && page.length ? encodeCursor(page[page.length - 1]) : null,
+  };
 }
 
 function resolveCover(parsed, providedCover) {

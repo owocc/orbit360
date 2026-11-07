@@ -5,6 +5,7 @@ import { LazyCoverCard } from "./LazyCoverCard";
 import { Pure3DCard } from "./Pure3DCard";
 import { UploadDropzone } from "./UploadDropzone.jsx";
 import { useFlipFocus } from "./FlipFocusModal";
+import { getOrbsPage } from "../server/orb-functions.js";
 import {
   MAX_COVER_BYTES,
   MAX_ORB_BYTES,
@@ -132,13 +133,18 @@ export default function GalleryPage() {
   const fileInputRef = useRef(null);
   const { focusCard } = useFlipFocus();
   const router = useRouter();
-  const uploads = useLoaderData({ from: "/gallery" }) || [];
+  const initialPage = useLoaderData({ from: "/gallery" }) || { items: [], nextCursor: null };
+  const [items, setItems] = useState(initialPage.items);
+  const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingRef = useRef(false);
+  const sentinelRef = useRef(null);
   const columnCount = useColumnCount();
   const columns = useMemo(() => {
     const next = Array.from({ length: columnCount }, () => []);
-    uploads.forEach((item, index) => next[index % columnCount].push(item));
+    items.forEach((item, index) => next[index % columnCount].push(item));
     return next;
-  }, [uploads, columnCount]);
+  }, [items, columnCount]);
   const [uploadState, setUploadState] = useState({ status: "idle", message: "" });
   const [dragActive, setDragActive] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -146,6 +152,48 @@ export default function GalleryPage() {
   const [progress, setProgress] = useState(0);
 
   const uploading = uploadState.status === "uploading";
+
+  useEffect(() => {
+    setItems(initialPage.items);
+    setNextCursor(initialPage.nextCursor);
+  }, [initialPage]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !nextCursor) return;
+
+    let cancelled = false;
+    const observer = new IntersectionObserver(
+      async (entries) => {
+        if (!entries[0]?.isIntersecting || loadingRef.current) return;
+        loadingRef.current = true;
+        setLoadingMore(true);
+        try {
+          const page = await getOrbsPage({ data: { cursor: nextCursor } });
+          if (cancelled) return;
+          setItems((prev) => {
+            const seen = new Set(prev.map((item) => item.id));
+            return [...prev, ...page.items.filter((item) => !seen.has(item.id))];
+          });
+          setNextCursor(page.nextCursor);
+        } catch {
+          // 失败后保持当前列表，下一轮滚动可重试。
+        } finally {
+          if (!cancelled) {
+            loadingRef.current = false;
+            setLoadingMore(false);
+          }
+        }
+      },
+      { rootMargin: "400px 0px" },
+    );
+    observer.observe(node);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+      loadingRef.current = false;
+    };
+  }, [nextCursor]);
 
   useEffect(
     () => () => {
@@ -316,7 +364,7 @@ export default function GalleryPage() {
         </div>
       </div>
 
-      {uploads.length === 0 ? (
+      {items.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 px-6 py-20 text-center">
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-white font-sans">
             {m.gallery_empty_title()}
@@ -368,6 +416,12 @@ export default function GalleryPage() {
           ))}
         </div>
       )}
+
+      {items.length > 0 ? (
+        <div ref={sentinelRef} className="py-8 text-center font-mono text-[11px] text-neutral-400">
+          {nextCursor ? (loadingMore ? m.gallery_loading_more() : null) : m.gallery_no_more()}
+        </div>
+      ) : null}
 
       {/* 全屏覆盖：拖拽 / 分析 / 编辑上传 */}
       {overlayOpen ? (

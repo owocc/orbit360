@@ -104,5 +104,7 @@
   "gallery_error_too_large": "文件不能超过 10 MB",
   "gallery_error_bad_name": "仅支持 .orb 文件",
   "gallery_error_invalid": "不是有效的 ORB3 文件",
-  "gallery_frames": "{count} 帧"
+  "gallery_frames": "{count} 帧",
+  "gallery_loading_more": "加载更多作品…",
+  "gallery_no_more": "已经到底了"
 }

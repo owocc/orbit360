@@ -1,12 +1,9 @@
 import React from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
 import GalleryPage from "../components/GalleryPage";
-import { listOrbs } from "../server/orbs.server.js";
-
-const getOrbs = createServerFn({ method: "GET" }).handler(() => listOrbs());
+import { getOrbsPage } from "../server/orb-functions.js";
 
 export const Route = createFileRoute("/gallery")({
-  loader: () => getOrbs(),
+  loader: () => getOrbsPage({ data: { cursor: null } }),
   component: GalleryPage,
 });
