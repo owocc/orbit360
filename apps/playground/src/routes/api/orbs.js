@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MAX_ORB_BYTES, validateOrbName } from "../../lib/orb-file.js";
+import {
+  MAX_COVER_BYTES,
+  MAX_ORB_BYTES,
+  sniffImageType,
+  validateOrbName,
+} from "../../lib/orb-file.js";
 import { createOrb, listOrbs } from "../../server/orbs.server.js";
 
 function errorResponse(error, status = 500) {
@@ -39,7 +44,7 @@ export const Route = createFileRoute("/api/orbs")({
       POST: async ({ request }) => {
         const contentLength = Number(request.headers.get("content-length") || 0);
         // multipart 边界与字段额外开销按 64 KB 预留，避免超大请求进入解析。
-        if (contentLength > MAX_ORB_BYTES + 64 * 1024) {
+        if (contentLength > MAX_ORB_BYTES + MAX_COVER_BYTES + 64 * 1024) {
           await discardBody(request);
           return Response.json(
             { error: "too_large", message: "文件不能超过 10 MB" },
@@ -79,9 +84,34 @@ export const Route = createFileRoute("/api/orbs")({
           );
         }
 
+        let cover = null;
+        const coverFile = form.get("cover");
+        if (coverFile && typeof coverFile.arrayBuffer === "function") {
+          if (coverFile.size > MAX_COVER_BYTES) {
+            return Response.json(
+              { error: "invalid_cover", message: "封面不能超过 5 MB" },
+              { status: 400 },
+            );
+          }
+          const head = new Uint8Array(await coverFile.slice(0, 16).arrayBuffer());
+          if (!sniffImageType(head)) {
+            return Response.json(
+              { error: "invalid_cover", message: "封面不是有效图片" },
+              { status: 400 },
+            );
+          }
+          cover = { buffer: await coverFile.arrayBuffer() };
+        }
+
         try {
           const buffer = await file.arrayBuffer();
-          const item = await createOrb({ buffer, name });
+          const item = await createOrb({
+            buffer,
+            name,
+            title: String(form.get("title") || ""),
+            description: String(form.get("description") || ""),
+            cover,
+          });
           return Response.json({ item }, { status: 201 });
         } catch (error) {
           return errorResponse(error);

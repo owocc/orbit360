@@ -1,15 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getOrbObject } from "../../../server/orbs.server.js";
+import { getOrbCover, getOrbObject } from "../../../server/orbs.server.js";
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const Route = createFileRoute("/api/orbs/$id")({
   server: {
     handlers: {
-      GET: async ({ params }) => {
+      GET: async ({ params, request }) => {
         if (!ID_PATTERN.test(params.id)) return new Response("Not found", { status: 404 });
 
         try {
+          if (new URL(request.url).searchParams.has("cover")) {
+            const cover = await getOrbCover(params.id);
+            if (!cover) return new Response("Not found", { status: 404 });
+            const size = cover.kind === "r2" ? cover.object.size : cover.bytes.byteLength;
+            return new Response(cover.kind === "r2" ? cover.object.body : cover.bytes, {
+              headers: {
+                "content-type": cover.type || "image/webp",
+                "content-length": String(size),
+                "cache-control": "public, max-age=31536000, immutable",
+              },
+            });
+          }
+
           const result = await getOrbObject(params.id);
           if (!result) return new Response("Not found", { status: 404 });
 

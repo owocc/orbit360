@@ -1,4 +1,5 @@
 export const MAX_ORB_BYTES = 10 * 1024 * 1024;
+export const MAX_COVER_BYTES = 5 * 1024 * 1024;
 export const ORB_HEADER_SIZE = 32;
 export const ORB_ENTRY_SIZE = 16;
 const ORB_MAGIC = "ORB3";
@@ -107,4 +108,63 @@ export async function validateBrowserOrbFile(file) {
 
   const head = await file.slice(0, ORB_HEADER_SIZE).arrayBuffer();
   return parseOrbHeader(head, file.size);
+}
+
+const COVER_EXTENSIONS = {
+  "image/webp": "webp",
+  "image/avif": "avif",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+};
+
+export function coverExtension(type) {
+  return COVER_EXTENSIONS[type] || null;
+}
+
+/** 通过魔数识别首帧图片格式，避免依赖上传文件名。 */
+export function sniffImageType(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const ascii = (start, end) => String.fromCharCode(...bytes.subarray(start, end));
+
+  if (bytes.length >= 12 && ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") {
+    return "image/webp";
+  }
+  if (bytes.length >= 12 && ascii(4, 8) === "ftyp" && /^avi[fs]$/.test(ascii(8, 12))) {
+    return "image/avif";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    return "image/png";
+  }
+  return null;
+}
+
+/** 从 ORB3 的索引中截取第一帧作为封面。 */
+export function extractOrbCover(buffer, header, meta) {
+  try {
+    const dv = new DataView(buffer);
+    const indexStart = ORB_HEADER_SIZE + header.metaLen;
+    const videoStart = Number(meta?.videos?.[0]?.frames?.indexStart) || 0;
+    const base = indexStart + videoStart * ORB_ENTRY_SIZE;
+    if (base + ORB_ENTRY_SIZE > buffer.byteLength) return null;
+
+    const length = dv.getUint32(base + 4, true);
+    const offset = Number(dv.getBigUint64(base + 8, true));
+    if (!length || offset + length > buffer.byteLength) return null;
+
+    const bytes = new Uint8Array(buffer, offset, length);
+    const type = sniffImageType(bytes);
+    if (!type) return null;
+    return { bytes, type };
+  } catch {
+    return null;
+  }
 }

@@ -1,0 +1,4 @@
+ALTER TABLE orbs ADD COLUMN description TEXT;
+ALTER TABLE orbs ADD COLUMN cover_key TEXT;
+ALTER TABLE orbs ADD COLUMN cover_type TEXT;
+ALTER TABLE orbs ADD COLUMN meta_json TEXT;

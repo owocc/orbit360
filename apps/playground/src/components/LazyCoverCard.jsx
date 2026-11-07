@@ -19,6 +19,7 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
   ref,
 ) {
   const [isActivated, setIsActivated] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const cardRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -66,11 +67,12 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
         />
       ) : (
         <div className="relative w-full h-full overflow-hidden">
-          {actualCover ? (
+          {actualCover && !coverFailed ? (
             <img
               src={actualCover}
               alt={displayTitle}
               loading="lazy"
+              onError={() => setCoverFailed(true)}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
