@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as PlaygroundRouteImport } from './routes/playground'
+import { Route as ApiOrbsRouteImport } from './routes/api/orbs'
+import { Route as ApiOrbsIdRouteImport } from './routes/api/orbs/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +36,32 @@ const PlaygroundRoute = PlaygroundRouteImport.update({
   path: '/playground',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrbsRoute = ApiOrbsRouteImport.update({
+  id: '/api/orbs',
+  path: '/api/orbs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOrbsIdRoute = ApiOrbsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiOrbsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
   '/gallery': typeof GalleryRoute
   '/playground': typeof PlaygroundRoute
+  '/api/orbs': typeof ApiOrbsRouteWithChildren
+  '/api/orbs/$id': typeof ApiOrbsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/create': typeof CreateRoute
   '/gallery': typeof GalleryRoute
   '/playground': typeof PlaygroundRoute
+  '/api/orbs': typeof ApiOrbsRouteWithChildren
+  '/api/orbs/$id': typeof ApiOrbsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +69,24 @@ export interface FileRoutesById {
   '/create': typeof CreateRoute
   '/gallery': typeof GalleryRoute
   '/playground': typeof PlaygroundRoute
+  '/api/orbs': typeof ApiOrbsRouteWithChildren
+  '/api/orbs/$id': typeof ApiOrbsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/create' | '/gallery' | '/playground'
+  fullPaths:
+    '/' | '/create' | '/gallery' | '/playground' | '/api/orbs' | '/api/orbs/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/create' | '/gallery' | '/playground'
-  id: '__root__' | '/' | '/create' | '/gallery' | '/playground'
+  to:
+    '/' | '/create' | '/gallery' | '/playground' | '/api/orbs' | '/api/orbs/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/create'
+    | '/gallery'
+    | '/playground'
+    | '/api/orbs'
+    | '/api/orbs/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +94,7 @@ export interface RootRouteChildren {
   CreateRoute: typeof CreateRoute
   GalleryRoute: typeof GalleryRoute
   PlaygroundRoute: typeof PlaygroundRoute
+  ApiOrbsRoute: typeof ApiOrbsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -99,14 +127,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/orbs': {
+      id: '/api/orbs'
+      path: '/api/orbs'
+      fullPath: '/api/orbs'
+      preLoaderRoute: typeof ApiOrbsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/orbs/$id': {
+      id: '/api/orbs/$id'
+      path: '/$id'
+      fullPath: '/api/orbs/$id'
+      preLoaderRoute: typeof ApiOrbsIdRouteImport
+      parentRoute: typeof ApiOrbsRoute
+    }
   }
 }
+
+interface ApiOrbsRouteChildren {
+  ApiOrbsIdRoute: typeof ApiOrbsIdRoute
+}
+
+const ApiOrbsRouteChildren: ApiOrbsRouteChildren = {
+  ApiOrbsIdRoute: ApiOrbsIdRoute,
+}
+
+const ApiOrbsRouteWithChildren =
+  ApiOrbsRoute._addFileChildren(ApiOrbsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreateRoute: CreateRoute,
   GalleryRoute: GalleryRoute,
   PlaygroundRoute: PlaygroundRoute,
+  ApiOrbsRoute: ApiOrbsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

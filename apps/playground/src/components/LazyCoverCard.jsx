@@ -7,6 +7,9 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
     src,
     materialId,
     coverSrc,
+    title,
+    subtitle,
+    badge,
     aspectRatio = "3/4",
     speed = 12,
     className = "",
@@ -20,7 +23,8 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
   const containerRef = useRef(null);
 
   const material = resolveMaterial(materialId || src);
-  const actualCover = coverSrc || material.cover;
+  const actualCover = coverSrc === undefined ? material.cover : coverSrc;
+  const displayTitle = title || material.title;
 
   useImperativeHandle(ref, () => ({
     getContainer: () => (isActivated ? cardRef.current?.getContainer() : containerRef.current),
@@ -53,7 +57,8 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
       {isActivated ? (
         <Pure3DCard
           ref={cardRef}
-          materialId={material.id}
+          materialId={src ? undefined : material.id}
+          src={src}
           aspectRatio={aspectRatio}
           speed={speed}
           className="w-full h-full rounded-3xl"
@@ -61,13 +66,28 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
         />
       ) : (
         <div className="relative w-full h-full overflow-hidden">
-          {/* 轻量静态 Cover 图片 */}
-          <img
-            src={actualCover}
-            alt={material.title}
-            loading="lazy"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+          {actualCover ? (
+            <img
+              src={actualCover}
+              alt={displayTitle}
+              loading="lazy"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="w-full h-full bg-[radial-gradient(circle_at_30%_20%,#3b82f6_0%,#1e293b_45%,#0f172a_100%)] flex flex-col justify-between p-5 text-white">
+              {badge ? (
+                <span className="self-start rounded-full bg-white/15 px-2 py-0.5 font-mono text-[10px] tracking-wider backdrop-blur-sm">
+                  {badge}
+                </span>
+              ) : null}
+              <div className="space-y-1">
+                <div className="text-lg font-semibold leading-snug">{displayTitle}</div>
+                {subtitle ? (
+                  <div className="font-mono text-[11px] text-white/60">{subtitle}</div>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           {/* 交互提示微型徽章 */}
           <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors flex items-center justify-center">

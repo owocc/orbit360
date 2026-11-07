@@ -79,5 +79,16 @@
   "meta_description": "Orbit360 是一款专注于将 360° 环绕拍摄视频转化为超轻量伪 3D 可交互实体的 Web 渲染引擎。单文件 .orb 二进制标准、纯 Canvas 单帧硬切、手机陀螺仪体感支持与单页多实例响应式并发渲染。",
   "meta_keywords": "orbit360, 360度旋转, 环绕视频, 伪3D模型, Canvas切帧, 陀螺仪交互, WebSDK, TanStack, BaseUI",
   "meta_og_title": "Orbit360 - 极轻量 360° 环绕视频重塑引擎",
-  "meta_og_description": "零 WebGL 显存负担，单个 .orb 二进制容器，手机陀螺仪与多实例响应式并发渲染。"
+  "meta_og_description": "零 WebGL 显存负担，单个 .orb 二进制容器，手机陀螺仪与多实例响应式并发渲染。",
+  "gallery_upload_btn": "上传 .ORB",
+  "gallery_uploading": "正在上传…",
+  "gallery_upload_hint": "仅支持 .orb，最大 10 MB",
+  "gallery_uploaded_badge": "UPLOADED",
+  "gallery_upload_success": "上传成功",
+  "gallery_upload_failed": "上传失败",
+  "gallery_error_empty": "文件内容为空",
+  "gallery_error_too_large": "文件不能超过 10 MB",
+  "gallery_error_bad_name": "仅支持 .orb 文件",
+  "gallery_error_invalid": "不是有效的 ORB3 文件",
+  "gallery_frames": "{count} 帧"
 }

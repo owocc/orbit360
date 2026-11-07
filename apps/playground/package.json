@@ -7,7 +7,9 @@
     "dev": "vp dev",
     "build": "vp build",
     "preview": "vp preview",
-    "i18n:compile": "paraglide-js compile --project ./project.inlang"
+    "i18n:compile": "paraglide-js compile --project ./project.inlang",
+    "db:migrate": "wrangler d1 migrations apply orbit360 --remote",
+    "db:migrate:local": "wrangler d1 migrations apply orbit360 --local"
   },
   "dependencies": {
     "@orbit360/javascript": "workspace:*",

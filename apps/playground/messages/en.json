@@ -79,5 +79,16 @@
   "meta_description": "Orbit360 turns 360° orbit footage into ultra-lightweight pseudo-3D interactive specimens. A single-file .orb binary format, pure Canvas frame switching, gyroscope input, and responsive multi-instance rendering.",
   "meta_keywords": "orbit360, 360 rotation, orbit video, pseudo 3D, canvas frame switching, gyroscope, Web SDK, TanStack, BaseUI",
   "meta_og_title": "Orbit360 - Ultra-lightweight 360° Orbit Rendering Engine",
-  "meta_og_description": "Zero WebGL memory overhead, a single .orb binary container, gyroscope input, and responsive multi-instance rendering."
+  "meta_og_description": "Zero WebGL memory overhead, a single .orb binary container, gyroscope input, and responsive multi-instance rendering.",
+  "gallery_upload_btn": "Upload .ORB",
+  "gallery_uploading": "Uploading…",
+  "gallery_upload_hint": ".orb only, max 10 MB",
+  "gallery_uploaded_badge": "UPLOADED",
+  "gallery_upload_success": "Uploaded successfully",
+  "gallery_upload_failed": "Upload failed",
+  "gallery_error_empty": "File is empty",
+  "gallery_error_too_large": "File must be 10 MB or smaller",
+  "gallery_error_bad_name": "Only .orb files are allowed",
+  "gallery_error_invalid": "Not a valid ORB3 file",
+  "gallery_frames": "{count} frames"
 }
