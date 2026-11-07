@@ -2,6 +2,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import 'controller.dart';
+import 'layout.dart';
 
 class OrbitRenderWidget extends StatefulWidget {
   final OrbitRenderController controller;
@@ -88,50 +89,48 @@ class _OrbitPainter extends CustomPainter {
     final ch = controller.canvasHeight.toDouble();
     if (cw <= 0 || ch <= 0 || size.width <= 0 || size.height <= 0) return;
 
-    double dstW;
-    double dstH;
-    double dstX;
-    double dstY;
-
-    final fit = controller.fit;
-    final scale = fit == 'cover'
-        ? (cw / ch > size.width / size.height
-            ? size.height / ch
-            : size.width / cw)
-        : (cw / ch > size.width / size.height
-            ? size.width / cw
-            : size.height / ch);
-
-    dstW = cw * scale;
-    dstH = ch * scale;
-    dstX = (size.width - dstW) / 2.0;
-    dstY = (size.height - dstH) / 2.0;
+    final plan = computeLayout({
+      'canvas': {'width': cw, 'height': ch},
+      'viewport': {'width': size.width, 'height': size.height},
+      'fit': controller.fit,
+      'displayScale': 1,
+      'portraitScale': 1.25,
+      'layers': [
+        for (var i = 0; i < controller.layers.length; i++)
+          {
+            'layerIndex': i,
+            'rect': {
+              'x': controller.layers[i].rect.x,
+              'y': controller.layers[i].rect.y,
+              'width': controller.layers[i].rect.width,
+              'height': controller.layers[i].rect.height,
+            },
+          },
+      ],
+    });
+    final planLayers = plan['layers'] as List;
 
     final paint = Paint()..filterQuality = FilterQuality.medium;
 
     for (int i = 0; i < controller.layers.length; i++) {
-      final layer = controller.layers[i];
       final img = controller.currentFrameForLayer(i);
       if (img == null) continue;
 
-      final r = layer.rect;
-      final sx = dstW / cw;
-      final sy = dstH / ch;
-
-      final srcRect = Rect.fromLTWH(
-        0,
-        0,
-        img.width.toDouble(),
-        img.height.toDouble(),
-      );
+      final rect = (planLayers[i] as Map<String, dynamic>)['rect']
+          as Map<String, dynamic>;
       final dstRect = Rect.fromLTWH(
-        dstX + r.x * sx,
-        dstY + r.y * sy,
-        r.width * sx,
-        r.height * sy,
+        (rect['x'] as num).toDouble(),
+        (rect['y'] as num).toDouble(),
+        (rect['width'] as num).toDouble(),
+        (rect['height'] as num).toDouble(),
       );
 
-      canvas.drawImageRect(img, srcRect, dstRect, paint);
+      canvas.drawImageRect(
+        img,
+        Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+        dstRect,
+        paint,
+      );
     }
   }
 

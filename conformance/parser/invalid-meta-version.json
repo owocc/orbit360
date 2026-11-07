@@ -1,0 +1,9 @@
+{
+  "name": "invalid-meta-version",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/meta-version.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_META_VERSION"
+  }
+}

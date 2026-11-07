@@ -36,7 +36,7 @@ export default function PlaygroundPage() {
   const orbit = useOrbitClient({
     config: {
       video: { fit: "contain" },
-      auto: { enabled: false, degPerSec: 14 },
+      auto: { enabled: false, degPerSec: 36 },
       drag: { degPerPx: 0.42, inertia: true },
       mouseFollow: { enabled: false },
       gyro: { gain: 1, smooth: true },
@@ -251,7 +251,7 @@ export default function PlaygroundPage() {
   // 环形罗盘计算
   const ring = ringGeometry(orbit.angle);
   const autoMode = state?.auto?.state ?? "off";
-  const autoSpeedVal = Number(config?.auto?.degPerSec ?? 14);
+  const autoSpeedVal = Number(config?.auto?.degPerSec ?? 36);
   const gyroGainVal = Number(config?.gyro?.gain ?? 1);
   const isGyroOn = !!state?.gyro?.enabled;
 

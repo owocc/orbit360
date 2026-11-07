@@ -85,7 +85,6 @@ export function HeroEditorial() {
                 aspectRatio="4/5"
                 accentColor="#ffb703"
                 bgExpand="rings"
-                speed={12}
                 className="w-full"
               />
               <div className="mt-4 p-3 bg-white border-2 border-neutral-900 rounded-lg shadow-[3px_3px_0px_#000000] text-[11px] font-mono text-neutral-600 flex items-center justify-between">

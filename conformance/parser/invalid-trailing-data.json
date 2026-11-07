@@ -1,0 +1,9 @@
+{
+  "name": "invalid-trailing-data",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/trailing-data.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_INDEX"
+  }
+}

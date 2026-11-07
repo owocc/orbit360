@@ -11,25 +11,21 @@ export function MinimalGallery() {
       id: "g1",
       src: "/assets/maid/scene.orb",
       aspect: "1/1",
-      speed: 12,
     },
     {
       id: "g2",
       src: "/assets/orbit/scene.orb",
       aspect: "4/5",
-      speed: -10,
     },
     {
       id: "g3",
       src: "/assets/maid/scene.orb",
       aspect: "3/4",
-      speed: 16,
     },
     {
       id: "g4",
       src: "/assets/orbit/scene.orb",
       aspect: "16/10",
-      speed: 8,
     },
   ];
 
@@ -56,7 +52,6 @@ export function MinimalGallery() {
                 ref={(el) => (cardRefs.current[item.id] = el)}
                 src={item.src}
                 aspectRatio={item.aspect}
-                speed={item.speed}
                 className="w-full h-full"
                 onClick={() => {
                   const cardHandle = cardRefs.current[item.id];

@@ -1,0 +1,9 @@
+{
+  "name": "invalid-invalid-index-entry-size",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/invalid-index-entry-size.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_INDEX_ENTRY_SIZE"
+  }
+}

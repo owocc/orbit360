@@ -1,0 +1,9 @@
+{
+  "name": "invalid-video-orbit",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/video-orbit.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_VIDEO_ORBIT"
+  }
+}

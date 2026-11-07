@@ -1,0 +1,17 @@
+{
+  "name": "valid-axis-y",
+  "kind": "parser",
+  "file": "fixtures/orb/valid/axis-y.orb",
+  "expect": {
+    "success": true,
+    "frameCount": 5,
+    "videoCount": 1,
+    "videoFrameCounts": [5],
+    "canvas": {
+      "width": 64,
+      "height": 32
+    },
+    "initialAngle": 0,
+    "frames": [["AQQHCg==", "DA8SFQ==", "FxodIA==", "IiUoKw==", "LTAzNg=="]]
+  }
+}

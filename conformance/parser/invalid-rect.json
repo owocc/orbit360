@@ -1,0 +1,9 @@
+{
+  "name": "invalid-rect",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/rect.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_RECT"
+  }
+}

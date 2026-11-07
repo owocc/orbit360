@@ -1,0 +1,9 @@
+{
+  "name": "invalid-truncated-header",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/truncated-header.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_TRUNCATED_HEADER"
+  }
+}

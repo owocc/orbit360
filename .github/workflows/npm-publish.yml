@@ -8,6 +8,10 @@ on:
   pull_request:
     paths:
       - "sdk/**"
+      - "spec/**"
+      - "fixtures/**"
+      - "conformance/**"
+      - "scripts/conformance/**"
       - "apps/playground/**"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -42,6 +46,8 @@ jobs:
         run: pnpm dlx --package=vite-plus@1.0.0 vp install --frozen-lockfile
       - name: 检查 / 格式化 / 类型
         run: pnpm exec vp run check
+      - name: 全平台 TypeScript conformance
+        run: pnpm exec vp test
       - name: 构建 SDK 与页面
         run: pnpm exec vp run build
       - name: 校验 web client
@@ -67,6 +73,39 @@ jobs:
       - name: 检查微信小程序发布内容
         working-directory: sdk/wechat-miniprogram
         run: pnpm exec vp pm pack -- --dry-run
+      - name: 校验抖音小程序 SDK
+        run: >-
+          node -e "const m=require('./sdk/douyin-miniprogram/dist/orbit360-douyin.js');
+          if(typeof m.createClient!=='function'||typeof m.Orbit360Client!=='function'||typeof m.parseOrb!=='function')process.exit(1);
+          console.log('douyin miniprogram',m.VERSION);"
+
+  conformance-go:
+    name: Conformance · Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: sdk/go/go.mod
+      - name: Go parser / engine / layout
+        working-directory: sdk/go
+        run: go test ./...
+
+  conformance-flutter:
+    name: Conformance · Flutter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Flutter parser / engine / layout
+        working-directory: sdk/flutter
+        run: |
+          flutter pub get
+          flutter test
 
   publish-javascript:
     name: 发布 @orbit360/javascript

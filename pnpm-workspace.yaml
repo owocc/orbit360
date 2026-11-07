@@ -1,5 +1,6 @@
 packages:
   - apps/playground
+  - sdk/core
   - sdk/js
   - sdk/expo
   - sdk/wechat-miniprogram

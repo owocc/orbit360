@@ -1,0 +1,9 @@
+{
+  "name": "invalid-zero-frame-count",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/zero-frame-count.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_FRAME_COUNT"
+  }
+}

@@ -46,7 +46,7 @@
   "scripts": {
     "dev": "vp pack --watch",
     "build": "vp pack",
-    "test": "vp check",
+    "test": "vp test",
     "prepack": "node -e \"require('fs').copyFileSync('../../LICENSE', 'LICENSE')\"",
     "prepublishOnly": "vp pack && vp check"
   },

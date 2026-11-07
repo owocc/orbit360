@@ -204,7 +204,6 @@ export function CardSwap({
                     materialId={c.materialId}
                     aspectRatio="3/4"
                     autoSpin={true}
-                    speed={15}
                     className="w-full h-full rounded-[17px]"
                   />
                 </div>

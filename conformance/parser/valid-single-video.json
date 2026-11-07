@@ -1,0 +1,17 @@
+{
+  "name": "valid-single-video",
+  "kind": "parser",
+  "file": "fixtures/orb/valid/single-video.orb",
+  "expect": {
+    "success": true,
+    "frameCount": 4,
+    "videoCount": 1,
+    "videoFrameCounts": [4],
+    "canvas": {
+      "width": 64,
+      "height": 32
+    },
+    "initialAngle": 0,
+    "frames": [["AQQHCg0=", "DA8SFRg=", "FxodICM=", "IiUoKy4="]]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "invalid-angle-range",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/angle-range.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_ANGLE_RANGE"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "invalid-truncated-prefix",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/truncated-prefix.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_TRUNCATED_PREFIX"
+  }
+}

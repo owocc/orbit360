@@ -1,0 +1,28 @@
+{
+  "name": "valid-limited-angle",
+  "kind": "parser",
+  "file": "fixtures/orb/valid/limited-angle.orb",
+  "expect": {
+    "success": true,
+    "frameCount": 8,
+    "videoCount": 1,
+    "videoFrameCounts": [8],
+    "canvas": {
+      "width": 64,
+      "height": 32
+    },
+    "initialAngle": -45,
+    "frames": [
+      [
+        "AQQHCg==",
+        "DA8SFQ==",
+        "FxodIA==",
+        "IiUoKw==",
+        "LTAzNg==",
+        "ODs+QQ==",
+        "Q0ZJTA==",
+        "TlFUVw=="
+      ]
+    ]
+  }
+}

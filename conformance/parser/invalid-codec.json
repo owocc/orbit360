@@ -1,0 +1,9 @@
+{
+  "name": "invalid-codec",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/codec.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_CODEC"
+  }
+}
