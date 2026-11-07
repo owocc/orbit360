@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import { fromBlob } from "@orbit360/javascript";
 import { LazyCoverCard } from "./LazyCoverCard";
@@ -29,6 +29,26 @@ function formatDate(value) {
   if (!value) return "";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+}
+
+/** PC 三列、平板两列、手机一列；只按下标分组，不测量卡片高度。 */
+function useColumnCount() {
+  const [count, setCount] = useState(3);
+
+  useEffect(() => {
+    const sm = window.matchMedia("(min-width: 640px)");
+    const lg = window.matchMedia("(min-width: 1024px)");
+    const update = () => setCount(lg.matches ? 3 : sm.matches ? 2 : 1);
+    update();
+    sm.addEventListener("change", update);
+    lg.addEventListener("change", update);
+    return () => {
+      sm.removeEventListener("change", update);
+      lg.removeEventListener("change", update);
+    };
+  }, []);
+
+  return count;
 }
 
 function errorMessage(code) {
@@ -113,6 +133,12 @@ export default function GalleryPage() {
   const { focusCard } = useFlipFocus();
   const router = useRouter();
   const uploads = useLoaderData({ from: "/gallery" }) || [];
+  const columnCount = useColumnCount();
+  const columns = useMemo(() => {
+    const next = Array.from({ length: columnCount }, () => []);
+    uploads.forEach((item, index) => next[index % columnCount].push(item));
+    return next;
+  }, [uploads, columnCount]);
   const [uploadState, setUploadState] = useState({ status: "idle", message: "" });
   const [dragActive, setDragActive] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -305,26 +331,30 @@ export default function GalleryPage() {
           </button>
         </div>
       ) : (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6">
-          {uploads.map((item) => (
-            <div key={item.id} className="break-inside-avoid w-full mb-6">
-              <LazyCoverCard
-                ref={(el) => (cardRefs.current[item.id] = el)}
-                src={item.url}
-                coverSrc={item.cover || null}
-                title={item.title || item.name}
-                subtitle={[
-                  formatDate(item.createdAt),
-                  m.gallery_frames({ count: item.frameCount }),
-                  formatSize(item.size),
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-                badge={m.gallery_uploaded_badge()}
-                aspectRatio={uploadAspect(item)}
-                speed={12}
-                onFocusRequest={(cardHandle) => openFocus(item.id, cardHandle)}
-              />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+          {columns.map((column, columnIndex) => (
+            <div key={columnIndex} className="grid content-start gap-6">
+              {column.map((item) => (
+                <div key={item.id} className="w-full">
+                  <LazyCoverCard
+                    ref={(el) => (cardRefs.current[item.id] = el)}
+                    src={item.url}
+                    coverSrc={item.cover || null}
+                    title={item.title || item.name}
+                    subtitle={[
+                      formatDate(item.createdAt),
+                      m.gallery_frames({ count: item.frameCount }),
+                      formatSize(item.size),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    badge={m.gallery_uploaded_badge()}
+                    aspectRatio={uploadAspect(item)}
+                    speed={12}
+                    onFocusRequest={(cardHandle) => openFocus(item.id, cardHandle)}
+                  />
+                </div>
+              ))}
             </div>
           ))}
         </div>
