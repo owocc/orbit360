@@ -3,6 +3,19 @@ import gsap from "gsap";
 
 const FlipFocusContext = createContext(null);
 
+function readAspectRatio(element, item) {
+  const fromItem = Number(item?.aspectRatio);
+  if (fromItem > 0) return fromItem;
+  const raw = element?.style?.aspectRatio;
+  if (raw) {
+    const [width, height] = raw.split("/").map(Number);
+    if (width > 0 && height > 0) return width / height;
+    const numeric = Number.parseFloat(raw);
+    if (numeric > 0) return numeric;
+  }
+  return 3 / 4;
+}
+
 export function useFlipFocus() {
   const ctx = useContext(FlipFocusContext);
   if (!ctx) {
@@ -67,9 +80,13 @@ export function FlipFocusProvider({ children }) {
     // 6. 计算屏幕正中央大视口目标尺寸与位置
     const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
-    const targetW = Math.min(viewportW * 0.88, 440);
-    const targetH = Math.min(targetW * (4 / 3), viewportH * 0.82);
-    const finalW = targetH * (3 / 4);
+    const ratio = readAspectRatio(cardElement, item);
+
+    // 按卡片自身比例自动匹配弹窗尺寸：宽高都受视口约束，再居中。
+    const maxW = Math.min(viewportW * 0.9, 1100);
+    const maxH = viewportH * 0.82;
+    const finalW = Math.min(maxW, maxH * ratio);
+    const targetH = finalW / ratio;
     const targetTop = (viewportH - targetH) / 2;
     const targetLeft = (viewportW - finalW) / 2;
 

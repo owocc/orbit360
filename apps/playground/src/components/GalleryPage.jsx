@@ -155,10 +155,13 @@ export default function GalleryPage() {
     [draft],
   );
 
-  const openFocus = (id, cardHandle) => {
+  const openFocus = (id, cardHandle, aspectRatio) => {
     const containerEl = cardHandle?.getContainer();
     if (!containerEl) return;
-    focusCard({ id, clientRef: { current: cardHandle.getClient() } }, containerEl);
+    focusCard(
+      { id, aspectRatio: Number(aspectRatio), clientRef: { current: cardHandle.getClient() } },
+      containerEl,
+    );
   };
 
   const prepareFile = async (file) => {
@@ -351,7 +354,13 @@ export default function GalleryPage() {
                     badge={m.gallery_uploaded_badge()}
                     aspectRatio={uploadAspect(item)}
                     speed={12}
-                    onFocusRequest={(cardHandle) => openFocus(item.id, cardHandle)}
+                    onFocusRequest={(cardHandle) =>
+                      openFocus(
+                        item.id,
+                        cardHandle,
+                        Number(item.aspectRatio) || orbAspectRatio(item.width, item.height),
+                      )
+                    }
                   />
                 </div>
               ))}

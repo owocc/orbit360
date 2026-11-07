@@ -45,6 +45,15 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
     }
   };
 
+  const cardCaption = (
+    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/75 via-black/35 to-transparent text-white pointer-events-none">
+      <div className="text-sm font-semibold leading-snug">{displayTitle}</div>
+      {subtitle ? (
+        <div className="mt-0.5 font-mono text-[10px] text-white/70">{subtitle}</div>
+      ) : null}
+    </div>
+  );
+
   return (
     <div
       ref={containerRef}
@@ -56,16 +65,19 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
       className={`relative w-full rounded-3xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 select-none shadow-[0_20px_50px_rgba(0,0,0,0.14)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.22)] transition-shadow duration-300 cursor-pointer group ${className}`}
     >
       {isActivated ? (
-        <Pure3DCard
-          ref={cardRef}
-          materialId={src ? undefined : material.id}
-          src={src}
-          poster={actualCover || undefined}
-          aspectRatio={aspectRatio}
-          speed={speed}
-          className="w-full h-full rounded-3xl"
-          onClick={() => onFocusRequest?.(cardRef.current)}
-        />
+        <div className="relative w-full h-full">
+          <Pure3DCard
+            ref={cardRef}
+            materialId={src ? undefined : material.id}
+            src={src}
+            poster={actualCover || undefined}
+            aspectRatio={aspectRatio}
+            speed={speed}
+            className="w-full h-full rounded-3xl"
+            onClick={() => onFocusRequest?.(cardRef.current)}
+          />
+          {cardCaption}
+        </div>
       ) : (
         <div className="relative w-full h-full overflow-hidden">
           {actualCover && !coverFailed ? (
@@ -77,12 +89,7 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
                 onError={() => setCoverFailed(true)}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
-              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/75 via-black/35 to-transparent text-white pointer-events-none">
-                <div className="text-sm font-semibold leading-snug">{displayTitle}</div>
-                {subtitle ? (
-                  <div className="mt-0.5 font-mono text-[10px] text-white/70">{subtitle}</div>
-                ) : null}
-              </div>
+              {cardCaption}
             </>
           ) : (
             <div className="w-full h-full bg-[radial-gradient(circle_at_30%_20%,#3b82f6_0%,#1e293b_45%,#0f172a_100%)] flex flex-col justify-between p-5 text-white">
