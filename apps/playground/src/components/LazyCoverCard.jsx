@@ -68,13 +68,21 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
       ) : (
         <div className="relative w-full h-full overflow-hidden">
           {actualCover && !coverFailed ? (
-            <img
-              src={actualCover}
-              alt={displayTitle}
-              loading="lazy"
-              onError={() => setCoverFailed(true)}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            />
+            <>
+              <img
+                src={actualCover}
+                alt={displayTitle}
+                loading="lazy"
+                onError={() => setCoverFailed(true)}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/75 via-black/35 to-transparent text-white pointer-events-none">
+                <div className="text-sm font-semibold leading-snug">{displayTitle}</div>
+                {subtitle ? (
+                  <div className="mt-0.5 font-mono text-[10px] text-white/70">{subtitle}</div>
+                ) : null}
+              </div>
+            </>
           ) : (
             <div className="w-full h-full bg-[radial-gradient(circle_at_30%_20%,#3b82f6_0%,#1e293b_45%,#0f172a_100%)] flex flex-col justify-between p-5 text-white">
               {badge ? (

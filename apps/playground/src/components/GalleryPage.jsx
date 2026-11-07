@@ -22,10 +22,16 @@ function uploadAspect(item) {
   const width = Number(item.width);
   const height = Number(item.height);
   if (width > 0 && height > 0) {
-    const ratio = Math.min(Math.max(width / height, 0.6), 1.8);
+    const ratio = Math.min(Math.max(width / height, 0.75), 1.6);
     return `${ratio}`;
   }
   return "4 / 3";
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
 }
 
 function errorMessage(code) {
@@ -297,15 +303,21 @@ export default function GalleryPage() {
           </button>
         </div>
       ) : (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6">
           {uploads.map((item) => (
-            <div key={item.id} className="break-inside-avoid w-full">
+            <div key={item.id} className="break-inside-avoid w-full mb-6">
               <LazyCoverCard
                 ref={(el) => (cardRefs.current[item.id] = el)}
                 src={item.url}
                 coverSrc={item.cover || null}
                 title={item.title || item.name}
-                subtitle={`${m.gallery_frames({ count: item.frameCount })} · ${formatSize(item.size)}`}
+                subtitle={[
+                  formatDate(item.createdAt),
+                  m.gallery_frames({ count: item.frameCount }),
+                  formatSize(item.size),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
                 badge={m.gallery_uploaded_badge()}
                 aspectRatio={uploadAspect(item)}
                 speed={12}

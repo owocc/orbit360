@@ -4,6 +4,10 @@
  */
 
 import { assetPath } from "./asset.js";
+import { getCachedOrb, putCachedOrb } from "./orb-cache.js";
+
+const UPLOADED_ORB_PATTERN = /^\/api\/orbs\/[0-9a-f-]{36}$/i;
+const ORB_FILE_PATTERN = /\.orb(?:$|[?#])/i;
 
 // 1. 结构化素材 ID 编排
 export const MATERIAL_REGISTRY = {
@@ -72,10 +76,21 @@ export async function getMaterialBlob(idOrSrc) {
 
   const promise = (async () => {
     try {
+      const useIdbCache =
+        UPLOADED_ORB_PATTERN.test(material.src) || ORB_FILE_PATTERN.test(material.src);
+      if (useIdbCache) {
+        const cached = await getCachedOrb(material.src);
+        if (cached) {
+          blobCache.set(cacheKey, cached);
+          return cached;
+        }
+      }
+
       const res = await fetch(material.src, { cache: "force-cache" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
       blobCache.set(cacheKey, blob);
+      if (useIdbCache) void putCachedOrb(material.src, blob);
       return blob;
     } finally {
       inflightRequests.delete(cacheKey);

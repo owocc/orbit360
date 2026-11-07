@@ -243,8 +243,13 @@ export async function getOrbCover(id) {
     httpMetadata: { contentType: coverData.type },
   });
   await db
-    .prepare("UPDATE orbs SET cover_key = ?, cover_type = ? WHERE id = ?")
-    .bind(coverKey, coverData.type, id)
+    .prepare(
+      `UPDATE orbs SET cover_key = ?, cover_type = ?,
+         meta_json = COALESCE(meta_json, ?),
+         width = COALESCE(width, ?), height = COALESCE(height, ?)
+       WHERE id = ?`,
+    )
+    .bind(coverKey, coverData.type, JSON.stringify(parsed.meta), parsed.width, parsed.height, id)
     .run();
 
   return { kind: "bytes", bytes: coverData.bytes, type: coverData.type };
