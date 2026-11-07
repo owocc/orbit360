@@ -135,8 +135,27 @@ export function UploadDropzone({
   files = DEFAULT_FILES,
   /* 真实文件上传成功回调 */
   onFileUploaded,
+  /* 允许的扩展名，不含点 */
+  extensions = ["orb", "zip"],
+  /* 单个文件大小上限 */
+  maxBytes = 200 * 1e6,
+  /* 跳过模拟进度，选择/拖入后立即回调（真实上传场景） */
+  instant = false,
+  labels = {},
+  style,
 } = {}) {
   const still = stillness();
+  const extLabel = extensions.map((ext) => `.${ext}`).join("/");
+  const maxLabel = `${Math.round(maxBytes / 1e6)} MB`;
+  const copy = {
+    idle: "Drag a file here",
+    hint: `Click or drop ${extLabel} file`,
+    over: "Drop to upload",
+    uploaded: "Uploaded",
+    badType: `Only ${extLabel} files are allowed`,
+    tooBig: `Too big — up to ${maxLabel}`,
+    ...labels,
+  };
   const [phase, setPhase] = useState({ kind: "idle" });
   const [inBox, setInBox] = useState(null);
   const [held, setHeld] = useState(null);
@@ -173,7 +192,7 @@ export function UploadDropzone({
   /* ── the pretend wire ──────────────────────────────────── */
   const send = (f) => {
     setInBox(f.id);
-    if (still) {
+    if (still || instant) {
       finish(f);
       return;
     }
@@ -364,36 +383,46 @@ export function UploadDropzone({
     z.style.height = `${n.offsetHeight + 28}px`;
   }, [phase.kind]);
 
-  // 原生系统文件拖放支持（只接收 .orb 和 .zip 文件）
+  // 原生系统文件拖放支持
+  const showRefuse = (message) => {
+    setRefuse(message);
+    void shake.start({ x: [0, -7, 6, -4, 2, 0], transition: { duration: 0.42 } });
+    later(() => setRefuse(null), 2000);
+  };
+
+  const fileEntry = (file) => {
+    const lowerName = file.name.toLowerCase();
+    const ext = lowerName.split(".").pop();
+    const tint = ext === "orb" ? "#10b981" : "#2563eb";
+    return {
+      id: `file-${Date.now()}`,
+      name: file.name,
+      ext: ext ? ext.toUpperCase().slice(0, 4) : "FILE",
+      size: file.size,
+      tint,
+      file,
+    };
+  };
+
+  const acceptFile = (file) => {
+    const lowerName = file.name.toLowerCase();
+    const valid = extensions.some((ext) => lowerName.endsWith(`.${ext}`));
+    if (!valid) {
+      showRefuse(copy.badType);
+      return;
+    }
+    if (file.size > maxBytes) {
+      showRefuse(copy.tooBig);
+      return;
+    }
+    send(fileEntry(file));
+  };
+
   const handleNativeDrop = (e) => {
     e.preventDefault();
     setOver(false);
     const droppedFile = e.dataTransfer.files?.[0];
-    if (!droppedFile) return;
-
-    const lowerName = droppedFile.name.toLowerCase();
-    const isValid = lowerName.endsWith(".orb") || lowerName.endsWith(".zip");
-    if (!isValid) {
-      setRefuse("仅支持 .orb 和 .zip 文件");
-      void shake.start({ x: [0, -7, 6, -4, 2, 0], transition: { duration: 0.42 } });
-      later(() => setRefuse(null), 2000);
-      return;
-    }
-
-    const f = {
-      id: `file-${Date.now()}`,
-      name: droppedFile.name,
-      ext: lowerName.endsWith(".orb") ? "ORB" : "ZIP",
-      size: droppedFile.size,
-      tint: lowerName.endsWith(".orb") ? "#10b981" : "#2563eb",
-      file: droppedFile,
-    };
-
-    if (f.size > 200 * 1e6) {
-      refuseIt();
-    } else {
-      send(f);
-    }
+    if (droppedFile) acceptFile(droppedFile);
   };
 
   const r = Math.max(0, corner);
@@ -407,33 +436,18 @@ export function UploadDropzone({
       style={{
         "--upl-r": `${r}px`,
         "--upl-spring": `cubic-bezier(0.3, ${1 + (bounce / 100) * 0.9}, 0.4, 1)`,
+        ...style,
       }}
     >
       <input
         ref={nativeInputRef}
         type="file"
-        accept=".orb,.zip,application/zip,application/octet-stream"
+        accept={extensions.map((ext) => `.${ext}`).join(",")}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (!file) return;
-          const lowerName = file.name.toLowerCase();
-          const isValid = lowerName.endsWith(".orb") || lowerName.endsWith(".zip");
-          if (!isValid) {
-            setRefuse("仅支持 .orb 和 .zip 文件");
-            void shake.start({ x: [0, -7, 6, -4, 2, 0], transition: { duration: 0.42 } });
-            later(() => setRefuse(null), 2000);
-            return;
-          }
-          const fObj = {
-            id: `file-${Date.now()}`,
-            name: file.name,
-            ext: lowerName.endsWith(".orb") ? "ORB" : "ZIP",
-            size: file.size,
-            tint: lowerName.endsWith(".orb") ? "#10b981" : "#2563eb",
-            file,
-          };
-          send(fObj);
+          e.target.value = "";
+          if (file) acceptFile(file);
         }}
       />
 
@@ -464,8 +478,8 @@ export function UploadDropzone({
                 <UpIcon size={18} strokeWidth={2} />
               </span>
               <span className="upl-say">
-                <b>{refuse ?? (over ? "Drop to upload" : "Drag a file here")}</b>
-                <span>Click or drop .orb/.zip file</span>
+                <b>{refuse ?? (over ? copy.over : copy.idle)}</b>
+                <span>{copy.hint}</span>
               </span>
             </>
           ) : (
@@ -476,7 +490,7 @@ export function UploadDropzone({
                 <span className="upl-meta">
                   {fmt(f.size)} ·{" "}
                   {phase.kind === "done" ? (
-                    "Uploaded"
+                    copy.uploaded
                   ) : (
                     <Roll value={phase.kind === "up" ? phase.p * 100 : 0} />
                   )}

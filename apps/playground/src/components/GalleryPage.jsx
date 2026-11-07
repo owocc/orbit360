@@ -1,8 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLoaderData, useRouter } from "@tanstack/react-router";
 import { LazyCoverCard } from "./LazyCoverCard";
+import { UploadDropzone } from "./UploadDropzone.jsx";
 import { useFlipFocus } from "./FlipFocusModal";
-import { validateBrowserOrbFile } from "../lib/orb-file.js";
+import { MAX_ORB_BYTES, validateBrowserOrbFile } from "../lib/orb-file.js";
 import * as m from "../paraglide/messages.js";
 
 function formatSize(bytes) {
@@ -42,19 +43,7 @@ export default function GalleryPage() {
   const router = useRouter();
   const uploads = useLoaderData({ from: "/gallery" }) || [];
   const [uploadState, setUploadState] = useState({ status: "idle", message: "" });
-
-  // 瀑布流画廊数据集：提供不同高宽比，模拟错落有致的瀑布流效果
-  const galleryItems = [
-    { id: "gal-1", materialId: "maid", aspect: "3/4", speed: 12 },
-    { id: "gal-2", materialId: "orbit", aspect: "1/1", speed: -10 },
-    { id: "gal-3", materialId: "maid", aspect: "4/5", speed: 14 },
-    { id: "gal-4", materialId: "orbit", aspect: "9/16", speed: 8 },
-    { id: "gal-5", materialId: "maid", aspect: "1/1", speed: -15 },
-    { id: "gal-6", materialId: "orbit", aspect: "3/4", speed: 16 },
-    { id: "gal-7", materialId: "maid", aspect: "16/10", speed: 10 },
-    { id: "gal-8", materialId: "orbit", aspect: "4/5", speed: -12 },
-    { id: "gal-9", materialId: "maid", aspect: "3/4", speed: 15 },
-  ];
+  const [dragActive, setDragActive] = useState(false);
 
   const openFocus = (id, cardHandle) => {
     const containerEl = cardHandle?.getContainer();
@@ -64,6 +53,7 @@ export default function GalleryPage() {
 
   const handleFile = async (file) => {
     if (!file) return;
+    setDragActive(false);
     setUploadState({ status: "uploading", message: m.gallery_uploading() });
 
     const validation = await validateBrowserOrbFile(file);
@@ -89,38 +79,73 @@ export default function GalleryPage() {
     }
   };
 
+  const openPicker = () => fileInputRef.current?.click();
+
+  // 仅当拖入的是文件时，才显示全屏拖拽覆盖层。
+  useEffect(() => {
+    const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+
+    const onDragEnter = (event) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      setDragActive(true);
+    };
+    const onDragOver = (event) => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+    };
+    const onDragLeave = (event) => {
+      if (!event.relatedTarget) setDragActive(false);
+    };
+    const onDrop = () => setDragActive(false);
+    const onDragEnd = () => setDragActive(false);
+
+    window.addEventListener("dragenter", onDragEnter);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
+    window.addEventListener("dragend", onDragEnd);
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
+      window.removeEventListener("dragend", onDragEnd);
+    };
+  }, []);
+
   const uploading = uploadState.status === "uploading";
 
   return (
     <div className="w-full pt-10 pb-24 px-4 sm:px-8 max-w-7xl mx-auto">
-      {/* 头部标题与上传入口 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".orb"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          void handleFile(file);
+        }}
+      />
+
+      {/* 头部标题与分享入口 */}
       <div className="flex flex-col sm:flex-row sm:items-end gap-6 sm:justify-between mb-14">
         <div className="text-center sm:text-left max-w-xl">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans">
             Specimen Waterfall
           </h1>
           <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-2.5 font-sans leading-relaxed">
-            On-demand loaded gallery in masonry layout. Cards load purely static cover preview
-            first, and instantiate 360° Canvas on demand.
+            {m.gallery_desc()}
           </p>
         </div>
 
         <div className="flex flex-col items-center sm:items-end gap-1.5 shrink-0">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".orb,application/octet-stream"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              void handleFile(file);
-            }}
-          />
           <button
             type="button"
             disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={openPicker}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold shadow-sm hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors disabled:opacity-50 disabled:cursor-wait cursor-pointer"
           >
             <svg
@@ -133,7 +158,7 @@ export default function GalleryPage() {
               <path d="M12 16V4m0 0L7 9m5-5 5 5" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" />
             </svg>
-            {uploading ? m.gallery_uploading() : m.gallery_upload_btn()}
+            {uploading ? m.gallery_uploading() : m.gallery_share_btn()}
           </button>
           <span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-500">
             {m.gallery_upload_hint()}
@@ -148,36 +173,77 @@ export default function GalleryPage() {
         </div>
       </div>
 
-      {/* 瀑布流布局 (CSS 多列 Masonry Columns) */}
-      <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
-        {uploads.map((item) => (
-          <div key={item.id} className="break-inside-avoid w-full">
-            <LazyCoverCard
-              ref={(el) => (cardRefs.current[item.id] = el)}
-              src={item.url}
-              coverSrc={null}
-              title={item.title || item.name}
-              subtitle={`${m.gallery_frames({ count: item.frameCount })} · ${formatSize(item.size)}`}
-              badge={m.gallery_uploaded_badge()}
-              aspectRatio={uploadAspect(item)}
-              speed={12}
-              onFocusRequest={(cardHandle) => openFocus(item.id, cardHandle)}
-            />
-          </div>
-        ))}
+      {uploads.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30 px-6 py-20 text-center">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-white font-sans">
+            {m.gallery_empty_title()}
+          </h2>
+          <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-2 font-sans">
+            {m.gallery_empty_hint()}
+          </p>
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={openPicker}
+            className="mt-6 inline-flex items-center px-5 py-2.5 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {uploading ? m.gallery_uploading() : m.gallery_share_btn()}
+          </button>
+        </div>
+      ) : (
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
+          {uploads.map((item) => (
+            <div key={item.id} className="break-inside-avoid w-full">
+              <LazyCoverCard
+                ref={(el) => (cardRefs.current[item.id] = el)}
+                src={item.url}
+                coverSrc={null}
+                title={item.title || item.name}
+                subtitle={`${m.gallery_frames({ count: item.frameCount })} · ${formatSize(item.size)}`}
+                badge={m.gallery_uploaded_badge()}
+                aspectRatio={uploadAspect(item)}
+                speed={12}
+                onFocusRequest={(cardHandle) => openFocus(item.id, cardHandle)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
-        {galleryItems.map((item) => (
-          <div key={item.id} className="break-inside-avoid w-full">
-            <LazyCoverCard
-              ref={(el) => (cardRefs.current[item.id] = el)}
-              materialId={item.materialId}
-              aspectRatio={item.aspect}
-              speed={item.speed}
-              onFocusRequest={(cardHandle) => openFocus(item.id, cardHandle)}
+      {/* 只有拖入文件时才出现的全屏覆盖上传层 */}
+      {dragActive ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-neutral-950/75 backdrop-blur-sm p-6"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            const handledByZone = event.defaultPrevented;
+            event.preventDefault();
+            setDragActive(false);
+            if (handledByZone) return;
+            const file = event.dataTransfer.files?.[0];
+            if (file) void handleFile(file);
+          }}
+        >
+          <div className="w-full max-w-[560px] rounded-3xl bg-white dark:bg-neutral-900 p-6 shadow-2xl">
+            <UploadDropzone
+              instant
+              speed={100}
+              extensions={["orb"]}
+              maxBytes={MAX_ORB_BYTES}
+              style={{ width: "100%", maxWidth: "100%" }}
+              labels={{
+                idle: m.gallery_drop_title(),
+                over: m.gallery_drop_title(),
+                hint: m.gallery_drop_hint(),
+                uploaded: m.gallery_upload_success(),
+                badType: m.gallery_error_bad_name(),
+                tooBig: m.gallery_error_too_large(),
+              }}
+              onFileUploaded={(file) => void handleFile(file)}
             />
           </div>
-        ))}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
