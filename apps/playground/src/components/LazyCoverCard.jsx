@@ -22,6 +22,7 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
   const [coverFailed, setCoverFailed] = useState(false);
   const cardRef = useRef(null);
   const containerRef = useRef(null);
+  const pressRef = useRef(null);
 
   const material = resolveMaterial(materialId || src);
   const actualCover = coverSrc === undefined ? material.cover : coverSrc;
@@ -34,15 +35,33 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
     material,
   }));
 
-  const handlePointerDown = () => {
-    if (!isActivated) {
-      setIsActivated(true);
-      setTimeout(() => {
-        onFocusRequest?.(cardRef.current);
-      }, 50);
-    } else {
-      onFocusRequest?.(cardRef.current);
-    }
+  const handlePointerDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    pressRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      time: Date.now(),
+      pointerId: event.pointerId,
+    };
+    // 首次按下只负责把静态封面切换成可交互 Canvas，不立即打开弹窗。
+    if (!isActivated) setIsActivated(true);
+  };
+
+  const handlePointerUp = (event) => {
+    const press = pressRef.current;
+    if (!press || press.pointerId !== event.pointerId) return;
+    pressRef.current = null;
+
+    const duration = Date.now() - press.time;
+    const distance = Math.hypot(event.clientX - press.x, event.clientY - press.y);
+    // 拖拽或长按（>500ms）不视为单击，不打开弹窗。
+    if (duration > 500 || distance > 8) return;
+
+    requestAnimationFrame(() => onFocusRequest?.(cardRef.current));
+  };
+
+  const handlePointerCancel = () => {
+    pressRef.current = null;
   };
 
   const cardCaption = (
@@ -58,6 +77,8 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
     <div
       ref={containerRef}
       onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       style={{
         aspectRatio,
         ...style,
@@ -74,7 +95,6 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
             aspectRatio={aspectRatio}
             speed={speed}
             className="w-full h-full rounded-3xl"
-            onClick={() => onFocusRequest?.(cardRef.current)}
           />
           {cardCaption}
         </div>
