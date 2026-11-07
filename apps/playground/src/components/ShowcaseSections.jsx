@@ -5,10 +5,9 @@ import { FoldingBill } from "./FoldingBill";
 import { AspectRatio } from "./AspectRatio";
 import { TicketStub } from "./TicketStub";
 import { WakeSlider } from "./WakeSlider";
-import { useI18n } from "../lib/I18nContext";
+import * as m from "../paraglide/messages.js";
 import { ClientOnly } from "./ui/ClientOnly";
 export function ShowcaseSections() {
-  const { t } = useI18n();
   const section2CardRef = useRef(null);
   const ticketRef = useRef(null);
 
@@ -47,22 +46,22 @@ export function ShowcaseSections() {
       <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-6 space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
-            <span>{t.sections.s1_tag}</span>
+            <span>{m.sections_s1_tag()}</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans leading-tight">
-            {t.sections.s1_title_1}
+            {m.sections_s1_title_1()}
             <br />
-            {t.sections.s1_title_2}
+            {m.sections_s1_title_2()}
           </h2>
 
           <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed max-w-lg">
-            {t.sections.s1_desc}
+            {m.sections_s1_desc()}
           </p>
 
           <div className="flex items-center gap-4 pt-2">
             <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
-              {t.sections.s1_tip}
+              {m.sections_s1_tip()}
             </span>
           </div>
         </div>
@@ -107,22 +106,22 @@ export function ShowcaseSections() {
 
         <div className="lg:col-span-6 space-y-6 order-1 lg:order-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
-            <span>{t.sections.s2_tag}</span>
+            <span>{m.sections_s2_tag()}</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans leading-tight">
-            {t.sections.s2_title_1}
+            {m.sections_s2_title_1()}
             <br />
-            {t.sections.s2_title_2}
+            {m.sections_s2_title_2()}
           </h2>
 
           <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed max-w-lg">
-            {t.sections.s2_desc}
+            {m.sections_s2_desc()}
           </p>
 
           <div className="pt-2">
             <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
-              {t.sections.s2_tip}
+              {m.sections_s2_tip()}
             </span>
           </div>
         </div>
@@ -132,22 +131,22 @@ export function ShowcaseSections() {
       <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-6 space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
-            <span>{t.sections.s3_tag}</span>
+            <span>{m.sections_s3_tag()}</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans leading-tight">
-            {t.sections.s3_title_1}
+            {m.sections_s3_title_1()}
             <br />
-            {t.sections.s3_title_2}
+            {m.sections_s3_title_2()}
           </h2>
 
           <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed max-w-lg">
-            {t.sections.s3_desc}
+            {m.sections_s3_desc()}
           </p>
 
           <div className="flex items-center gap-4 pt-2">
             <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
-              {t.sections.s3_tip}
+              {m.sections_s3_tip()}
             </span>
           </div>
         </div>
@@ -181,22 +180,22 @@ export function ShowcaseSections() {
 
         <div className="lg:col-span-6 space-y-6 order-1 lg:order-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
-            <span>{t.sections.s4_tag}</span>
+            <span>{m.sections_s4_tag()}</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans leading-tight">
-            {t.sections.s4_title_1}
+            {m.sections_s4_title_1()}
             <br />
-            {t.sections.s4_title_2}
+            {m.sections_s4_title_2()}
           </h2>
 
           <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed max-w-lg">
-            {t.sections.s4_desc}
+            {m.sections_s4_desc()}
           </p>
 
           <div className="pt-2">
             <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
-              {t.sections.s4_tip}
+              {m.sections_s4_tip()}
             </span>
           </div>
         </div>
@@ -206,22 +205,22 @@ export function ShowcaseSections() {
       <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-6 space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200">
-            <span>{t.sections.s5_tag}</span>
+            <span>{m.sections_s5_tag()}</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-white font-sans leading-tight">
-            {t.sections.s5_title_1}
+            {m.sections_s5_title_1()}
             <br />
-            {t.sections.s5_title_2}
+            {m.sections_s5_title_2()}
           </h2>
 
           <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-sans leading-relaxed max-w-lg">
-            {t.sections.s5_desc}
+            {m.sections_s5_desc()}
           </p>
 
           <div className="flex items-center gap-4 pt-2">
             <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
-              {t.sections.s5_tip}
+              {m.sections_s5_tip()}
             </span>
           </div>
         </div>

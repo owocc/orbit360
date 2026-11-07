@@ -1,6 +1,7 @@
 import { copyFileSync, cpSync, createReadStream, existsSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { cloudflare } from "@cloudflare/vite-plugin";
@@ -84,6 +85,9 @@ export default defineConfig({
     cloudflare({ viteEnvironment: { name: "ssr" } }),
     tanstackStart(),
     react(),
+    paraglideVitePlugin({
+      project: "./project.inlang",
+    }),
     repoStatic(),
     siteAssets(),
   ]),

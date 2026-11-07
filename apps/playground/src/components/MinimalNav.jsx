@@ -2,10 +2,9 @@ import React, { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ThemeSelector } from "./ThemeSelector";
 import { LanguageSelector } from "./LanguageSelector";
-import { useI18n } from "../lib/I18nContext";
+import * as m from "../paraglide/messages.js";
 import { PopoverRoot, PopoverTrigger, PopoverContent } from "./ui/Popover";
 export function MinimalNav() {
-  const { t } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -30,7 +29,7 @@ export function MinimalNav() {
               className: "!text-neutral-950 dark:!text-white font-semibold",
             }}
           >
-            {t.nav.home}
+            {m.nav_home()}
           </Link>
           <Link
             to="/gallery"
@@ -39,7 +38,7 @@ export function MinimalNav() {
               className: "!text-neutral-950 dark:!text-white font-semibold",
             }}
           >
-            {t.nav.gallery}
+            {m.nav_gallery()}
           </Link>
           <Link
             to="/create"
@@ -48,7 +47,7 @@ export function MinimalNav() {
               className: "!text-neutral-950 dark:!text-white font-semibold",
             }}
           >
-            {t.nav.create}
+            {m.nav_create()}
           </Link>
           <Link
             to="/playground"
@@ -57,7 +56,7 @@ export function MinimalNav() {
               className: "!text-neutral-950 dark:!text-white font-semibold",
             }}
           >
-            {t.nav.playground}
+            {m.nav_playground()}
           </Link>
           <a
             href="https://github.com/owocc/orbit360"
@@ -65,7 +64,7 @@ export function MinimalNav() {
             rel="noreferrer"
             className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
           >
-            {t.nav.source}
+            {m.nav_source()}
           </a>
         </div>
 
@@ -98,7 +97,7 @@ export function MinimalNav() {
                       "px-3 py-2 rounded-xl !text-neutral-950 dark:!text-white !font-bold bg-neutral-100 dark:bg-neutral-800 transition-colors",
                   }}
                 >
-                  {t.nav.home}
+                  {m.nav_home()}
                 </Link>
                 <Link
                   to="/gallery"
@@ -109,7 +108,7 @@ export function MinimalNav() {
                       "px-3 py-2 rounded-xl !text-neutral-950 dark:!text-white !font-bold bg-neutral-100 dark:bg-neutral-800 transition-colors",
                   }}
                 >
-                  {t.nav.gallery}
+                  {m.nav_gallery()}
                 </Link>
                 <Link
                   to="/create"
@@ -120,7 +119,7 @@ export function MinimalNav() {
                       "px-3 py-2 rounded-xl !text-neutral-950 dark:!text-white !font-bold bg-neutral-100 dark:bg-neutral-800 transition-colors",
                   }}
                 >
-                  {t.nav.create}
+                  {m.nav_create()}
                 </Link>
                 <Link
                   to="/playground"
@@ -131,7 +130,7 @@ export function MinimalNav() {
                       "px-3 py-2 rounded-xl !text-neutral-950 dark:!text-white !font-bold bg-neutral-100 dark:bg-neutral-800 transition-colors",
                   }}
                 >
-                  {t.nav.playground}
+                  {m.nav_playground()}
                 </Link>
                 <a
                   href="https://github.com/owocc/orbit360"
@@ -140,7 +139,7 @@ export function MinimalNav() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="px-3 py-2 rounded-xl text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  {t.nav.source}
+                  {m.nav_source()}
                 </a>
               </PopoverContent>
             </PopoverRoot>

@@ -1,6 +1,6 @@
 import React from "react";
 import { SelectRoot, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/Select";
-import { useI18n } from "../lib/I18nContext";
+import { getLocale, setLocale } from "../paraglide/runtime.js";
 
 const items = [
   { value: "zh", label: "中文" },
@@ -8,13 +8,11 @@ const items = [
 ];
 
 export function LanguageSelector() {
-  const { lang, setLang } = useI18n();
-
   return (
     <SelectRoot
-      value={lang}
+      value={getLocale()}
       onValueChange={(val) => {
-        if (val === "zh" || val === "en") setLang(val);
+        if (val === "zh" || val === "en") void setLocale(val);
       }}
       items={items}
     >

@@ -8,97 +8,97 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root";
-import { Route as IndexRouteImport } from "./routes/index";
-import { Route as CreateRouteImport } from "./routes/create";
-import { Route as GalleryRouteImport } from "./routes/gallery";
-import { Route as PlaygroundRouteImport } from "./routes/playground";
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as CreateRouteImport } from './routes/create'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as PlaygroundRouteImport } from './routes/playground'
 
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const CreateRoute = CreateRouteImport.update({
-  id: "/create",
-  path: "/create",
+  id: '/create',
+  path: '/create',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const GalleryRoute = GalleryRouteImport.update({
-  id: "/gallery",
-  path: "/gallery",
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 const PlaygroundRoute = PlaygroundRouteImport.update({
-  id: "/playground",
-  path: "/playground",
+  id: '/playground',
+  path: '/playground',
   getParentRoute: () => rootRouteImport,
-} as any);
+} as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute;
-  "/create": typeof CreateRoute;
-  "/gallery": typeof GalleryRoute;
-  "/playground": typeof PlaygroundRoute;
+  '/': typeof IndexRoute
+  '/create': typeof CreateRoute
+  '/gallery': typeof GalleryRoute
+  '/playground': typeof PlaygroundRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute;
-  "/create": typeof CreateRoute;
-  "/gallery": typeof GalleryRoute;
-  "/playground": typeof PlaygroundRoute;
+  '/': typeof IndexRoute
+  '/create': typeof CreateRoute
+  '/gallery': typeof GalleryRoute
+  '/playground': typeof PlaygroundRoute
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport;
-  "/": typeof IndexRoute;
-  "/create": typeof CreateRoute;
-  "/gallery": typeof GalleryRoute;
-  "/playground": typeof PlaygroundRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/create': typeof CreateRoute
+  '/gallery': typeof GalleryRoute
+  '/playground': typeof PlaygroundRoute
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/create" | "/gallery" | "/playground";
-  fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/create" | "/gallery" | "/playground";
-  id: "__root__" | "/" | "/create" | "/gallery" | "/playground";
-  fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths: '/' | '/create' | '/gallery' | '/playground'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/create' | '/gallery' | '/playground'
+  id: '__root__' | '/' | '/create' | '/gallery' | '/playground'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute;
-  CreateRoute: typeof CreateRoute;
-  GalleryRoute: typeof GalleryRoute;
-  PlaygroundRoute: typeof PlaygroundRoute;
+  IndexRoute: typeof IndexRoute
+  CreateRoute: typeof CreateRoute
+  GalleryRoute: typeof GalleryRoute
+  PlaygroundRoute: typeof PlaygroundRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/";
-      path: "/";
-      fullPath: "/";
-      preLoaderRoute: typeof IndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/create": {
-      id: "/create";
-      path: "/create";
-      fullPath: "/create";
-      preLoaderRoute: typeof CreateRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/gallery": {
-      id: "/gallery";
-      path: "/gallery";
-      fullPath: "/gallery";
-      preLoaderRoute: typeof GalleryRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/playground": {
-      id: "/playground";
-      path: "/playground";
-      fullPath: "/playground";
-      preLoaderRoute: typeof PlaygroundRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create': {
+      id: '/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof CreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,16 +107,16 @@ const rootRouteChildren: RootRouteChildren = {
   CreateRoute: CreateRoute,
   GalleryRoute: GalleryRoute,
   PlaygroundRoute: PlaygroundRoute,
-};
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>();
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.jsx";
-import type { createStart } from "@tanstack/react-start";
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.jsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
   }
 }

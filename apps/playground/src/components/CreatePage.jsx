@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useI18n } from "../lib/I18nContext";
+import { getLocale } from "../paraglide/runtime.js";
 
 // 预置的多语言提示词数据集（支持多语言切换、自带兜底、支持一键复制）
 const PROMPT_TEMPLATES = [
@@ -114,7 +114,7 @@ const PROMPT_LANGUAGES = [
 ];
 
 export default function CreatePage() {
-  const { lang } = useI18n();
+  const lang = getLocale();
 
   // 当前用户选择的提示词语言（默认跟随应用语言，若非支持语言则兜底为 en）
   const initialPromptLang = ["zh", "en", "ja"].includes(lang) ? lang : "zh";
