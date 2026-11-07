@@ -1,6 +1,7 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef } from "react";
 import { Pure3DCard } from "./Pure3DCard";
 import { resolveMaterial } from "../lib/materials";
+import { beginPress, isSingleClick } from "../lib/card-interaction.js";
 
 export const LazyCoverCard = forwardRef(function LazyCoverCard(
   {
@@ -37,26 +38,15 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
 
   const handlePointerDown = (event) => {
     if (event.button !== undefined && event.button !== 0) return;
-    pressRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      time: Date.now(),
-      pointerId: event.pointerId,
-    };
+    pressRef.current = beginPress(event);
     // 首次按下只负责把静态封面切换成可交互 Canvas，不立即打开弹窗。
     if (!isActivated) setIsActivated(true);
   };
 
   const handlePointerUp = (event) => {
     const press = pressRef.current;
-    if (!press || press.pointerId !== event.pointerId) return;
     pressRef.current = null;
-
-    const duration = Date.now() - press.time;
-    const distance = Math.hypot(event.clientX - press.x, event.clientY - press.y);
-    // 拖拽或长按（>500ms）不视为单击，不打开弹窗。
-    if (duration > 500 || distance > 8) return;
-
+    if (!isSingleClick(press, event)) return;
     requestAnimationFrame(() => onFocusRequest?.(cardRef.current));
   };
 

@@ -115,24 +115,6 @@ export function HeroCardStack() {
               return (
                 <div
                   key={card.id}
-                  onClick={() => {
-                    // 点击非当前居中卡片直接居中；若已是居中卡片则进入 FLIP 聚焦大图
-                    if (offset !== 0) {
-                      setActiveIndex(i);
-                    } else {
-                      const cardHandle = cardRefs.current[card.id];
-                      const containerEl = cardHandle?.getContainer();
-                      if (containerEl) {
-                        focusCard(
-                          {
-                            id: card.id,
-                            clientRef: { current: cardHandle.getClient() },
-                          },
-                          containerEl,
-                        );
-                      }
-                    }
-                  }}
                   style={{
                     transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotateDeg}deg) scale(${scale})`,
                     zIndex,
@@ -157,6 +139,24 @@ export function HeroCardStack() {
                     speed={card.speed}
                     autoSpin={offset === 0}
                     className="w-full h-full !shadow-none"
+                    onClick={() => {
+                      // 单击非当前卡片直接居中；单击居中卡片进入 FLIP 聚焦；拖拽不触发。
+                      if (offset !== 0) {
+                        setActiveIndex(i);
+                        return;
+                      }
+                      const cardHandle = cardRefs.current[card.id];
+                      const containerEl = cardHandle?.getContainer();
+                      if (containerEl) {
+                        focusCard(
+                          {
+                            id: card.id,
+                            clientRef: { current: cardHandle.getClient() },
+                          },
+                          containerEl,
+                        );
+                      }
+                    }}
                   />
                 </div>
               );

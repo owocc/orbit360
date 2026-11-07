@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } f
 import { Client } from "@orbit360/javascript/web-client";
 import { useFlipFocus } from "./FlipFocusModal";
 import { getMaterialBlob, resolveMaterial } from "../lib/materials";
+import { beginPress, isSingleClick } from "../lib/card-interaction.js";
 
 export const Pure3DCard = forwardRef(function Pure3DCard(
   {
@@ -25,7 +26,7 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
   const canvasRef = useRef(null);
   const clientRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const pointerStartRef = useRef({ x: 0, y: 0, t: 0 });
+  const pressRef = useRef(null);
   const { isFocused } = useFlipFocus();
 
   const activeMaterial = resolveMaterial(materialId || src);
@@ -98,18 +99,15 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
   }, [activeMaterial.id, minAngle, maxAngle, speed, dragSensitivity]);
 
   const handlePointerDown = (e) => {
-    pointerStartRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+    if (e.button !== undefined && e.button !== 0) return;
+    pressRef.current = beginPress(e);
   };
 
   const handlePointerUp = (e) => {
+    const press = pressRef.current;
+    pressRef.current = null;
     if (isFocused) return;
-
-    const dx = Math.abs(e.clientX - pointerStartRef.current.x);
-    const dy = Math.abs(e.clientY - pointerStartRef.current.y);
-    const dt = Date.now() - pointerStartRef.current.t;
-    if (dx < 6 && dy < 6 && dt < 300) {
-      onClick?.(e);
-    }
+    if (isSingleClick(press, e)) onClick?.(e);
   };
 
   return (
@@ -117,6 +115,9 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
       ref={containerRef}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
+      onPointerCancel={() => {
+        pressRef.current = null;
+      }}
       style={{
         aspectRatio,
         ...style,
