@@ -197,14 +197,14 @@ export class OrbitEngine {
     return this;
   }
 
-  pointerMove(x: number, y: number, timeMs: number): this {
+  pointerMove(x: number, y: number, timeMs: number, scale = 1): this {
     if (this._destroyed || !this._dragging) return this;
     const t = this._eventTime(timeMs);
     const dx = x - this._lastPointerX;
     const dy = y - this._lastPointerY;
     const dt = Math.max(t - this._lastPointerTime, 1);
     const px = this._axis === "y" ? dy : dx;
-    const deg = px * this._config.drag.degPerPx * (this._config.drag.invert ? -1 : 1);
+    const deg = px * this._config.drag.degPerPx * scale * (this._config.drag.invert ? -1 : 1);
     this._target = this._normAngle(this._target + deg);
     const inst = dt > 90 ? 0 : deg / dt;
     this._velocity = 0.6 * inst + 0.4 * this._velocity;

@@ -374,7 +374,7 @@ export default function PlaygroundPage() {
                 fullscreen.active
                   ? "w-screen h-dvh fixed inset-0 z-[9999] rounded-none border-none max-h-none"
                   : `${currentRatioObj.aspect} max-h-[640px] rounded-3xl border border-neutral-800 shadow-[0_25px_60px_rgba(0,0,0,0.25)]`
-              } bg-neutral-950 relative overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing select-none transition-all duration-300`}
+              } bg-neutral-950 relative overflow-hidden flex items-center justify-center touch-pan-y cursor-grab active:cursor-grabbing select-none transition-all duration-300`}
             >
               <canvas ref={orbit.canvasRef} className="w-full h-full block object-contain" />
 

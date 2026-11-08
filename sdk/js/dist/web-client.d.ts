@@ -98,6 +98,7 @@ interface OrbitEngineConfig {
   };
   drag: {
     degPerPx: number;
+    touchScale: number;
     invert: boolean;
     inertia: boolean;
     inertiaMs: number;
@@ -232,7 +233,7 @@ declare class OrbitEngine {
   setAngle(deg: number, immediate?: boolean): this;
   rotateBy(deg: number): this;
   pointerDown(x: number, y: number, timeMs: number): this;
-  pointerMove(x: number, y: number, timeMs: number): this;
+  pointerMove(x: number, y: number, timeMs: number, scale?: number): this;
   pointerUp(timeMs: number): this;
   enableGyro(): this;
   gyro(sample: {

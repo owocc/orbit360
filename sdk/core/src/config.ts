@@ -21,6 +21,7 @@ export interface OrbitEngineConfig {
   };
   drag: {
     degPerPx: number;
+    touchScale: number;
     invert: boolean;
     inertia: boolean;
     inertiaMs: number;
@@ -65,6 +66,7 @@ export const DEFAULTS: OrbitEngineConfig = {
   },
   drag: {
     degPerPx: 0.42,
+    touchScale: 2.5,
     invert: false,
     inertia: true,
     inertiaMs: 110,
@@ -168,6 +170,7 @@ export function resolveConfig(
   merged.orbit.maxAngle = maxAngle;
 
   merged.drag.degPerPx = number(merged.drag.degPerPx, 0.42);
+  merged.drag.touchScale = Math.min(10, Math.max(0.1, number(merged.drag.touchScale, 2.5)));
   merged.drag.invert = merged.drag.invert === true;
   merged.drag.inertia = merged.drag.inertia !== false;
   merged.drag.inertiaMs = number(merged.drag.inertiaMs, 110);

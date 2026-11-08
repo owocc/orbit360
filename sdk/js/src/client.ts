@@ -959,8 +959,8 @@ export class Orbit360Client {
     if (this._suppressMove) return;
 
     const snapshot = this.engine.getSnapshot();
+    const config = this.engine.getConfig();
     if (!snapshot.dragging) {
-      const config = this.engine.getConfig();
       if (config.mouseFollow.enabled && event.pointerType === "mouse" && event.buttons === 0) {
         if (this._hoverX === null || this._hoverY === null) {
           this._hoverX = event.clientX;
@@ -980,7 +980,8 @@ export class Orbit360Client {
       }
       return;
     }
-    this.engine.pointerMove(event.clientX, event.clientY, this._pointerTime(event));
+    const scale = event.pointerType && event.pointerType !== "mouse" ? config.drag.touchScale : 1;
+    this.engine.pointerMove(event.clientX, event.clientY, this._pointerTime(event), scale);
     this._emitState();
   }
 

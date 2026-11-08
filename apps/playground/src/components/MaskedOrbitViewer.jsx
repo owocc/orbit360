@@ -174,7 +174,7 @@ export function MaskedOrbitViewer({
           aspectRatio,
           ...currentMask,
         }}
-        className={`relative overflow-hidden border-2 border-neutral-900 bg-white select-none shadow-[4px_4px_0px_#000000] transition-all duration-200 group-hover:shadow-[6px_6px_0px_#000000] group-hover:-translate-y-0.5`}
+        className={`relative overflow-hidden border-2 border-neutral-900 bg-neutral-100 select-none touch-pan-y shadow-[4px_4px_0px_#000000] transition-all duration-200 group-hover:shadow-[6px_6px_0px_#000000] group-hover:-translate-y-0.5`}
       >
         <canvas
           ref={canvasRef}

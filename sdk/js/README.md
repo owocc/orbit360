@@ -106,7 +106,7 @@ client.setConfig({
   title: "沙发少女",
   orbit: { axis: "x", spanDeg: 360, direction: "cw", minAngle: -180, maxAngle: 180 },
   video: { fit: "contain", displayScale: 1, portraitScale: 1.25 },
-  drag: { degPerPx: 0.42, invert: false, inertia: true, inertiaMs: 110 },
+  drag: { degPerPx: 0.42, touchScale: 2.5, invert: false, inertia: true, inertiaMs: 110 },
   motion: { smoothMs: 62 },
   auto: {
     enabled: false,
@@ -123,27 +123,27 @@ client.setConfig({
 
 常用快捷方法：
 
-| 方法                                                               | 作用                       |
-| ------------------------------------------------------------------ | -------------------------- |
-| `setAngle(deg, { immediate })`                                     | 设置目标角度               |
-| `rotateBy(deg)`                                                    | 相对转动                   |
-| `reset(deg, { immediate })`                                        | 重置角度与陀螺仪基准       |
-| `setAutoRotate('off'\|'cw'\|'ccw'\|boolean, dir?)`                 | 自动环绕                   |
-| `cycleAuto()`                                                      | 关 → 顺时针 → 逆时针       |
-| `setAutoSpeed(degPerSec)`                                          | 自动转速                   |
-| `setGyroConfig({ gain, invert, smooth, smoothMs })`                | 陀螺仪参数                 |
-| `enableGyro()` / `disableGyro()` / `calibrateGyro()`               | 陀螺仪开关与校准           |
-| `setDragConfig({ degPerPx, invert, inertia, inertiaMs })`          | 拖拽参数                   |
-| `setMotionConfig({ smoothMs })`                                    | 角度阻尼                   |
-| `setInertia(bool)` / `setInvert(bool)`                             | 惯性 / 反向                |
-| `setFit('contain'\|'cover')`                                       | 自适应 / 铺满              |
-| `setAuto({ enabled, dir })` / `stopAuto()`                         | 自动旋转别名               |
-| `pause()` / `resume()`                                             | 暂停 / 恢复主循环          |
-| `setMouseFollow(bool \| { enabled, degPerPx })`                    | 鼠标跟随                   |
-| `setOrbitConfig({ axis, spanDeg, direction, minAngle, maxAngle })` | 环绕轴、角度覆盖范围与限制 |
-| `setVideoConfig({ fit, displayScale, portraitScale })`             | 画面布局                   |
-| `resize()`                                                         | 手动重排                   |
-| `destroy()`                                                        | 移除监听并停止渲染         |
+| 方法                                                                  | 作用                                         |
+| --------------------------------------------------------------------- | -------------------------------------------- |
+| `setAngle(deg, { immediate })`                                        | 设置目标角度                                 |
+| `rotateBy(deg)`                                                       | 相对转动                                     |
+| `reset(deg, { immediate })`                                           | 重置角度与陀螺仪基准                         |
+| `setAutoRotate('off'\|'cw'\|'ccw'\|boolean, dir?)`                    | 自动环绕                                     |
+| `cycleAuto()`                                                         | 关 → 顺时针 → 逆时针                         |
+| `setAutoSpeed(degPerSec)`                                             | 自动转速                                     |
+| `setGyroConfig({ gain, invert, smooth, smoothMs })`                   | 陀螺仪参数                                   |
+| `enableGyro()` / `disableGyro()` / `calibrateGyro()`                  | 陀螺仪开关与校准                             |
+| `setDragConfig({ degPerPx, touchScale, invert, inertia, inertiaMs })` | 拖拽参数（`touchScale` 仅作用于触摸/触控笔） |
+| `setMotionConfig({ smoothMs })`                                       | 角度阻尼                                     |
+| `setInertia(bool)` / `setInvert(bool)`                                | 惯性 / 反向                                  |
+| `setFit('contain'\|'cover')`                                          | 自适应 / 铺满                                |
+| `setAuto({ enabled, dir })` / `stopAuto()`                            | 自动旋转别名                                 |
+| `pause()` / `resume()`                                                | 暂停 / 恢复主循环                            |
+| `setMouseFollow(bool \| { enabled, degPerPx })`                       | 鼠标跟随                                     |
+| `setOrbitConfig({ axis, spanDeg, direction, minAngle, maxAngle })`    | 环绕轴、角度覆盖范围与限制                   |
+| `setVideoConfig({ fit, displayScale, portraitScale })`                | 画面布局                                     |
+| `resize()`                                                            | 手动重排                                     |
+| `destroy()`                                                           | 移除监听并停止渲染                           |
 
 ### 状态
 

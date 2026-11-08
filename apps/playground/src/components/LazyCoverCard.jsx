@@ -74,7 +74,7 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
         aspectRatio,
         ...style,
       }}
-      className={`relative w-full rounded-3xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 select-none shadow-[0_20px_50px_rgba(0,0,0,0.14)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.22)] transition-shadow duration-300 cursor-pointer group ${className}`}
+      className={`relative w-full rounded-3xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 select-none touch-pan-y shadow-[0_20px_50px_rgba(0,0,0,0.14)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.22)] transition-shadow duration-300 cursor-pointer group ${className}`}
     >
       {isActivated ? (
         <div className="relative w-full h-full">
@@ -85,6 +85,7 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
             poster={actualCover || undefined}
             aspectRatio={aspectRatio}
             speed={speed}
+            autoSpin={false}
             className="w-full h-full rounded-3xl"
           />
           {cardCaption}

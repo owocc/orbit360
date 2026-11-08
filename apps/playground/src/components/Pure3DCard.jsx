@@ -27,10 +27,17 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
   const canvasRef = useRef(null);
   const clientRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(false);
   const pressRef = useRef(null);
   const { isFocused } = useFlipFocus();
 
   const activeMaterial = resolveMaterial(materialId || src);
+  // 未显式传入封面时使用素材注册表里的首帧封面：.orb 解析/下载期间先显示封面，避免空白。
+  const posterSrc = poster ?? activeMaterial.cover ?? null;
+
+  useEffect(() => {
+    setPosterFailed(false);
+  }, [posterSrc]);
 
   useImperativeHandle(ref, () => ({
     getContainer: () => containerRef.current,
@@ -123,21 +130,24 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
         aspectRatio,
         ...style,
       }}
-      className={`relative overflow-hidden rounded-3xl bg-neutral-100 select-none shadow-[0_20px_50px_rgba(0,0,0,0.18)] transition-shadow duration-300 hover:shadow-[0_30px_70px_rgba(0,0,0,0.25)] cursor-grab active:cursor-grabbing ${className}`}
+      className={`relative overflow-hidden rounded-3xl bg-neutral-100 select-none touch-pan-y shadow-[0_20px_50px_rgba(0,0,0,0.18)] transition-shadow duration-300 hover:shadow-[0_30px_70px_rgba(0,0,0,0.25)] cursor-grab active:cursor-grabbing ${className}`}
     >
       <canvas ref={canvasRef} className="h-full w-full block object-cover" />
 
-      {/* 极轻微骨架占位 */}
+      {/* 加载期间显示封面；封面自身尚未加载完成时保持空白，避免闪烁骨架。 */}
       {!isLoaded &&
-        (poster ? (
+        (posterSrc && !posterFailed ? (
           <img
-            src={poster}
+            src={posterSrc}
             alt=""
             aria-hidden="true"
+            draggable={false}
+            decoding="async"
+            onError={() => setPosterFailed(true)}
             className="absolute inset-0 h-full w-full object-cover pointer-events-none"
           />
         ) : (
-          <div className="absolute inset-0 bg-neutral-100/80 animate-pulse pointer-events-none" />
+          <div className="absolute inset-0 bg-neutral-100/80 pointer-events-none" />
         ))}
     </div>
   );

@@ -286,6 +286,7 @@ var Orbit360 = (function(exports) {
 		},
 		drag: {
 			degPerPx: .42,
+			touchScale: 2.5,
 			invert: false,
 			inertia: true,
 			inertiaMs: 110
@@ -359,6 +360,7 @@ var Orbit360 = (function(exports) {
 		merged.orbit.minAngle = minAngle;
 		merged.orbit.maxAngle = maxAngle;
 		merged.drag.degPerPx = number(merged.drag.degPerPx, .42);
+		merged.drag.touchScale = Math.min(10, Math.max(.1, number(merged.drag.touchScale, 2.5)));
 		merged.drag.invert = merged.drag.invert === true;
 		merged.drag.inertia = merged.drag.inertia !== false;
 		merged.drag.inertiaMs = number(merged.drag.inertiaMs, 110);
@@ -492,13 +494,13 @@ var Orbit360 = (function(exports) {
 			this._lastActivity = this._now;
 			return this;
 		}
-		pointerMove(x, y, timeMs) {
+		pointerMove(x, y, timeMs, scale = 1) {
 			if (this._destroyed || !this._dragging) return this;
 			const t = this._eventTime(timeMs);
 			const dx = x - this._lastPointerX;
 			const dy = y - this._lastPointerY;
 			const dt = Math.max(t - this._lastPointerTime, 1);
-			const deg = (this._axis === "y" ? dy : dx) * this._config.drag.degPerPx * (this._config.drag.invert ? -1 : 1);
+			const deg = (this._axis === "y" ? dy : dx) * this._config.drag.degPerPx * scale * (this._config.drag.invert ? -1 : 1);
 			this._target = this._normAngle(this._target + deg);
 			const inst = dt > 90 ? 0 : deg / dt;
 			this._velocity = .6 * inst + .4 * this._velocity;
@@ -1597,8 +1599,8 @@ var Orbit360 = (function(exports) {
 			}
 			if (this._suppressMove) return;
 			const snapshot = this.engine.getSnapshot();
+			const config = this.engine.getConfig();
 			if (!snapshot.dragging) {
-				const config = this.engine.getConfig();
 				if (config.mouseFollow.enabled && event.pointerType === "mouse" && event.buttons === 0) {
 					if (this._hoverX === null || this._hoverY === null) {
 						this._hoverX = event.clientX;
@@ -1618,7 +1620,8 @@ var Orbit360 = (function(exports) {
 				}
 				return;
 			}
-			this.engine.pointerMove(event.clientX, event.clientY, this._pointerTime(event));
+			const scale = event.pointerType && event.pointerType !== "mouse" ? config.drag.touchScale : 1;
+			this.engine.pointerMove(event.clientX, event.clientY, this._pointerTime(event), scale);
 			this._emitState();
 		}
 		_handlePointerUp(event) {

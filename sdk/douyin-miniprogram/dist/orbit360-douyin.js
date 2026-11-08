@@ -334,6 +334,7 @@ const DEFAULTS = {
 	},
 	drag: {
 		degPerPx: .42,
+		touchScale: 2.5,
 		invert: false,
 		inertia: true,
 		inertiaMs: 110
@@ -407,6 +408,7 @@ function resolveConfig(sceneConfig = {}, userConfig = {}) {
 	merged.orbit.minAngle = minAngle;
 	merged.orbit.maxAngle = maxAngle;
 	merged.drag.degPerPx = number(merged.drag.degPerPx, .42);
+	merged.drag.touchScale = Math.min(10, Math.max(.1, number(merged.drag.touchScale, 2.5)));
 	merged.drag.invert = merged.drag.invert === true;
 	merged.drag.inertia = merged.drag.inertia !== false;
 	merged.drag.inertiaMs = number(merged.drag.inertiaMs, 110);
@@ -541,13 +543,13 @@ var OrbitEngine = class {
 		this._lastActivity = this._now;
 		return this;
 	}
-	pointerMove(x, y, timeMs) {
+	pointerMove(x, y, timeMs, scale = 1) {
 		if (this._destroyed || !this._dragging) return this;
 		const t = this._eventTime(timeMs);
 		const dx = x - this._lastPointerX;
 		const dy = y - this._lastPointerY;
 		const dt = Math.max(t - this._lastPointerTime, 1);
-		const deg = (this._axis === "y" ? dy : dx) * this._config.drag.degPerPx * (this._config.drag.invert ? -1 : 1);
+		const deg = (this._axis === "y" ? dy : dx) * this._config.drag.degPerPx * scale * (this._config.drag.invert ? -1 : 1);
 		this._target = this._normAngle(this._target + deg);
 		const inst = dt > 90 ? 0 : deg / dt;
 		this._velocity = .6 * inst + .4 * this._velocity;

@@ -31,6 +31,7 @@
       "type": "object",
       "properties": {
         "degPerPx": { "type": "number", "default": 0.42 },
+        "touchScale": { "type": "number", "minimum": 0.1, "maximum": 10, "default": 2.5 },
         "invert": { "type": "boolean", "default": false },
         "inertia": { "type": "boolean", "default": true },
         "inertiaMs": { "type": "number", "default": 110 }

@@ -25,6 +25,7 @@
   },
   "drag": {
     "degPerPx": 0.42,
+    "touchScale": 2.5,
     "invert": false,
     "inertia": true,
     "inertiaMs": 110
@@ -134,7 +135,8 @@ pointerMove:
   dx = x - lastX; dy = y - lastY
   dt = max(timeMs - lastPointerTime, 1)
   px = axis === "y" ? dy : dx
-  deg = px * drag.degPerPx * (drag.invert ? -1 : 1)
+  deg = px * drag.degPerPx * pointerScale * (drag.invert ? -1 : 1)
+  # Web 适配层对触摸/触控笔传入 pointerScale = drag.touchScale，鼠标为 1
   targetAngle = normalize(targetAngle + deg)
   inst = dt > 90 ? 0 : deg / dt
   velocity = 0.6 * inst + 0.4 * velocity
