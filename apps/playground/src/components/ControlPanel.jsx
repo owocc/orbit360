@@ -33,7 +33,7 @@ export function ControlPanel({
 }) {
   const config = state?.config;
   const gain = Number(config?.gyro?.gain ?? 1);
-  const autoSpeed = Number(config?.auto?.degPerSec ?? 14);
+  const autoSpeed = Number(config?.auto?.degPerSec ?? 36);
   const gyroOn = !!state?.gyro?.enabled;
   const gyroText = gyroOn ? "陀螺仪已开" : state?.gyro?.pending ? "待授权" : "陀螺仪";
 
@@ -66,7 +66,7 @@ export function ControlPanel({
           step="1"
           value={autoSpeed}
           aria-label="自动旋转速度"
-          onChange={(event) => onAutoSpeed(Number.parseFloat(event.target.value) || 14)}
+          onChange={(event) => onAutoSpeed(Number.parseFloat(event.target.value) || 36)}
         />
         <b>{Math.round(autoSpeed)}°/s</b>
       </label>

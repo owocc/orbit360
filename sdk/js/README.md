@@ -18,8 +18,7 @@ orb.meta; // 场景 meta
 orb.frameEntry(videoIndex, frameIndex); // { video, length, offset }
 orb.frameBlob(videoIndex, frameIndex); // 该帧 Blob
 
-const whole = OrbBundle.parse(arrayBuffer); // 整文件
-const head = OrbBundle.parse(prefixBuffer); // 也可以只给前 prefixLen 字节
+const whole = OrbBundle.parse(arrayBuffer); // 必须传入完整文件
 ```
 
 浏览器或打包环境使用 ESM 入口：
@@ -30,15 +29,15 @@ const head = OrbBundle.parse(prefixBuffer); // 也可以只给前 prefixLen 字�
 </script>
 ```
 
-解析器接受 Header 版本 1.0（裸整数 1）、1.1（`0x00010001`）与 1.2（`0x00010002`）。
-`meta.orbit.axis` 为 `'x'` 或 `'y'`（缺省 `'x'`），每条 `videos[]` 的
-`orbit.axis` 必须与场景一致。1.2 起 `orbit.minAngle` / `maxAngle` 分别限制
-最小/最大角度（`-180..180`，缺省 `-180 / 180` 即整圈），每条视频的限制也要一致。
+解析器只接受 ORB3/v1（Header `0x00010002`，`meta.version = 1.2`）。其他版本返回
+`ORB_UNSUPPORTED_VERSION`，不存在 ZIP 或旧格式探测。完整校验规则、错误码和
+conformance cases 见仓库根 `spec/`、`fixtures/`、`conformance/`。
 
 ## Web client
 
 渲染核心（Canvas、帧切换、拖拽、惯性、自动环绕、鼠标跟随、陀螺仪、布局），
 不包含任何 UI。所有控制项通过 API 配置，状态通过 API 和事件读取。
+页面不可见的实例自动暂停渲染。
 
 ```js
 import { Orbit360Client } from "@orbit360/javascript/web-client";
@@ -48,7 +47,7 @@ const client = new Orbit360Client(document.querySelector("canvas"), {
   input: document.querySelector("#stage"), // 指针事件元素
   autoStartGyro: true, // 移动端自动申请陀螺仪
   config: {
-    auto: { enabled: true, dir: "cw", degPerSec: 14 },
+    auto: { enabled: true, dir: "cw", degPerSec: 36 },
     video: { fit: "contain" },
   },
 });
@@ -96,7 +95,7 @@ await client.loadBlob(file);
 client.unload();
 ```
 
-支持 `.orb` 与旧版 zip。`quality` 只对 zip 生效；`.orb` 使用包内帧。
+只支持 `.orb`。`quality` 参数保留但不再影响加载结果。
 
 ### 配置
 
@@ -112,7 +111,7 @@ client.setConfig({
   auto: {
     enabled: false,
     dir: "cw",
-    degPerSec: 14,
+    degPerSec: 36,
     idleDelayMs: 2200,
     rampInMs: 700,
     rampOutMs: 280,
@@ -138,6 +137,8 @@ client.setConfig({
 | `setMotionConfig({ smoothMs })`                                    | 角度阻尼                   |
 | `setInertia(bool)` / `setInvert(bool)`                             | 惯性 / 反向                |
 | `setFit('contain'\|'cover')`                                       | 自适应 / 铺满              |
+| `setAuto({ enabled, dir })` / `stopAuto()`                         | 自动旋转别名               |
+| `pause()` / `resume()`                                             | 暂停 / 恢复主循环          |
 | `setMouseFollow(bool \| { enabled, degPerPx })`                    | 鼠标跟随                   |
 | `setOrbitConfig({ axis, spanDeg, direction, minAngle, maxAngle })` | 环绕轴、角度覆盖范围与限制 |
 | `setVideoConfig({ fit, displayScale, portraitScale })`             | 画面布局                   |

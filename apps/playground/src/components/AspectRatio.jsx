@@ -175,7 +175,6 @@ export function AspectRatio({
               materialId={material.id}
               aspectRatio={shape.ratio}
               autoSpin={true}
-              speed={14}
               className="w-full h-full rounded-none"
             />
           )}

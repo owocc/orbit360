@@ -27,7 +27,7 @@ export function IntegrationSection() {
     container,
     input: container,
     config: {
-      auto: { enabled: true, degPerSec: 14 },
+      auto: { enabled: true, degPerSec: 36 },
       drag: { degPerPx: 0.42 }
     }
   });
@@ -51,7 +51,7 @@ export function Model360({ src }) {
       container: containerRef.current,
       input: containerRef.current,
       config: {
-        auto: { enabled: true, degPerSec: 15 },
+        auto: { enabled: true, degPerSec: 36 },
         drag: { degPerPx: 0.45 },
       },
     });

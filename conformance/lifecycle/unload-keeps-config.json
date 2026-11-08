@@ -1,0 +1,126 @@
+{
+  "name": "unload-keeps-config",
+  "kind": "lifecycle",
+  "bundle": {
+    "canvas": {
+      "width": 1280,
+      "height": 720
+    },
+    "initialAngle": 0,
+    "videos": [
+      {
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720
+        },
+        "frameCount": 36
+      }
+    ],
+    "sceneConfig": {
+      "orbit": {
+        "axis": "x",
+        "direction": "cw",
+        "spanDeg": 360,
+        "minAngle": -180,
+        "maxAngle": 180
+      }
+    }
+  },
+  "config": {
+    "orbit": {
+      "spanDeg": 180
+    }
+  },
+  "events": [
+    {
+      "type": "unload"
+    },
+    {
+      "type": "load",
+      "bundle": {
+        "canvas": {
+          "width": 1280,
+          "height": 720
+        },
+        "initialAngle": 0,
+        "videos": [
+          {
+            "rect": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 720
+            },
+            "frameCount": 18
+          }
+        ],
+        "sceneConfig": {
+          "orbit": {
+            "axis": "x",
+            "direction": "cw",
+            "spanDeg": 360,
+            "minAngle": -180,
+            "maxAngle": 180
+          }
+        }
+      }
+    },
+    {
+      "type": "setAngle",
+      "angle": 90,
+      "immediate": true
+    }
+  ],
+  "expect": {
+    "ready": true,
+    "loading": false,
+    "paused": false,
+    "destroyed": false,
+    "angle": 90,
+    "targetAngle": 90,
+    "velocity": 0,
+    "axis": "x",
+    "direction": "cw",
+    "spanDeg": 180,
+    "minAngle": -180,
+    "maxAngle": 180,
+    "limited": false,
+    "frameIndex": 17,
+    "frameCount": 18,
+    "frameDeg": 10,
+    "dragging": false,
+    "auto": {
+      "state": "off",
+      "enabled": false,
+      "direction": "cw",
+      "speed": 36,
+      "weight": 0,
+      "idleDelayMs": 2200,
+      "rampInMs": 700,
+      "rampOutMs": 280
+    },
+    "gyro": {
+      "enabled": false,
+      "seen": false,
+      "gain": 1,
+      "invert": false,
+      "smooth": true,
+      "smoothMs": 80
+    },
+    "layers": [
+      {
+        "layerIndex": 0,
+        "frameIndex": 17,
+        "frameCount": 18,
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720
+        }
+      }
+    ]
+  }
+}

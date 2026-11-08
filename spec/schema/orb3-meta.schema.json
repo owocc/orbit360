@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orbit360.dev/spec/schema/orb3-meta.schema.json",
+  "title": "ORB3 v1 Meta",
+  "type": "object",
+  "required": ["format", "version", "canvas", "totalFrames", "codec", "orbit", "videos"],
+  "properties": {
+    "format": { "const": "orbit360.bundle" },
+    "version": { "const": 1.2 },
+    "title": { "type": "string" },
+    "canvas": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "totalFrames": { "type": "integer", "minimum": 1 },
+    "codec": { "type": "string", "minLength": 1 },
+    "initialAngle": { "type": "number" },
+    "orbit": { "$ref": "#/$defs/orbit" },
+    "videos": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/video" }
+    },
+    "video": { "type": "object" },
+    "drag": { "type": "object" },
+    "motion": { "type": "object" },
+    "auto": { "type": "object" },
+    "gyro": { "type": "object" },
+    "mouseFollow": { "type": "object" },
+    "defaults": { "type": "object" },
+    "quality": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "orbit": {
+      "type": "object",
+      "properties": {
+        "axis": { "enum": ["x", "y"] },
+        "direction": { "enum": ["cw", "ccw"] },
+        "spanDeg": { "type": "number", "exclusiveMinimum": 0, "maximum": 360 },
+        "minAngle": { "type": "number", "minimum": -180, "maximum": 180 },
+        "maxAngle": { "type": "number", "minimum": -180, "maximum": 180 }
+      },
+      "additionalProperties": true
+    },
+    "rect": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "frames": {
+      "type": "object",
+      "required": ["count", "indexStart"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 1 },
+        "indexStart": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "fps": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "video": {
+      "type": "object",
+      "required": ["rect", "frames"],
+      "properties": {
+        "id": { "type": "string" },
+        "rect": { "$ref": "#/$defs/rect" },
+        "orbit": { "$ref": "#/$defs/orbit" },
+        "frames": { "$ref": "#/$defs/frames" },
+        "source": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

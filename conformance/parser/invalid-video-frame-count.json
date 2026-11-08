@@ -1,0 +1,9 @@
+{
+  "name": "invalid-video-frame-count",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/video-frame-count.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_FRAME_COUNT"
+  }
+}

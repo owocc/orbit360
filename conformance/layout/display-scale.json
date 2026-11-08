@@ -1,0 +1,46 @@
+{
+  "name": "display-scale",
+  "kind": "layout",
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  },
+  "viewport": {
+    "width": 1000,
+    "height": 600
+  },
+  "fit": "contain",
+  "displayScale": 1.5,
+  "portraitScale": 1.25,
+  "layers": [
+    {
+      "layerIndex": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      }
+    }
+  ],
+  "expect": {
+    "scale": 1.171875,
+    "destinationRect": {
+      "x": -250,
+      "y": -121.875,
+      "width": 1500,
+      "height": 843.75
+    },
+    "layers": [
+      {
+        "layerIndex": 0,
+        "rect": {
+          "x": -250,
+          "y": -121.875,
+          "width": 1500,
+          "height": 843.75
+        }
+      }
+    ]
+  }
+}

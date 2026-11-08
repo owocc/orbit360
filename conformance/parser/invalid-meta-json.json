@@ -1,0 +1,9 @@
+{
+  "name": "invalid-meta-json",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/meta-json.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_META_JSON"
+  }
+}

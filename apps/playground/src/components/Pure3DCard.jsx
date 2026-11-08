@@ -3,6 +3,7 @@ import { Client } from "@orbit360/javascript/web-client";
 import { useFlipFocus } from "./FlipFocusModal";
 import { getMaterialBlob, resolveMaterial } from "../lib/materials";
 import { beginPress, isSingleClick } from "../lib/card-interaction.js";
+import { AUTO_SPIN_DEG_PER_SEC } from "../lib/rotation";
 
 export const Pure3DCard = forwardRef(function Pure3DCard(
   {
@@ -11,7 +12,7 @@ export const Pure3DCard = forwardRef(function Pure3DCard(
     aspectRatio = "1/1",
     className = "",
     autoSpin = true,
-    speed = 12,
+    speed = AUTO_SPIN_DEG_PER_SEC,
     minAngle = -180,
     maxAngle = 180,
     dragSensitivity = 0.42,

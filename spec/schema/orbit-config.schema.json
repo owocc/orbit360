@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orbit360.dev/spec/schema/orbit-config.schema.json",
+  "title": "OrbitEngine config v1",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "video": {
+      "type": "object",
+      "properties": {
+        "displayScale": { "type": "number", "default": 1 },
+        "portraitScale": { "type": "number", "default": 1.25 },
+        "fit": { "enum": ["contain", "cover"], "default": "contain" },
+        "width": { "type": "integer", "default": 1280 },
+        "height": { "type": "integer", "default": 720 }
+      },
+      "additionalProperties": true
+    },
+    "orbit": {
+      "type": "object",
+      "properties": {
+        "axis": { "enum": ["x", "y"], "default": "x" },
+        "spanDeg": { "type": "number", "exclusiveMinimum": 0, "maximum": 360, "default": 360 },
+        "direction": { "enum": ["cw", "ccw"], "default": "cw" },
+        "minAngle": { "type": "number", "minimum": -180, "maximum": 180, "default": -180 },
+        "maxAngle": { "type": "number", "minimum": -180, "maximum": 180, "default": 180 }
+      },
+      "additionalProperties": true
+    },
+    "drag": {
+      "type": "object",
+      "properties": {
+        "degPerPx": { "type": "number", "default": 0.42 },
+        "invert": { "type": "boolean", "default": false },
+        "inertia": { "type": "boolean", "default": true },
+        "inertiaMs": { "type": "number", "default": 110 }
+      },
+      "additionalProperties": true
+    },
+    "motion": {
+      "type": "object",
+      "properties": {
+        "smoothMs": { "type": "number", "default": 62 }
+      },
+      "additionalProperties": true
+    },
+    "auto": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "dir": { "enum": ["cw", "ccw"], "default": "cw" },
+        "degPerSec": { "type": "number", "default": 36 },
+        "idleDelayMs": { "type": "number", "default": 2200 },
+        "rampInMs": { "type": "number", "default": 700 },
+        "rampOutMs": { "type": "number", "default": 280 }
+      },
+      "additionalProperties": true
+    },
+    "gyro": {
+      "type": "object",
+      "properties": {
+        "gain": { "type": "number", "default": 1 },
+        "invert": { "type": "boolean", "default": false },
+        "smooth": { "type": "boolean", "default": true },
+        "smoothMs": { "type": "number", "default": 80 }
+      },
+      "additionalProperties": true
+    },
+    "mouseFollow": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "degPerPx": { "type": "number", "default": 0.3 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

@@ -20,7 +20,7 @@
   },
   "scripts": {
     "build": "vp pack",
-    "test": "vp check"
+    "test": "vp test"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

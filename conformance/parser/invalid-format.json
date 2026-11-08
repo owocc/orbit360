@@ -1,0 +1,9 @@
+{
+  "name": "invalid-format",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/format.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_FORMAT"
+  }
+}

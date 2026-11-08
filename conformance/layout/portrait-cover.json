@@ -1,0 +1,46 @@
+{
+  "name": "portrait-cover",
+  "kind": "layout",
+  "canvas": {
+    "width": 720,
+    "height": 1280
+  },
+  "viewport": {
+    "width": 1000,
+    "height": 600
+  },
+  "fit": "cover",
+  "displayScale": 1,
+  "portraitScale": 1.25,
+  "layers": [
+    {
+      "layerIndex": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 720,
+        "height": 1280
+      }
+    }
+  ],
+  "expect": {
+    "scale": 1.3888888888888888,
+    "destinationRect": {
+      "x": 0,
+      "y": -588.8888888888889,
+      "width": 1000,
+      "height": 1777.7777777777778
+    },
+    "layers": [
+      {
+        "layerIndex": 0,
+        "rect": {
+          "x": 0,
+          "y": -588.8888888888889,
+          "width": 1000,
+          "height": 1777.7777777777778
+        }
+      }
+    ]
+  }
+}

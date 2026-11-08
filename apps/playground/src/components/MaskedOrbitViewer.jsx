@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Client } from "@orbit360/javascript/web-client";
+import { AUTO_SPIN_DEG_PER_SEC } from "../lib/rotation";
 
 export function MaskedOrbitViewer({
   src,
@@ -9,7 +10,7 @@ export function MaskedOrbitViewer({
   aspectRatio = "1/1",
   className = "",
   autoSpin = true,
-  speed = 12,
+  speed = AUTO_SPIN_DEG_PER_SEC,
   minAngle = -180,
   maxAngle = 180,
   dragSensitivity = 0.42,

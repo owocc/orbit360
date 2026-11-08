@@ -1,0 +1,9 @@
+{
+  "name": "invalid-invalid-prefix-length",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/invalid-prefix-length.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_PREFIX_LENGTH"
+  }
+}

@@ -281,7 +281,7 @@ await client.load("assets/maid/scene.orb");
 核心 API：
 
 ```js
-client.load(urlOrBlob); // .orb / 旧版 zip
+client.load(urlOrBlob); // .orb（ORB3/v1）
 client.setAngle(90); // 目标角度
 client.rotateBy(3);
 client.setAutoRotate("cw"); // off / cw / ccw
@@ -313,7 +313,7 @@ const { createClient } = require("./sdk/orbit360.js");
 const client = await createClient({
   selector: "#orbit-canvas",
   component: this,
-  config: { auto: { enabled: true, dir: "cw", degPerSec: 12 } },
+  config: { auto: { enabled: true, dir: "cw", degPerSec: 36 } },
 });
 
 await client.load("/assets/maid/scene.orb"); // 包内路径 / https URL / ArrayBuffer
@@ -374,7 +374,7 @@ npm 包：
 npm install @orbit360/javascript   # 解析器 + Canvas 渲染层
 ```
 
-- 面板「导入」同时接受 `.zip` 和 `.orb`，按文件头 magic 自动判断
+- 面板「导入」只接受 ORB3/v1 `.orb`；其他格式直接报错，不做格式探测
 - 直接打开：`?orb=scene.orb`（不需要 `catalog.json`）
 - `.orb` 多视频按 `meta.canvas` 建画布，每个 `videos[]` 按其 `rect` 缩放绘制；
   各视频帧数不同时按当前角度在 `spanDeg` 覆盖区间里的比例取帧（`spanDeg=360` 时即整圈比例）
@@ -421,8 +421,8 @@ const head = OrbBundle.parse(prefixBuffer); // 也可以只给前 prefixLen 字�
 - 右下角胶囊栏切换示例（当前项高亮，可横向滚动）；移动端它与面板合并成底部控制区，
   面板上移 68px 避让。切换时整页重载，上一套帧内存随之释放
 - 默认加载 `item.orb`；URL 参数 `?e=maid` 选择示例
-- 页面仍保留旧版 zip 解析用于导入旧包，但仓库不再生成 zip，也不写 `packs` 字段，
-  所以 `?fmt=zip` / `?q=` 在发布示例上无效，画质按钮会自动隐藏
+- 页面只加载 ORB3/v1（`.orb`）；ZIP、自动格式探测与 fallback 路径已删除，
+  导入旧包会直接返回稳定错误码
 
 新增一个示例（生成 `.orb` → 写清单，页面源码不动，重新构建后生效）：
 
@@ -436,14 +436,10 @@ python3 scripts/bundle.py build assets/myid/scene.orb my-video.mp4 \
 
 ## 导入自定义包
 
-面板的 `导入` 按钮接受 zip 包或 `.orb`（按 magic 自动区分）。zip 要求：
-
-1. 根目录有 `meta.json`，含 `pack.files` 与 `pack.frameW/frameH`
-2. `pack.files` 列出的图片都在包里
-3. 建议 STORED（不压缩），老浏览器才能解
-
-`.orb` 直接整体载入，多视频按 `meta.canvas` / `videos[].rect` 排布；帧格式由 `meta.codec`
-决定（WebP 兼容面最广，AVIF 需要较新的浏览器）。
+面板的 `导入` 按钮只接受 ORB3/v1 `.orb`。文件直接整体载入，多视频按
+`meta.canvas` / `videos[].rect` 排布；帧格式由 `meta.codec` 决定（WebP 兼容面最广，
+AVIF 需要较新的浏览器）。ZIP 与其他旧格式会返回 `ORB_INVALID_MAGIC` /
+`ORB_UNSUPPORTED_VERSION`。
 
 导入后立即生效，不写入服务器；示例下拉框与画质按钮会禁用（单包模式）。
 
@@ -453,8 +449,7 @@ python3 scripts/bundle.py build assets/myid/scene.orb my-video.mp4 \
 依赖 Pointer Events 与 ResizeObserver。旧版 `legacy.html` 已废弃并移除。
 
 老设备的真正限制是内存：iOS 的 canvas 总内存约 224 MB，`.orb` 的帧尺寸直接决定占用，
-手机建议 `--long-edge 960` 以内；导入旧 zip 包时仍可按 `标准` 档（512×288，
-雪碧图解码约 71 MB）控制内存。
+手机建议 `--long-edge 960` 以内。
 
 ## 交互
 
@@ -511,7 +506,7 @@ python3 scripts/bundle.py build assets/myid/scene.orb my-video.mp4 \
 | `drag.inertiaMs`                    | 松手惯性时间常数                                                            | `110`          |
 | `motion.smoothMs`                   | 角度阻尼（越小越跟手）                                                      | `45`           |
 | `auto.enabled` / `auto.dir`         | 默认是否自动旋转 / 方向 `cw`\|`ccw`                                         | `false` / `cw` |
-| `auto.degPerSec`                    | 自动旋转速度（面板滑块同步）                                                | `14`           |
+| `auto.degPerSec`                    | 自动旋转速度（面板滑块同步）                                                | `36`           |
 | `auto.idleDelayMs`                  | 静止多久开始自动旋转                                                        | `2200`         |
 | `auto.rampInMs` / `rampOutMs`       | 起转渐入 / 交互渐出时间常数                                                 | `700` / `280`  |
 | `gyro.gain`                         | 陀螺仪增益（面板滑块同步）                                                  | `1.0`          |
@@ -531,8 +526,7 @@ iOS Safari 上逐帧切换 `ImageBitmap` 会不停上传/驱逐 GPU 纹理，画
 - Canvas 上下文 `alpha: false`，绘制前**不再 `clearRect`**，直接覆盖——不会出现「已清空、尚未绘制」的空窗
 - `layout()`（resize / 切画幅）之后同步补画当前帧，避免清屏到下一帧 rAF 之间的空白
 - UI 面板隐藏后 `visibility: hidden`，不再参与合成
-- 内存随帧尺寸线性增长：手机建议 `--long-edge 960` 以内；旧版 zip 的雪碧图解析仍留在 web client 里（兼容导入旧包），
-  但仓库不再生成 zip
+- 内存随帧尺寸线性增长：手机建议 `--long-edge 960` 以内
 
 移动端判定阈值仍是 1100px（覆盖 iPad）。
 
@@ -550,22 +544,22 @@ assets/<id>/        发布产物，每个示例只放 scene.orb
 videos/             示例源视频（用于重新生成，不参与页面加载）
   orbit-sample.mp4   1280×720 / 10s
   anime-maid.mp4     3840×2160 / 10s
-sdk/                多语言 SDK
-  README.md          SDK 约定、npm 发布与新增语言说明
-  js/                npm 包 @orbit360/javascript
-    src/orb.ts       ORB3 解析器（TypeScript，零依赖）
-    src/client.ts    Canvas 渲染核心（TypeScript，不含 UI）
-    src/index.ts     解析器入口
-    src/web-client.ts web client 入口
-    vite.config.ts   Vite+ pack 配置（ESM / CJS / IIFE + dts）
-    dist/            构建产物（IIFE 暴露 window.Orbit360）
-    README.md        解析器 + web client 完整 API
-  wechat-miniprogram/ npm 包 @orbit360/wechat-miniprogram
-    src/orb.ts       ORB3 解析器（二进制 + base64 data URL）
-    src/client.ts    微信小程序 Canvas 2D 渲染核心
-    src/index.ts     入口（client + 解析器）
-    dist/            构建产物（含单文件 CJS orbit360-miniprogram.js）
-    README.md        小程序 API、触摸 / 陀螺仪 / 加载说明
+spec/                  ORB3/v1 规范、错误码、JSON Schema
+fixtures/orb/          合法 / 非法 .orb 测试包
+conformance/           parser / engine / layout / lifecycle 用例
+sdk/                   多语言 SDK
+  README.md            SDK 约定、conformance 与发布说明
+  core/                TypeScript ORB3 解析器 + OrbitEngine + 布局
+  js/                  npm 包 @orbit360/javascript（浏览器 / Node）
+    src/index.ts       解析器 + engine + layout 入口
+    src/client.ts      Canvas 2D 适配器
+    dist/              构建产物（含 IIFE window.Orbit360）
+  wechat-miniprogram/  微信小程序 Canvas 2D 适配器
+  douyin-miniprogram/  抖音小程序 Canvas 2D 适配器
+  miniprogram/         微信 / 抖音共用的 Canvas 2D 客户端
+  expo/                Expo / React Native 适配器
+  flutter/             Flutter / Dart 独立解析器与引擎
+  go/                  Go 独立解析器与引擎
 examples/
   wechat-miniprogram/ 可直接导入微信开发者工具的完整示例
   expo/               Expo / React Native 示例
@@ -586,6 +580,21 @@ scripts/
 
 每个示例目录只有 `scene.orb` 一个产物，中间帧在临时目录里解码、构建完成即删。
 
+## 跨语言规范与 conformance
+
+ORB3/v1 的格式、校验、错误码、引擎语义和快照结构写在 `spec/`；`fixtures/` 和
+`conformance/` 是所有平台共用的测试集。Web TypeScript、Flutter、Go、微信和抖音
+分别实现，但对同一输入必须得到相同结果。
+
+```bash
+vp test                 # TypeScript: core / js / wechat / douyin / expo
+vp run test:go          # Go
+vp run test:flutter     # Flutter
+```
+
+Web 只保留 ORB3 加载；ZIP 解析、旧版 Meta / Index 和自动 fallback 已删除。
+新增用例后所有平台必须通过，任何平台不得维护私有 expected values。
+
 ## 兼容性
 
 Canvas + `Image` + `ResizeObserver`。陀螺仪需要安全上下文
@@ -594,7 +603,7 @@ Android 优先使用 `deviceorientationabsolute` 的绝对朝向，无传感器�
 
 微信小程序使用 `sdk/wechat-miniprogram/`：Canvas 2D + `canvas.createImage()` + base64 帧，
 陀螺仪通过 `wx.startDeviceMotionListening` / `wx.onDeviceMotionChange` 获取，
-只支持 ORB3（`.orb`），不支持旧版 zip。
+只支持 ORB3/v1（`.orb`）。
 
 ## 许可
 

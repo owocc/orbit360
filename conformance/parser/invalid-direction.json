@@ -1,0 +1,9 @@
+{
+  "name": "invalid-direction",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/direction.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_DIRECTION"
+  }
+}

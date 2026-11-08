@@ -200,7 +200,7 @@ export function FoldingBill({ stiffness = 38, settle = 12, materialId = "maid" }
         input: textureContainer,
         config: {
           video: { fit: "cover" },
-          auto: { enabled: true, degPerSec: 15 },
+          auto: { enabled: true },
           drag: { degPerPx: 0.45 },
         },
         autoStartGyro: false,

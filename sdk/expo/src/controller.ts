@@ -1,4 +1,10 @@
-import { OrbBundle, OrbitAxis, OrbitDirection, Rect } from "./orb";
+import {
+  createEngine,
+  computeLayout,
+  type OrbitEngine,
+  type OrbitEngineConfig,
+} from "../../core/src/index";
+import { OrbBundle, type OrbitAxis, type OrbitDirection, type Rect } from "./orb";
 
 export interface OrbitConfig {
   title: string;
@@ -46,7 +52,7 @@ export const DEFAULT_CONFIG: OrbitConfig = {
   autoIdleDelayMs: 2200,
   autoRampInMs: 700,
   autoRampOutMs: 280,
-  gyroGain: 1.0,
+  gyroGain: 1,
   gyroInvert: false,
   gyroSmooth: true,
   gyroSmoothMs: 80,
@@ -104,64 +110,141 @@ export interface OrbitState {
 export interface VideoLayer {
   rect: Rect;
   count: number;
-  frames: string[]; // data URIs
+  frames: string[];
 }
 
 export type OrbitListener = () => void;
 
+function toCoreConfig(config: Partial<OrbitConfig>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (config.title !== undefined) out.title = config.title;
+  if (
+    config.fit !== undefined ||
+    config.mouseFollowEnabled !== undefined ||
+    config.mouseFollowDegPerPx !== undefined
+  ) {
+    out.video = { fit: config.fit };
+    out.mouseFollow = {
+      enabled: config.mouseFollowEnabled,
+      degPerPx: config.mouseFollowDegPerPx,
+    };
+  }
+  if (
+    config.axis !== undefined ||
+    config.spanDeg !== undefined ||
+    config.direction !== undefined ||
+    config.minAngle !== undefined ||
+    config.maxAngle !== undefined
+  ) {
+    out.orbit = {
+      axis: config.axis,
+      spanDeg: config.spanDeg,
+      direction: config.direction,
+      minAngle: config.minAngle,
+      maxAngle: config.maxAngle,
+    };
+  }
+  if (
+    config.dragDegPerPx !== undefined ||
+    config.dragInvert !== undefined ||
+    config.dragInertia !== undefined ||
+    config.dragInertiaMs !== undefined
+  ) {
+    out.drag = {
+      degPerPx: config.dragDegPerPx,
+      invert: config.dragInvert,
+      inertia: config.dragInertia,
+      inertiaMs: config.dragInertiaMs,
+    };
+  }
+  if (config.motionSmoothMs !== undefined) out.motion = { smoothMs: config.motionSmoothMs };
+  if (
+    config.autoEnabled !== undefined ||
+    config.autoDir !== undefined ||
+    config.autoDegPerSec !== undefined ||
+    config.autoIdleDelayMs !== undefined ||
+    config.autoRampInMs !== undefined ||
+    config.autoRampOutMs !== undefined
+  ) {
+    out.auto = {
+      enabled: config.autoEnabled,
+      dir: config.autoDir,
+      degPerSec: config.autoDegPerSec,
+      idleDelayMs: config.autoIdleDelayMs,
+      rampInMs: config.autoRampInMs,
+      rampOutMs: config.autoRampOutMs,
+    };
+  }
+  if (
+    config.gyroGain !== undefined ||
+    config.gyroInvert !== undefined ||
+    config.gyroSmooth !== undefined ||
+    config.gyroSmoothMs !== undefined
+  ) {
+    out.gyro = {
+      gain: config.gyroGain,
+      invert: config.gyroInvert,
+      smooth: config.gyroSmooth,
+      smoothMs: config.gyroSmoothMs,
+    };
+  }
+  return out;
+}
+
+function fromCoreConfig(config: OrbitEngineConfig): OrbitConfig {
+  return {
+    title: config.title,
+    fit: config.video.fit,
+    axis: config.orbit.axis,
+    spanDeg: config.orbit.spanDeg,
+    direction: config.orbit.direction,
+    minAngle: config.orbit.minAngle,
+    maxAngle: config.orbit.maxAngle,
+    dragDegPerPx: config.drag.degPerPx,
+    dragInvert: config.drag.invert,
+    dragInertia: config.drag.inertia,
+    dragInertiaMs: config.drag.inertiaMs,
+    motionSmoothMs: config.motion.smoothMs,
+    autoEnabled: config.auto.enabled,
+    autoDir: config.auto.dir,
+    autoDegPerSec: config.auto.degPerSec,
+    autoIdleDelayMs: config.auto.idleDelayMs,
+    autoRampInMs: config.auto.rampInMs,
+    autoRampOutMs: config.auto.rampOutMs,
+    gyroGain: config.gyro.gain,
+    gyroInvert: config.gyro.invert,
+    gyroSmooth: config.gyro.smooth,
+    gyroSmoothMs: config.gyro.smoothMs,
+    mouseFollowEnabled: config.mouseFollow.enabled,
+    mouseFollowDegPerPx: config.mouseFollow.degPerPx,
+  };
+}
+
 export class OrbitRenderController {
-  private _config: OrbitConfig;
+  private _config: OrbitConfig = { ...DEFAULT_CONFIG };
+  private _engine: OrbitEngine;
   private _bundle: OrbBundle | null = null;
   private _layers: VideoLayer[] = [];
   private _listeners = new Set<OrbitListener>();
-
   private _ready = false;
   private _loading = false;
   private _error: string | null = null;
   private _progress = 0;
+  private _canvasW = 1280;
+  private _canvasH = 720;
+  private _gyroEnabled = false;
+  private _gyroSeen = false;
+  private _gyroOrientMs = 0;
   totalJobs = 0;
   loadedFrames = 0;
 
-  private _angle = 0;
-  private _target = 0;
-  private _vel = 0;
-  private _dragging = false;
-
-  private _minAngle = -180;
-  private _maxAngle = 180;
-  private _limited = false;
-  private _axis: OrbitAxis = "x";
-  private _invert = false;
-  private _inertia = true;
-  private _fit: "contain" | "cover" = "contain";
-
-  private _autoState: "off" | "cw" | "ccw" = "off";
-  private _autoDir = 1;
-  private _autoSpeed = 14;
-  private _autoWeight = 0;
-  private _idleSinceMs = 0;
-
-  private _gyroEnabled = false;
-  private _gyroSeen = false;
-  private _gyroRef: number | null = null;
-  private _gyroBase = 0;
-  private _orientTMs = 0;
-
-  private _canvasW = 1280;
-  private _canvasH = 720;
-  private _count = 0;
-  private _frameDeg = 1;
-  private _degPerFrame = 1;
-
-  private _lastTickMs = 0;
-  private _lastPointerTMs = 0;
-  private _lastPointerX: number | null = null;
-  private _lastPointerY: number | null = null;
-
   constructor(config?: Partial<OrbitConfig>) {
-    this._config = { ...DEFAULT_CONFIG, ...config };
-    this._applyConfig();
-    this._touchActivity();
+    this._engine = createEngine(
+      { canvas: { width: 0, height: 0 }, videos: [] },
+      { config: toCoreConfig(config || {}) },
+    );
+    this._engine.unload();
+    this._syncConfig();
   }
 
   addListener(listener: OrbitListener): () => void {
@@ -174,9 +257,11 @@ export class OrbitRenderController {
   }
 
   private _notify(): void {
-    for (const listener of this._listeners) {
-      listener();
-    }
+    for (const listener of this._listeners) listener();
+  }
+
+  private _syncConfig(): void {
+    this._config = fromCoreConfig(this._engine.getConfig());
   }
 
   get isReady(): boolean {
@@ -192,45 +277,46 @@ export class OrbitRenderController {
     return this._progress;
   }
   get angle(): number {
-    return this._normAngle(this._angle);
+    return this._engine.getAngle();
   }
   get target(): number {
-    return this._normAngle(this._target);
+    return this._engine.getTargetAngle();
   }
   get axis(): OrbitAxis {
-    return this._axis;
+    return this._engine.getSnapshot().axis;
   }
   get frameCount(): number {
-    return this._count;
+    return this._engine.getFrameCount();
   }
   get frameIndex(): number {
-    return this._computeFrameIndex();
+    return this._engine.getFrameIndex();
   }
   get frameDeg(): number {
-    return this._frameDeg;
+    return this._engine.getSnapshot().frameDeg;
   }
   get title(): string {
-    return this._config.title.length > 0 ? this._config.title : "环绕视角";
+    return this._config.title || "环绕视角";
   }
   get fit(): "contain" | "cover" {
-    return this._fit;
+    return this._config.fit;
   }
   get dragging(): boolean {
-    return this._dragging;
+    return this._engine.getSnapshot().dragging;
   }
   get invert(): boolean {
-    return this._invert;
+    return this._config.dragInvert;
   }
   get inertia(): boolean {
-    return this._inertia;
+    return this._config.dragInertia;
   }
   get auto(): AutoState {
+    const auto = this._engine.getSnapshot().auto;
     return {
-      state: this._autoState,
-      enabled: this._autoState !== "off",
-      direction: this._autoState === "off" ? this._config.autoDir : this._autoState,
-      speed: this._autoSpeed,
-      weight: this._autoWeight,
+      state: auto.state,
+      enabled: auto.enabled,
+      direction: auto.direction,
+      speed: auto.speed,
+      weight: auto.weight,
     };
   }
   get gyro(): GyroState {
@@ -260,24 +346,25 @@ export class OrbitRenderController {
   }
 
   get state(): OrbitState {
+    const snapshot = this._engine.getSnapshot();
     return {
       ready: this._ready,
       loading: this._loading,
       title: this.title,
-      angle: this.angle,
-      target: this.target,
-      axis: this._axis,
-      minAngle: this._minAngle,
-      maxAngle: this._maxAngle,
-      limited: this._limited,
-      velocity: this._vel,
-      frameIndex: this.frameIndex,
-      frameCount: this._count,
-      frameDeg: this._frameDeg,
-      dragging: this._dragging,
-      invert: this._invert,
-      inertia: this._inertia,
-      fit: this._fit,
+      angle: snapshot.angle,
+      target: snapshot.targetAngle,
+      axis: snapshot.axis,
+      minAngle: snapshot.minAngle,
+      maxAngle: snapshot.maxAngle,
+      limited: snapshot.limited,
+      velocity: snapshot.velocity,
+      frameIndex: snapshot.frameIndex,
+      frameCount: snapshot.frameCount,
+      frameDeg: snapshot.frameDeg,
+      dragging: snapshot.dragging,
+      invert: this.invert,
+      inertia: this.inertia,
+      fit: this.fit,
       auto: this.auto,
       gyro: this.gyro,
       mouseFollow: this._config.mouseFollowEnabled,
@@ -288,175 +375,113 @@ export class OrbitRenderController {
   currentFrameForLayer(layerIndex: number): string | null {
     const layer = this._layers[layerIndex];
     if (!layer || layer.frames.length === 0) return null;
-    const fi = this._computeFrameIndex();
-    const safeFi = Math.max(0, Math.min(layer.frames.length - 1, fi));
-    return layer.frames[safeFi] || null;
+    const snapshot = this._engine.getSnapshot();
+    const index = snapshot.layers[layerIndex]?.frameIndex ?? 0;
+    return layer.frames[Math.max(0, Math.min(layer.frames.length - 1, index))] || null;
   }
 
-  private _touchActivity(): void {
-    this._idleSinceMs = Date.now();
-  }
-
-  private _applyConfig(): void {
-    this._invert = this._config.dragInvert;
-    this._axis = this._config.axis === "y" ? "y" : "x";
-    let lo = Math.min(180, Math.max(-180, this._config.minAngle));
-    let hi = Math.min(180, Math.max(-180, this._config.maxAngle));
-    if (lo > hi) {
-      const t = lo;
-      lo = hi;
-      hi = t;
-    }
-    this._minAngle = lo;
-    this._maxAngle = hi;
-    this._limited = hi - lo < 360;
-    this._inertia = this._config.dragInertia;
-    this._fit = this._config.fit;
-
-    if (this._config.autoEnabled) {
-      this._autoState = this._config.autoDir === "ccw" ? "ccw" : "cw";
-      this._autoDir = this._autoState === "ccw" ? -1 : 1;
-    } else {
-      this._autoState = "off";
-    }
-    this._autoSpeed = this._config.autoDegPerSec;
-
-    if (this._count > 0) {
-      const span = this._limited ? this._maxAngle - this._minAngle : 360;
-      this._degPerFrame = span / this._count;
-      this._frameDeg = this._degPerFrame;
-    }
-  }
-
-  private _normAngle(deg: number): number {
-    if (this._limited) {
-      return Math.min(this._maxAngle, Math.max(this._minAngle, deg));
-    }
-    return ((((deg + 180) % 360) + 360) % 360) - 180;
-  }
-
-  private _angleDelta(from: number, to: number): number {
-    if (this._limited) return to - from;
-    return ((((to - from + 180) % 360) + 360) % 360) - 180;
-  }
-
-  private _computeFrameIndex(): number {
-    if (this._count <= 0) return 0;
-    if (this._limited) {
-      const span = this._maxAngle - this._minAngle;
-      if (span <= 0) return 0;
-      const t = (this.angle - this._minAngle) / span;
-      return Math.min(this._count - 1, Math.max(0, Math.floor(t * (this._count - 1))));
-    }
-    const signed = this.angle;
-    const norm = ((((signed % 360) + 360) % 360) / 360) * this._count;
-    const idx = Math.floor(norm) % this._count;
-    return (idx + this._count) % this._count;
-  }
-
-  setInvert(val: boolean): void {
-    this._config = { ...this._config, dragInvert: val };
-    this._invert = val;
+  setConfig(next: OrbitConfig): void {
+    this._engine.setConfig(toCoreConfig(next));
+    this._syncConfig();
     this._notify();
   }
 
-  setInertia(val: boolean): void {
-    this._config = { ...this._config, dragInertia: val };
-    this._inertia = val;
+  setInvert(value: boolean): void {
+    this._engine.setConfig({ drag: { invert: value } });
+    this._syncConfig();
+    this._notify();
+  }
+
+  setInertia(value: boolean): void {
+    this._engine.setConfig({ drag: { inertia: value } });
+    this._syncConfig();
     this._notify();
   }
 
   setFit(mode: "contain" | "cover"): void {
-    this._config = { ...this._config, fit: mode };
-    this._fit = mode;
+    this._engine.setConfig({ video: { fit: mode } });
+    this._syncConfig();
     this._notify();
   }
 
   setGyroGain(gain: number): void {
-    this._config = { ...this._config, gyroGain: gain };
+    this._engine.setConfig({ gyro: { gain } });
+    this._syncConfig();
     this._notify();
   }
 
   setGyroSmooth(smooth: boolean): void {
-    this._config = { ...this._config, gyroSmooth: smooth };
+    this._engine.setConfig({ gyro: { smooth } });
+    this._syncConfig();
     this._notify();
   }
 
   setMouseFollow(enabled: boolean): void {
-    this._config = { ...this._config, mouseFollowEnabled: enabled };
+    this._engine.setConfig({ mouseFollow: { enabled } });
+    this._syncConfig();
     this._notify();
   }
 
   setAutoRotate(value: boolean | string): void {
-    if (typeof value === "boolean") {
-      this._config = { ...this._config, autoEnabled: value };
-    } else if (value === "off") {
-      this._config = { ...this._config, autoEnabled: false };
-    } else if (value === "cw" || value === "ccw") {
-      this._config = { ...this._config, autoEnabled: true, autoDir: value };
-    } else if (value === "on") {
-      this._config = { ...this._config, autoEnabled: true };
+    let enabled = !!value;
+    let dir: OrbitDirection | undefined;
+    if (typeof value === "string") {
+      if (value === "off") enabled = false;
+      else if (value === "cw" || value === "ccw") {
+        enabled = true;
+        dir = value;
+      } else if (value === "on") enabled = true;
     }
-    this._applyConfig();
-    this._touchActivity();
+    this._engine.setConfig({ auto: { enabled, dir } });
+    this._syncConfig();
     this._notify();
   }
 
   cycleAuto(): "off" | "cw" | "ccw" {
-    const next = this._autoState === "off" ? "cw" : this._autoState === "cw" ? "ccw" : "off";
+    const state = this._engine.getSnapshot().auto.state;
+    const next = state === "off" ? "cw" : state === "cw" ? "ccw" : "off";
     this.setAutoRotate(next);
     return next;
   }
 
   setAutoSpeed(speed: number): void {
-    this._config = { ...this._config, autoDegPerSec: speed };
-    this._autoSpeed = speed;
+    this._engine.setConfig({ auto: { degPerSec: speed } });
+    this._syncConfig();
     this._notify();
   }
 
   rotateBy(deg: number): void {
-    this._target = this._normAngle(this._target + deg);
-    this._touchActivity();
+    this._engine.rotateBy(deg);
     this._notify();
   }
 
   setAngle(deg: number, immediate = false): void {
-    this._target = this._normAngle(deg);
-    this._vel = 0;
-    if (immediate) this._angle = this._target;
-    this._touchActivity();
+    this._engine.setAngle(deg, immediate);
     this._notify();
   }
 
   reset(angle = 0, immediate = false): void {
-    this._target = this._normAngle(angle);
-    this._vel = 0;
-    if (this._gyroEnabled) {
-      this._gyroRef = null;
-      this._gyroBase = 0;
-    }
-    if (immediate) this._angle = this._target;
-    this._touchActivity();
+    this._engine.reset(angle, immediate);
     this._notify();
   }
 
   calibrateGyro(): void {
-    this._gyroRef = null;
-    this._gyroBase = this._target;
+    this._engine.calibrateGyro();
     this._notify();
   }
 
   enableGyro(): void {
     this._gyroEnabled = true;
     this._gyroSeen = false;
-    this._gyroRef = null;
+    this._engine.enableGyro();
+    this._engine.calibrateGyro();
     this._notify();
   }
 
   disableGyro(): void {
     this._gyroEnabled = false;
     this._gyroSeen = false;
-    this._gyroRef = null;
+    this._engine.disableGyro();
     this._notify();
   }
 
@@ -467,11 +492,10 @@ export class OrbitRenderController {
     dt: number,
     screenRotationDeg = 0,
   ): void {
-    if (!this._gyroEnabled || this._dragging) return;
+    if (!this._gyroEnabled || this.dragging) return;
     this._gyroSeen = true;
-
-    let sx: number;
-    let sy: number;
+    let sx = gx;
+    let sy = gy;
     switch (screenRotationDeg) {
       case 90:
         sx = gy;
@@ -485,253 +509,158 @@ export class OrbitRenderController {
         sx = -gy;
         sy = gx;
         break;
-      case 0:
       default:
-        sx = gx;
-        sy = gy;
         break;
     }
-
     const gain =
-      this._config.gyroGain * (this._config.gyroInvert ? -1.0 : 1.0) * (this._invert ? -1.0 : 1.0);
-
-    const rad = this._axis === "y" ? sx * dt : -sy * dt - gz * 0.4 * dt;
-    const degDelta = rad * (180.0 / Math.PI) * gain;
-
-    if (this._config.gyroSmooth) {
-      const now = Date.now();
-      const dtMs = Math.min(Math.max(now - this._orientTMs, 1), 120);
-      this._orientTMs = now;
-      const tau = this._config.gyroSmoothMs;
-      const factor = 1 - Math.exp(-dtMs / tau);
-      this._target = this._normAngle(this._target + degDelta * factor);
-    } else {
-      this._target = this._normAngle(this._target + degDelta);
-    }
-
-    this._touchActivity();
+      this._config.gyroGain *
+      (this._config.gyroInvert ? -1 : 1) *
+      (this._config.dragInvert ? -1 : 1);
+    const radians = this.axis === "y" ? sx * dt : -sy * dt - gz * 0.4 * dt;
+    const delta = radians * (180 / Math.PI) * gain;
+    const now = Date.now();
+    const smooth = Math.min(Math.max(now - this._gyroOrientMs, 1), 120);
+    this._gyroOrientMs = now;
+    const factor = this._config.gyroSmooth ? 1 - Math.exp(-smooth / this._config.gyroSmoothMs) : 1;
+    this._engine.rotateBy(delta * factor);
     this._notify();
   }
 
   onPointerDown(x: number, y: number): void {
-    this._dragging = true;
-    this._vel = 0;
-    this._lastPointerX = x;
-    this._lastPointerY = y;
-    this._lastPointerTMs = Date.now();
-    this._touchActivity();
+    this._engine.pointerDown(x, y, Date.now());
     this._notify();
   }
 
   onPointerMove(x: number, y: number): void {
-    if (!this._dragging) return;
-    const now = Date.now();
-    const dx = x - (this._lastPointerX ?? x);
-    const dy = y - (this._lastPointerY ?? y);
-    const dt = Math.max(now - this._lastPointerTMs, 1);
-    const px = this._axis === "y" ? dy : dx;
-    const deg = px * this._config.dragDegPerPx * (this._invert ? -1.0 : 1.0);
-
-    this._target = this._normAngle(this._target + deg);
-    if (this._gyroEnabled) {
-      this._gyroBase = this._normAngle(this._gyroBase + deg);
-    }
-    const inst = dt > 90 ? 0.0 : deg / dt;
-    this._vel = 0.6 * inst + 0.4 * this._vel;
-    this._lastPointerX = x;
-    this._lastPointerY = y;
-    this._lastPointerTMs = now;
-    this._touchActivity();
+    if (!this.dragging) return;
+    this._engine.pointerMove(x, y, Date.now());
     this._notify();
   }
 
   onPointerUp(): void {
-    if (!this._dragging) return;
-    this._dragging = false;
-    const now = Date.now();
-    if (now - this._lastPointerTMs > 90) {
-      this._vel = 0.0;
-    }
-    this._vel = Math.min(0.55, Math.max(-0.55, this._vel));
-    this._touchActivity();
+    this._engine.pointerUp(Date.now());
+    this._notify();
+  }
+
+  onPointerHover(delta: { dx: number; dy: number }): void {
+    if (this.dragging || !this._config.mouseFollowEnabled) return;
+    const px = this.axis === "y" ? delta.dy : delta.dx;
+    if (!px) return;
+    this._engine.rotateBy(
+      px * this._config.mouseFollowDegPerPx * (this._config.dragInvert ? -1 : 1),
+    );
     this._notify();
   }
 
   tick(nowMs: number = Date.now()): void {
-    if (this._lastTickMs === 0) {
-      this._lastTickMs = nowMs;
-      return;
-    }
-    const dt = Math.min(nowMs - this._lastTickMs, 64);
+    const dt = Math.min(Math.max(nowMs - (this._lastTickMs || nowMs), 0), 64);
     this._lastTickMs = nowMs;
-
-    if (!this._dragging) {
-      if (this._inertia && !this._gyroEnabled && Math.abs(this._vel) > 0.0005) {
-        const next = this._normAngle(this._target + this._vel * dt);
-        if (this._limited && next === this._target) {
-          this._vel = 0;
-        }
-        this._target = next;
-        this._vel *= Math.exp(-dt / this._config.dragInertiaMs);
-        this._touchActivity();
-      } else {
-        this._vel = 0;
-      }
+    this._engine.advance(dt);
+    const before = this._lastAngle;
+    const after = this._engine.getSnapshot().angle;
+    if (before !== after) {
+      this._lastAngle = after;
+      this._notify();
     }
+  }
+  private _lastTickMs = 0;
+  private _lastAngle = Number.NaN;
 
-    this._updateAuto(dt, nowMs);
-
-    const delta = this._angleDelta(this._angle, this._target);
-    const tau = this._config.motionSmoothMs;
-    const next = this._angle + delta * (1 - Math.exp(-dt / tau));
-    this._angle = this._limited
-      ? Math.min(this._maxAngle, Math.max(this._minAngle, next))
-      : ((((next + 180) % 360) + 360) % 360) - 180;
-
-    if (Math.abs(this._angleDelta(this._angle, this._target)) < 0.0005) {
-      this._angle = this._target;
-    }
-
-    this._notify();
+  frameInfo(): FrameInfo {
+    const snapshot = this._engine.getSnapshot();
+    return { index: snapshot.frameIndex, count: snapshot.frameCount, frameDeg: snapshot.frameDeg };
   }
 
-  private _updateAuto(dt: number, nowMs: number): void {
-    const idle = nowMs - this._idleSinceMs;
-    const want =
-      this._autoState !== "off" &&
-      !this._gyroEnabled &&
-      !this._dragging &&
-      idle > this._config.autoIdleDelayMs
-        ? 1.0
-        : 0.0;
-    const tau =
-      want > 0 ? this._config.autoRampInMs : this._dragging ? 120.0 : this._config.autoRampOutMs;
-
-    this._autoWeight += (want - this._autoWeight) * (1 - Math.exp(-dt / tau));
-    if (want === 0 && this._autoWeight < 0.004) {
-      this._autoWeight = 0;
-      return;
-    }
-    if (this._autoWeight <= 0) return;
-    this._target = this._normAngle(
-      this._target + (this._autoDir * this._autoSpeed * this._autoWeight * dt) / 1000.0,
-    );
+  layout(viewport: { width: number; height: number }) {
+    return computeLayout({
+      canvas: { width: this._canvasW, height: this._canvasH },
+      viewport,
+      fit: this._config.fit,
+      displayScale: 1,
+      portraitScale: 1.25,
+      layers: this._layers.map((layer, index) => ({ layerIndex: index, rect: layer.rect })),
+    });
   }
 
-  async loadOrbBytes(bytes: Uint8Array, defaultTitle?: string): Promise<void> {
+  async loadOrbBytes(
+    bytes: Uint8Array,
+    options: string | { defaultTitle?: string } = {},
+  ): Promise<void> {
+    const defaultTitle = typeof options === "string" ? options : options.defaultTitle;
     this._loading = true;
     this._ready = false;
     this._error = null;
     this._progress = 0.1;
     this._notify();
-
     try {
       const bundle = OrbBundle.parse(bytes);
       const meta = bundle.meta;
-
-      const rawDefaults = (meta as Record<string, unknown>).defaults as
-        | Record<string, unknown>
-        | undefined;
-      const sceneAuto = rawDefaults?.auto as
-        | { enabled?: boolean; dir?: OrbitDirection }
-        | undefined;
-      const autoEnabled = sceneAuto?.enabled ?? false;
-      const autoDir = sceneAuto?.dir ?? "cw";
-
-      this._config = {
-        ...this._config,
-        title: defaultTitle || meta.title || "环绕视角",
-        axis: meta.orbit?.axis || "x",
-        spanDeg: meta.orbit?.spanDeg || 360,
-        direction: meta.orbit?.direction || "cw",
-        minAngle: meta.orbit?.minAngle ?? -180,
-        maxAngle: meta.orbit?.maxAngle ?? 180,
-        autoEnabled,
-        autoDir,
-      };
-
-      this._canvasW = meta.canvas.width;
-      this._canvasH = meta.canvas.height;
-      this._count = meta.videos.reduce(
-        (max, v) => (v.frames.count > max ? v.frames.count : max),
-        0,
-      );
-
-      const layers: VideoLayer[] = [];
-      let totalJobs = 0;
-      for (const v of meta.videos) {
-        totalJobs += v.frames.count;
-      }
-      this.totalJobs = totalJobs;
+      const codec = meta.codec || "image/jpeg";
+      this.totalJobs = meta.videos.reduce((sum, video) => sum + video.frames.count, 0);
       this.loadedFrames = 0;
-
-      for (let vi = 0; vi < meta.videos.length; vi++) {
-        const v = meta.videos[vi];
-        const framesList = Array.from<string>({ length: v.frames.count });
-        layers.push({
-          rect: v.rect,
-          count: v.frames.count,
-          frames: framesList,
-        });
-      }
-
-      const mimeType = meta.codec?.includes("png") ? "image/png" : "image/jpeg";
-      let processed = 0;
-
-      for (let vi = 0; vi < meta.videos.length; vi++) {
-        const v = meta.videos[vi];
-        const layer = layers[vi];
-        for (let fi = 0; fi < v.frames.count; fi++) {
+      const layers: VideoLayer[] = meta.videos.map((video, videoIndex) => {
+        const frames: string[] = Array.from({ length: video.frames.count });
+        for (let frameIndex = 0; frameIndex < video.frames.count; frameIndex++) {
           try {
-            layer.frames[fi] = bundle.frameDataUri(vi, fi, mimeType);
+            frames[frameIndex] = bundle.frameDataUri(videoIndex, frameIndex, codec);
           } catch {
-            layer.frames[fi] = "";
+            frames[frameIndex] = "";
           }
-          processed++;
-          this.loadedFrames = processed;
-          this._progress = 0.1 + 0.9 * (processed / totalJobs);
-          if (processed % 15 === 0 || processed === totalJobs) {
-            this._notify();
-            await new Promise((resolve) => setTimeout(resolve, 0));
-          }
+          this.loadedFrames++;
         }
-      }
-
+        return { rect: video.rect, count: video.frames.count, frames };
+      });
       this._bundle = bundle;
       this._layers = layers;
-      this._applyConfig();
-      this._angle = this._target = this._normAngle(meta.initialAngle ?? 0);
+      this._canvasW = meta.canvas.width;
+      this._canvasH = meta.canvas.height;
+      this._engine.load({
+        canvas: meta.canvas,
+        initialAngle: meta.initialAngle,
+        videos: bundle.layers.map((layer) => ({ rect: layer.rect, frameCount: layer.frameCount })),
+        sceneConfig: bundle.sceneConfig,
+      });
+      if (defaultTitle) this._engine.setConfig({ title: defaultTitle });
+      this._syncConfig();
       this._ready = true;
       this._loading = false;
-      this._progress = 1.0;
+      this._progress = 1;
       this._notify();
-    } catch (err: unknown) {
+    } catch (error) {
       this._loading = false;
       this._ready = false;
-      this._error = err instanceof Error ? err.message : String(err);
+      this._error = error instanceof Error ? error.message : String(error);
       this._notify();
-      throw err;
+      throw error;
     }
   }
 
-  async loadUrl(url: string, defaultTitle?: string): Promise<void> {
+  async loadUrl(url: string, { defaultTitle }: { defaultTitle?: string } = {}): Promise<void> {
     this._loading = true;
     this._ready = false;
     this._error = null;
     this._progress = 0.05;
     this._notify();
-
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const arrayBuffer = await res.arrayBuffer();
-      await this.loadOrbBytes(new Uint8Array(arrayBuffer), defaultTitle);
-    } catch (err: unknown) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}: 无法加载 ${url}`);
+      await this.loadOrbBytes(new Uint8Array(await response.arrayBuffer()), { defaultTitle });
+    } catch (error) {
       this._loading = false;
       this._ready = false;
-      this._error = err instanceof Error ? err.message : String(err);
+      this._error = error instanceof Error ? error.message : String(error);
       this._notify();
-      throw err;
+      throw error;
     }
+  }
+
+  async loadFile(
+    file: { uri: string; arrayBuffer?: () => Promise<ArrayBuffer> },
+    { defaultTitle }: { defaultTitle?: string } = {},
+  ): Promise<void> {
+    if (!file.arrayBuffer) throw new Error("loadFile: File 需要 arrayBuffer()");
+    await this.loadOrbBytes(new Uint8Array(await file.arrayBuffer()), {
+      defaultTitle: defaultTitle ?? file.uri.split("/").pop(),
+    });
   }
 }

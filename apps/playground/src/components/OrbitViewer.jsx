@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Client } from "@orbit360/javascript/web-client";
+import { AUTO_SPIN_DEG_PER_SEC } from "../lib/rotation";
 
 export function OrbitViewer({
   src,
@@ -12,7 +13,7 @@ export function OrbitViewer({
   initialAngle = 0,
   minAngle = -180,
   maxAngle = 180,
-  speed = 14,
+  speed = AUTO_SPIN_DEG_PER_SEC,
   dragSensitivity = 0.42,
   onAngleChange,
 }) {

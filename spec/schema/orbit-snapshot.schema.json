@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orbit360.dev/spec/schema/orbit-snapshot.schema.json",
+  "title": "OrbitEngine Snapshot v1",
+  "type": "object",
+  "required": [
+    "ready",
+    "loading",
+    "paused",
+    "destroyed",
+    "angle",
+    "targetAngle",
+    "velocity",
+    "axis",
+    "direction",
+    "spanDeg",
+    "minAngle",
+    "maxAngle",
+    "limited",
+    "frameIndex",
+    "frameCount",
+    "frameDeg",
+    "dragging",
+    "auto",
+    "gyro",
+    "layers"
+  ],
+  "properties": {
+    "ready": { "type": "boolean" },
+    "loading": { "type": "boolean" },
+    "paused": { "type": "boolean" },
+    "destroyed": { "type": "boolean" },
+    "angle": { "type": "number" },
+    "targetAngle": { "type": "number" },
+    "velocity": { "type": "number", "minimum": -0.55, "maximum": 0.55 },
+    "axis": { "enum": ["x", "y"] },
+    "direction": { "enum": ["cw", "ccw"] },
+    "spanDeg": { "type": "number", "exclusiveMinimum": 0, "maximum": 360 },
+    "minAngle": { "type": "number" },
+    "maxAngle": { "type": "number" },
+    "limited": { "type": "boolean" },
+    "frameIndex": { "type": "integer", "minimum": 0 },
+    "frameCount": { "type": "integer", "minimum": 0 },
+    "frameDeg": { "type": "number" },
+    "dragging": { "type": "boolean" },
+    "auto": {
+      "type": "object",
+      "required": ["state", "enabled", "direction", "speed", "weight"],
+      "properties": {
+        "state": { "enum": ["off", "cw", "ccw"] },
+        "enabled": { "type": "boolean" },
+        "direction": { "enum": ["cw", "ccw"] },
+        "speed": { "type": "number" },
+        "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+        "idleDelayMs": { "type": "number" },
+        "rampInMs": { "type": "number" },
+        "rampOutMs": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "gyro": {
+      "type": "object",
+      "required": ["enabled", "seen", "gain", "invert", "smooth", "smoothMs"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "seen": { "type": "boolean" },
+        "gain": { "type": "number" },
+        "invert": { "type": "boolean" },
+        "smooth": { "type": "boolean" },
+        "smoothMs": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["layerIndex", "frameIndex", "frameCount", "rect"],
+        "properties": {
+          "layerIndex": { "type": "integer", "minimum": 0 },
+          "frameIndex": { "type": "integer", "minimum": 0 },
+          "frameCount": { "type": "integer", "minimum": 1 },
+          "rect": {
+            "type": "object",
+            "required": ["x", "y", "width", "height"],
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "width": { "type": "number" },
+              "height": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

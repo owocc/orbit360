@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orbit360.dev/spec/schema/conformance-case.schema.json",
+  "title": "ORB3 conformance case",
+  "type": "object",
+  "required": ["name", "expect"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "kind": { "enum": ["parser", "engine", "layout", "lifecycle"] },
+    "file": { "type": "string" },
+    "expect": { "type": "object" }
+  },
+  "additionalProperties": true
+}

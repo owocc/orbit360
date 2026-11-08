@@ -1,208 +1,488 @@
-//#region src/client.d.ts
-declare const VERSION = "0.1.0";
-declare const DEFAULTS: {
+//#region ../core/src/orb.d.ts
+type OrbitAxis = "x" | "y";
+type OrbitDirection = "cw" | "ccw";
+interface OrbitMeta {
+  axis?: OrbitAxis;
+  spanDeg?: number;
+  direction?: OrbitDirection;
+  minAngle?: number;
+  maxAngle?: number;
+  [key: string]: unknown;
+}
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+interface VideoFrames {
+  count: number;
+  width?: number;
+  height?: number;
+  fps?: number;
+  indexStart: number;
+  [key: string]: unknown;
+}
+interface VideoMeta {
+  id?: string;
+  rect: Rect;
+  source?: Record<string, unknown>;
+  orbit?: OrbitMeta;
+  frames: VideoFrames;
+  [key: string]: unknown;
+}
+interface BundleMeta {
+  format: string;
+  version: number;
+  title?: string;
+  canvas: {
+    width: number;
+    height: number;
+  };
+  totalFrames: number;
+  codec: string;
+  initialAngle?: number;
+  orbit?: OrbitMeta;
+  videos: VideoMeta[];
+  [key: string]: unknown;
+}
+interface BundleHeader {
+  version: number;
+  prefixLen: number;
+  metaLen: number;
+  indexLen: number;
+  frameCount: number;
+  indexEntrySize: number;
+  flags: number;
+}
+interface FrameEntry {
+  video: number;
+  length: number;
+  offset: number;
+}
+interface VideoLayer {
+  videoIndex: number;
+  rect: Rect;
+  frameCount: number;
+  indexStart: number;
+}
+interface Bundle$1 {
+  header: BundleHeader;
+  meta: BundleMeta;
+  entries: FrameEntry[];
+  layers: VideoLayer[];
+  size: number;
+  sceneConfig: Record<string, unknown>;
+  frameEntry(videoIndex: number, frameIndex: number): FrameEntry;
+  frameBytes(videoIndex: number, frameIndex: number): Uint8Array;
+}
+//#endregion
+//#region ../core/src/config.d.ts
+interface OrbitEngineConfig {
   title: string;
   video: {
     displayScale: number;
     portraitScale: number;
-    fit: string;
+    fit: "contain" | "cover";
     width: number;
     height: number;
+    [key: string]: unknown;
   };
   orbit: {
-    axis: string;
+    axis: OrbitAxis;
     spanDeg: number;
-    direction: string;
+    direction: OrbitDirection;
     minAngle: number;
     maxAngle: number;
+    [key: string]: unknown;
   };
   drag: {
     degPerPx: number;
     invert: boolean;
     inertia: boolean;
     inertiaMs: number;
+    [key: string]: unknown;
   };
   motion: {
     smoothMs: number;
+    [key: string]: unknown;
   };
   auto: {
     enabled: boolean;
-    dir: string;
+    dir: OrbitDirection;
     degPerSec: number;
     idleDelayMs: number;
     rampInMs: number;
     rampOutMs: number;
+    [key: string]: unknown;
   };
   gyro: {
     gain: number;
     invert: boolean;
     smooth: boolean;
     smoothMs: number;
+    [key: string]: unknown;
   };
   mouseFollow: {
     enabled: boolean;
     degPerPx: number;
+    [key: string]: unknown;
   };
-};
-export declare class Orbit360Client {
-  [key: string]: any;
-  /**
-   * @param {HTMLCanvasElement} canvas
-   * @param {object} [options]
-   * @param {HTMLElement} [options.container] 尺寸参考元素，默认 canvas.parentElement
-   * @param {HTMLElement} [options.input] 指针事件目标，默认 container
-   * @param {object} [options.config] 用户配置覆盖
-   * @param {number} [options.dprCap=2]
-   * @param {boolean} [options.autoStartGyro=false]
-   * @param {number} [options.concurrency=6]
-   * @param {string} [options.dragClass='dragging']
-   */
-  constructor(canvas: HTMLCanvasElement, options?: any);
-  on(type: any, handler: any): () => this;
-  once(type: any, handler: any): () => this;
-  off(type: any, handler: any): this;
-  _emit(type: any, payload: any): void;
-  _emitState(): void;
-  _emitAngle(): void;
-  _emitFrame(index: any): void;
-  _resolveConfig(): any;
-  _applyConfig(): void;
-  _recalcFrames(): void;
-  _frameSpan(): number;
-  _normAngle(value: any): any;
-  _angleDelta(from: any, to: any): number;
-  setConfig(partial: any): this;
+  [key: string]: unknown;
+}
+export declare const DEFAULTS: OrbitEngineConfig;
+//#endregion
+//#region ../core/src/engine.d.ts
+interface EngineLayerInput {
+  rect: Rect;
+  frameCount: number;
+}
+interface EngineBundle {
+  canvas: {
+    width: number;
+    height: number;
+  };
+  initialAngle?: number;
+  videos: EngineLayerInput[];
+  sceneConfig?: Record<string, unknown>;
+}
+interface EngineLayerSnapshot {
+  layerIndex: number;
+  frameIndex: number;
+  frameCount: number;
+  rect: Rect;
+}
+interface EngineSnapshot {
+  ready: boolean;
+  loading: boolean;
+  paused: boolean;
+  destroyed: boolean;
+  angle: number;
+  targetAngle: number;
+  velocity: number;
+  axis: "x" | "y";
+  direction: OrbitDirection;
+  spanDeg: number;
+  minAngle: number;
+  maxAngle: number;
+  limited: boolean;
+  frameIndex: number;
+  frameCount: number;
+  frameDeg: number;
+  dragging: boolean;
+  auto: {
+    state: "off" | "cw" | "ccw";
+    enabled: boolean;
+    direction: OrbitDirection;
+    speed: number;
+    weight: number;
+    idleDelayMs: number;
+    rampInMs: number;
+    rampOutMs: number;
+  };
+  gyro: {
+    enabled: boolean;
+    seen: boolean;
+    gain: number;
+    invert: boolean;
+    smooth: boolean;
+    smoothMs: number;
+  };
+  layers: EngineLayerSnapshot[];
+}
+interface EngineOptions {
+  config?: Record<string, unknown>;
+}
+declare class OrbitEngine {
+  private _sceneConfig;
+  private _userConfig;
+  private _config;
+  private _ready;
+  private _paused;
+  private _destroyed;
+  private _angle;
+  private _target;
+  private _velocity;
+  private _dragging;
+  private _limited;
+  private _axis;
+  private _minAngle;
+  private _maxAngle;
+  private _frameCount;
+  private _degPerFrame;
+  private _layers;
+  private _lastPointerX;
+  private _lastPointerY;
+  private _lastPointerTime;
+  private _now;
+  private _lastActivity;
+  private _autoState;
+  private _autoDir;
+  private _autoSpeed;
+  private _autoWeight;
+  private _gyroActive;
+  private _gyroSeen;
+  private _gyroRef;
+  private _gyroBase;
+  private _lastGyroTime;
+  constructor(bundle: EngineBundle, options?: EngineOptions);
+  load(bundle: EngineBundle): this;
+  setConfig(partial?: Record<string, unknown>): this;
   resetConfig(): this;
-  getConfig(): any;
-  getMeta(): any;
-  getState(): {
-    ready: any;
-    loading: any;
-    destroyed: any;
-    format: any;
-    quality: any;
-    codec: any;
-    title: any;
-    angle: any;
-    target: any;
-    axis: any;
-    limits: {
-      min: any;
-      max: any;
-      limited: any;
-    };
-    velocity: any;
-    frameIndex: number;
-    frameCount: any;
-    frameDeg: any;
-    degPerFrame: any;
-    dragging: any;
-    missingFrames: number;
-    auto: {
-      state: any;
-      enabled: boolean;
-      direction: any;
-      speed: any;
-      weight: any;
-      idleDelayMs: any;
-      rampInMs: any;
-      rampOutMs: any;
-    };
-    gyro: {
-      enabled: any;
-      pending: any;
-      seen: any;
-      absolute: any;
-      supported: boolean;
-      gain: any;
-      invert: boolean;
-      smooth: any;
-      smoothMs: any;
-    };
-    inertia: any;
-    invert: any;
-    fit: any;
-    mouseFollow: {
-      enabled: any;
-      degPerPx: any;
-    };
-    progress: {
-      progress: any;
-      loaded: any;
-      total: any;
-      phase: any;
-    };
-    viewport: {
-      width: any;
-      height: any;
-      dpr: any;
-    };
-    canvas: {
-      width: any;
-      height: any;
-      frameWidth: any;
-      frameHeight: any;
-    };
-    config: any;
-    meta: any;
-  };
-  getAngle(): any;
-  getTargetAngle(): any;
+  setAngle(deg: number, immediate?: boolean): this;
+  rotateBy(deg: number): this;
+  pointerDown(x: number, y: number, timeMs: number): this;
+  pointerMove(x: number, y: number, timeMs: number): this;
+  pointerUp(timeMs: number): this;
+  enableGyro(): this;
+  gyro(sample: {
+    heading: number;
+    timeMs: number;
+  }): this;
+  disableGyro(): this;
+  calibrateGyro(): this;
+  pause(): this;
+  resume(): this;
+  reset(angle?: number, immediate?: boolean): this;
+  unload(): this;
+  destroy(): this;
+  advance(dtMs: number): this;
+  getAngle(): number;
+  getTargetAngle(): number;
   getFrameIndex(): number;
-  getFrameCount(): any;
-  setAngle(deg: any, options?: {
+  getFrameCount(): number;
+  getConfig(): OrbitEngineConfig;
+  getSnapshot(): EngineSnapshot;
+  private _eventTime;
+  private _frameSpan;
+  private _recalcFrames;
+  private _applyConfig;
+  private _normAngle;
+  private _angleDelta;
+  private _frameIndex;
+}
+//#endregion
+//#region src/orb.d.ts
+interface Bundle extends Bundle$1 {
+  blob: Blob | null;
+  frameBlob(videoIndex: number, frameIndex: number): Blob;
+}
+//#endregion
+//#region src/client.d.ts
+declare const VERSION = "0.1.0";
+export interface Orbit360ClientOptions {
+  container?: HTMLElement;
+  input?: HTMLElement;
+  dragClassTarget?: HTMLElement;
+  config?: Record<string, unknown>;
+  dprCap?: number;
+  autoStartGyro?: boolean;
+  concurrency?: number;
+  dragClass?: string;
+  preventContextMenu?: boolean;
+}
+export interface Orbit360ClientState {
+  ready: boolean;
+  loading: boolean;
+  paused: boolean;
+  destroyed: boolean;
+  format: string | null;
+  quality: string | null;
+  codec: string | null;
+  title: string;
+  angle: number;
+  target: number;
+  targetAngle: number;
+  axis: "x" | "y";
+  direction: "cw" | "ccw";
+  spanDeg: number;
+  limits: {
+    min: number;
+    max: number;
+    limited: boolean;
+  };
+  velocity: number;
+  frameIndex: number;
+  frameCount: number;
+  frameDeg: number;
+  degPerFrame: number;
+  dragging: boolean;
+  missingFrames: number;
+  auto: EngineSnapshot["auto"];
+  gyro: EngineSnapshot["gyro"] & {
+    pending: boolean;
+    absolute: boolean;
+    supported: boolean;
+  };
+  inertia: boolean;
+  invert: boolean;
+  fit: "contain" | "cover";
+  mouseFollow: {
+    enabled: boolean;
+    degPerPx: number;
+  };
+  progress: {
+    progress: number;
+    loaded: number;
+    total: number;
+    phase: string;
+  };
+  viewport: {
+    width: number;
+    height: number;
+    dpr: number;
+  };
+  canvas: {
+    width: number;
+    height: number;
+    frameWidth: number;
+    frameHeight: number;
+  };
+  config: OrbitEngineConfig;
+  meta: Bundle["meta"] | null;
+}
+export interface LoadOptions {
+  cache?: RequestCache;
+  quality?: string;
+}
+export declare class Orbit360Client {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  container: HTMLElement;
+  input: HTMLElement;
+  dragTarget: HTMLElement;
+  options: Orbit360ClientOptions & {
+    dprCap: number;
+    autoStartGyro: boolean;
+    concurrency: number;
+    dragClass: string;
+    preventContextMenu: boolean;
+  };
+  engine: OrbitEngine;
+  private _events;
+  private _layers;
+  private _meta;
+  private _format;
+  private _quality;
+  private _codec;
+  private _canvasW;
+  private _canvasH;
+  private _frameW;
+  private _frameH;
+  private _viewW;
+  private _viewH;
+  private _dpr;
+  private _drawnIndex;
+  private _lastT;
+  private _lastEmittedAngle;
+  private _raf;
+  private _visible;
+  private _intersectionObserver;
+  private _loading;
+  private _ready;
+  private _destroyed;
+  private _paused;
+  private _loadToken;
+  private _progress;
+  private _loaded;
+  private _total;
+  private _phase;
+  private _lastPointerType;
+  private _hoverX;
+  private _hoverY;
+  private _pressTimer;
+  private _pressStart;
+  private _suppressMove;
+  private _resizeQueued;
+  private _gyroPending;
+  private _gyroTimer;
+  private _gyroSeen;
+  private _hasAbsolute;
+  private _onResize;
+  private _onPointerDown;
+  private _onPointerMove;
+  private _onPointerUp;
+  private _onPointerLeave;
+  private _onDblClick;
+  private _onContextMenu;
+  private _onAbsolute;
+  private _onRelative;
+  private _resizeObserver;
+  constructor(canvas: HTMLCanvasElement, options?: Orbit360ClientOptions);
+  on(type: string, handler: (payload: unknown) => void): () => void;
+  once(type: string, handler: (payload: unknown) => void): () => void;
+  off(type: string, handler: (payload: unknown) => void): this;
+  private _emit;
+  private _emitState;
+  private _emitAngle;
+  private _emitFrame;
+  getConfig(): OrbitEngineConfig;
+  getMeta(): Bundle["meta"] | null;
+  getState(): Orbit360ClientState;
+  getAngle(): number;
+  getTargetAngle(): number;
+  getFrameIndex(): number;
+  getFrameCount(): number;
+  setConfig(partial: Record<string, unknown>): this;
+  resetConfig(): this;
+  setAngle(deg: number, options?: {
     immediate?: boolean;
   }): this;
-  rotateBy(deg: any): this;
+  rotateBy(deg: number): this;
   reset(angle?: number, options?: {
     immediate?: boolean;
   }): this;
-  setAutoRotate(value: any, direction?: string): any;
-  cycleAuto(): "cw" | "off" | "ccw";
-  setAutoSpeed(degPerSec: any): this;
-  setAutoConfig(partial: any): this;
-  setGyroConfig(partial: any): this;
-  setDragConfig(partial: any): this;
-  setMotionConfig(partial: any): this;
-  setOrbitConfig(partial: any): this;
-  setVideoConfig(partial: any): this;
-  setInertia(enabled: any): this;
-  setInvert(enabled: any): this;
-  setFit(mode: any): this;
-  setMouseFollow(value: any): this;
-  load(source: any, options?: any): Promise<this>;
-  loadUrl(url: any, options?: {}): Promise<this>;
-  loadBlob(blob: any, options?: {}): Promise<this>;
+  setAutoRotate(value: boolean | string | {
+    enabled?: boolean;
+    dir?: string;
+  }, direction?: string): string;
+  setAuto(value: boolean | string | {
+    enabled?: boolean;
+    dir?: string;
+  }): string;
+  stopAuto(): this;
+  cycleAuto(): string;
+  setAutoSpeed(degPerSec: number): this;
+  setAutoConfig(partial: Record<string, unknown>): this;
+  setGyroConfig(partial: Record<string, unknown>): this;
+  setDragConfig(partial: Record<string, unknown>): this;
+  setMotionConfig(partial: Record<string, unknown>): this;
+  setOrbitConfig(partial: Record<string, unknown>): this;
+  setVideoConfig(partial: Record<string, unknown>): this;
+  setInertia(enabled: boolean): this;
+  setInvert(enabled: boolean): this;
+  setFit(mode: "contain" | "cover"): this;
+  setMouseFollow(value: boolean | Record<string, unknown>): this;
+  load(source: string | Blob | ArrayBuffer | ArrayBufferView, options?: LoadOptions): Promise<this>;
+  loadUrl(url: string, options?: LoadOptions): Promise<this>;
+  loadBlob(blob: Blob, options?: LoadOptions): Promise<this>;
   unload(): this;
-  _loadOrb(blob: any, token: any, options: any): Promise<void>;
-  _loadZip(blob: any, token: any, options: any): Promise<void>;
-  _decodeJobs(jobs: any, token: any, from: any, to: any): Promise<void>;
-  _setProgress(progress: any, phase: any, loaded: any, total: any): void;
-  _countMissingFrames(): number;
+  private _decodeJobs;
+  private _setProgress;
+  private _countMissingFrames;
   resize(): this;
-  _queueResize(): void;
-  _fillBackdrop(): void;
-  _layout(): void;
-  _frameIndex(): number;
-  _dirSign(): 1 | -1;
-  _layerFrame(layer: any, index: any): any;
-  _paint(): void;
-  _loop(t: any): void;
-  _updateAuto(dt: any, t: any): void;
-  _touchActivity(): void;
-  _bindEvents(): void;
-  _handlePointerDown(e: any): void;
-  _handlePointerMove(e: any): void;
-  _handlePointerUp(e: any): void;
+  private _queueResize;
+  private _fillBackdrop;
+  private _layout;
+  private _paint;
+  private _loop;
+  private _bindEvents;
+  private _setVisible;
+  private _pointerTime;
+  private _handlePointerDown;
+  private _handlePointerMove;
+  private _handlePointerUp;
   isGyroSupported(): boolean;
-  _initAutoGyro(): void;
+  private _initAutoGyro;
   enableGyro(): Promise<boolean>;
   disableGyro(): this;
-  _stopGyro(reason: any): void;
+  private _stopGyro;
   calibrateGyro(): this;
-  _handleOrientation(e: any, absolute: any): void;
+  private _handleOrientation;
+  pause(): this;
+  resume(): this;
   destroy(): void;
 }
-export declare function createClient(canvas: any, options: any): Orbit360Client;
+export declare function createClient(canvas: HTMLCanvasElement, options?: Orbit360ClientOptions): Orbit360Client;
 //#endregion
-export { Orbit360Client as Client, Orbit360Client as default, DEFAULTS, VERSION };
+export { Orbit360Client as Client, Orbit360Client as default, VERSION };
