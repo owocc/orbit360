@@ -1,0 +1,46 @@
+{
+  "name": "landscape-contain-portrait",
+  "kind": "layout",
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  },
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "fit": "contain",
+  "displayScale": 1,
+  "portraitScale": 1,
+  "layers": [
+    {
+      "layerIndex": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      }
+    }
+  ],
+  "expect": {
+    "scale": 0.3046875,
+    "destinationRect": {
+      "x": 0,
+      "y": 312.3125,
+      "width": 390,
+      "height": 219.375
+    },
+    "layers": [
+      {
+        "layerIndex": 0,
+        "rect": {
+          "x": 0,
+          "y": 312.3125,
+          "width": 390,
+          "height": 219.375
+        }
+      }
+    ]
+  }
+}

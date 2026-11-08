@@ -1,0 +1,9 @@
+{
+  "name": "invalid-invalid-index-length",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/invalid-index-length.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_INDEX_LENGTH"
+  }
+}

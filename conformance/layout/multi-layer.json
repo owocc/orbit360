@@ -1,0 +1,64 @@
+{
+  "name": "multi-layer",
+  "kind": "layout",
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  },
+  "viewport": {
+    "width": 640,
+    "height": 360
+  },
+  "fit": "contain",
+  "displayScale": 1,
+  "portraitScale": 1.25,
+  "layers": [
+    {
+      "layerIndex": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 640,
+        "height": 720
+      }
+    },
+    {
+      "layerIndex": 1,
+      "rect": {
+        "x": 640,
+        "y": 0,
+        "width": 640,
+        "height": 720
+      }
+    }
+  ],
+  "expect": {
+    "scale": 0.5,
+    "destinationRect": {
+      "x": 0,
+      "y": 0,
+      "width": 640,
+      "height": 360
+    },
+    "layers": [
+      {
+        "layerIndex": 0,
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 360
+        }
+      },
+      {
+        "layerIndex": 1,
+        "rect": {
+          "x": 320,
+          "y": 0,
+          "width": 320,
+          "height": 360
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "invalid-video-index",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/video-index.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_INDEX"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "portrait-contain",
+  "kind": "layout",
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  },
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "fit": "contain",
+  "displayScale": 1,
+  "portraitScale": 1.25,
+  "layers": [
+    {
+      "layerIndex": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      }
+    }
+  ],
+  "expect": {
+    "scale": 0.380859375,
+    "destinationRect": {
+      "x": -48.75,
+      "y": 284.890625,
+      "width": 487.5,
+      "height": 274.21875
+    },
+    "layers": [
+      {
+        "layerIndex": 0,
+        "rect": {
+          "x": -48.75,
+          "y": 284.890625,
+          "width": 487.5,
+          "height": 274.21875
+        }
+      }
+    ]
+  }
+}

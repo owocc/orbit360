@@ -94,7 +94,6 @@ export function FeaturedRow() {
                     aspectRatio={item.aspect}
                     accentColor={item.accent}
                     bgExpand={item.bgExpand}
-                    speed={10}
                     className="w-full"
                   />
                 </div>

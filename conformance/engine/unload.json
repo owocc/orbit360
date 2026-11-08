@@ -1,0 +1,79 @@
+{
+  "name": "unload",
+  "kind": "engine",
+  "bundle": {
+    "canvas": {
+      "width": 1280,
+      "height": 720
+    },
+    "initialAngle": 0,
+    "videos": [
+      {
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720
+        },
+        "frameCount": 36
+      }
+    ],
+    "sceneConfig": {
+      "orbit": {
+        "axis": "x",
+        "direction": "cw",
+        "spanDeg": 360,
+        "minAngle": -180,
+        "maxAngle": 180
+      }
+    }
+  },
+  "config": {
+    "video": {
+      "fit": "cover"
+    }
+  },
+  "events": [
+    {
+      "type": "unload"
+    }
+  ],
+  "expect": {
+    "ready": false,
+    "loading": false,
+    "paused": false,
+    "destroyed": false,
+    "angle": 0,
+    "targetAngle": 0,
+    "velocity": 0,
+    "axis": "x",
+    "direction": "cw",
+    "spanDeg": 360,
+    "minAngle": -180,
+    "maxAngle": 180,
+    "limited": false,
+    "frameIndex": 0,
+    "frameCount": 0,
+    "frameDeg": 360,
+    "dragging": false,
+    "auto": {
+      "state": "off",
+      "enabled": false,
+      "direction": "cw",
+      "speed": 36,
+      "weight": 0,
+      "idleDelayMs": 2200,
+      "rampInMs": 700,
+      "rampOutMs": 280
+    },
+    "gyro": {
+      "enabled": false,
+      "seen": false,
+      "gain": 1,
+      "invert": false,
+      "smooth": true,
+      "smoothMs": 80
+    },
+    "layers": []
+  }
+}

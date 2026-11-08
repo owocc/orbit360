@@ -1,0 +1,21 @@
+{
+  "name": "valid-multi-layer",
+  "kind": "parser",
+  "file": "fixtures/orb/valid/multi-layer.orb",
+  "expect": {
+    "success": true,
+    "frameCount": 13,
+    "videoCount": 3,
+    "videoFrameCounts": [4, 6, 3],
+    "canvas": {
+      "width": 64,
+      "height": 64
+    },
+    "initialAngle": 0,
+    "frames": [
+      ["AQQHCg==", "DA8SFQ==", "FxodIA==", "IiUoKw=="],
+      ["JiksLw==", "MTQ3Og==", "PD9CRQ==", "R0pNUA==", "UlVYWw==", "XWBjZg=="],
+      ["S05RVA==", "VllcXw==", "YWRnag=="]
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "landscape-cover",
+  "kind": "layout",
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  },
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "fit": "cover",
+  "displayScale": 1,
+  "portraitScale": 1.25,
+  "layers": [
+    {
+      "layerIndex": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+      }
+    }
+  ],
+  "expect": {
+    "scale": 1.1722222222222223,
+    "destinationRect": {
+      "x": -555.2222222222223,
+      "y": 0,
+      "width": 1500.4444444444446,
+      "height": 844
+    },
+    "layers": [
+      {
+        "layerIndex": 0,
+        "rect": {
+          "x": -555.2222222222223,
+          "y": 0,
+          "width": 1500.4444444444446,
+          "height": 844
+        }
+      }
+    ]
+  }
+}

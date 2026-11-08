@@ -80,7 +80,6 @@ export function ShowcaseSection() {
                 title={current.title}
                 aspectRatio="16/9"
                 autoSpin={true}
-                speed={12}
                 className="w-full h-full shadow-2xl"
               />
             </div>
@@ -105,7 +104,6 @@ export function ShowcaseSection() {
                   title={selectedScene === "maid" ? "次级对比: 环绕视角" : "次级对比: 沙发少女"}
                   aspectRatio="4/5"
                   autoSpin={true}
-                  speed={8}
                   className="w-full h-full"
                 />
               </div>
@@ -123,7 +121,6 @@ export function ShowcaseSection() {
                   title="紧凑缩略图"
                   aspectRatio="1/1"
                   autoSpin={false}
-                  speed={0}
                   className="w-full h-full"
                 />
               </div>
@@ -145,7 +142,6 @@ export function ShowcaseSection() {
                 title="视角 A"
                 aspectRatio="1/1"
                 autoSpin={true}
-                speed={16}
                 showControls={false}
                 className="w-full h-full"
               />
@@ -156,7 +152,6 @@ export function ShowcaseSection() {
                 title="视角 B"
                 aspectRatio="1/1"
                 autoSpin={true}
-                speed={-12}
                 showControls={false}
                 className="w-full h-full"
               />
@@ -167,7 +162,6 @@ export function ShowcaseSection() {
                 title="视角 C"
                 aspectRatio="1/1"
                 autoSpin={true}
-                speed={20}
                 showControls={false}
                 className="w-full h-full"
               />
@@ -178,7 +172,6 @@ export function ShowcaseSection() {
                 title="视角 D"
                 aspectRatio="1/1"
                 autoSpin={true}
-                speed={-18}
                 showControls={false}
                 className="w-full h-full"
               />

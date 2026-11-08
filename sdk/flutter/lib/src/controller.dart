@@ -4,24 +4,17 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 
+import 'engine.dart';
 import 'orb.dart';
-
-double mod(double a, double n) => ((a % n) + n) % n;
-int modInt(int a, int n) => ((a % n) + n) % n;
-double shortDelta(double from, double to) => mod(to - from + 180, 360) - 180;
-double wrapSigned(double deg) => mod(deg + 180, 360) - 180;
-double clampNum(double v, double lo, double hi) =>
-    math.min(hi, math.max(lo, v));
 
 class OrbitConfig {
   final String title;
-  final String fit; // 'contain' | 'cover'
-  final String axis; // 'x' | 'y'
+  final String fit;
+  final String axis;
   final double spanDeg;
-  final String direction; // 'cw' | 'ccw'
+  final String direction;
   final double minAngle;
   final double maxAngle;
   final double dragDegPerPx;
@@ -30,7 +23,7 @@ class OrbitConfig {
   final double dragInertiaMs;
   final double motionSmoothMs;
   final bool autoEnabled;
-  final String autoDir; // 'cw' | 'ccw'
+  final String autoDir;
   final double autoDegPerSec;
   final double autoIdleDelayMs;
   final double autoRampInMs;
@@ -129,15 +122,12 @@ class FrameInfo {
   final int count;
   final double frameDeg;
 
-  const FrameInfo({
-    required this.index,
-    required this.count,
-    required this.frameDeg,
-  });
+  const FrameInfo(
+      {required this.index, required this.count, required this.frameDeg});
 }
 
 class AutoState {
-  final String state; // 'off' | 'cw' | 'ccw'
+  final String state;
   final bool enabled;
   final String direction;
   final double speed;
@@ -223,105 +213,154 @@ class VideoLayer {
   final int count;
   final List<ui.Image?> frames;
 
-  VideoLayer({
-    required this.rect,
-    required this.count,
-    required this.frames,
-  });
+  VideoLayer({required this.rect, required this.count, required this.frames});
 }
+
+class LayerFrame {
+  final ui.Image? base;
+  final ui.Image? next;
+  final double blend;
+
+  const LayerFrame(
+      {required this.base, required this.next, required this.blend});
+}
+
+Map<String, dynamic> _toCoreConfig(OrbitConfig config) => {
+      'title': config.title,
+      'video': {'fit': config.fit},
+      'orbit': {
+        'axis': config.axis,
+        'spanDeg': config.spanDeg,
+        'direction': config.direction,
+        'minAngle': config.minAngle,
+        'maxAngle': config.maxAngle,
+      },
+      'drag': {
+        'degPerPx': config.dragDegPerPx,
+        'invert': config.dragInvert,
+        'inertia': config.dragInertia,
+        'inertiaMs': config.dragInertiaMs,
+      },
+      'motion': {'smoothMs': config.motionSmoothMs},
+      'auto': {
+        'enabled': config.autoEnabled,
+        'dir': config.autoDir,
+        'degPerSec': config.autoDegPerSec,
+        'idleDelayMs': config.autoIdleDelayMs,
+        'rampInMs': config.autoRampInMs,
+        'rampOutMs': config.autoRampOutMs,
+      },
+      'gyro': {
+        'gain': config.gyroGain,
+        'invert': config.gyroInvert,
+        'smooth': config.gyroSmooth,
+        'smoothMs': config.gyroSmoothMs,
+      },
+      'mouseFollow': {
+        'enabled': config.mouseFollowEnabled,
+        'degPerPx': config.mouseFollowDegPerPx,
+      },
+    };
+
+OrbitConfig _fromCoreConfig(OrbitEngineConfig config) => OrbitConfig(
+      title: config.title,
+      fit: config.video.fit,
+      axis: config.orbit.axis,
+      spanDeg: config.orbit.spanDeg,
+      direction: config.orbit.direction,
+      minAngle: config.orbit.minAngle,
+      maxAngle: config.orbit.maxAngle,
+      dragDegPerPx: config.drag.degPerPx,
+      dragInvert: config.drag.invert,
+      dragInertia: config.drag.inertia,
+      dragInertiaMs: config.drag.inertiaMs,
+      motionSmoothMs: config.motion.smoothMs,
+      autoEnabled: config.auto.enabled,
+      autoDir: config.auto.dir,
+      autoDegPerSec: config.auto.degPerSec,
+      autoIdleDelayMs: config.auto.idleDelayMs,
+      autoRampInMs: config.auto.rampInMs,
+      autoRampOutMs: config.auto.rampOutMs,
+      gyroGain: config.gyro.gain,
+      gyroInvert: config.gyro.invert,
+      gyroSmooth: config.gyro.smooth,
+      gyroSmoothMs: config.gyro.smoothMs,
+      mouseFollowEnabled: config.mouseFollow.enabled,
+      mouseFollowDegPerPx: config.mouseFollow.degPerPx,
+    );
 
 class OrbitRenderController extends ChangeNotifier {
   OrbitConfig _config = const OrbitConfig();
+  late final OrbitEngine _engine;
   OrbBundle? _bundle;
   List<VideoLayer> _layers = [];
-
   bool _ready = false;
   bool _loading = false;
   String? _error;
-  double _progress = 0.0;
+  double _progress = 0;
   int loadedFrames = 0;
   int totalFrames = 0;
-
-  double _angle = 0.0;
-  double _target = 0.0;
-  double _vel = 0.0;
-  bool _dragging = false;
-
-  double _minAngle = -180.0;
-  double _maxAngle = 180.0;
-  bool _limited = false;
-  String _axis = 'x';
-  bool _invert = false;
-  bool _inertia = true;
-  String _fit = 'contain';
-
-  String _autoState = 'off';
-  double _autoDir = 1.0;
-  double _autoSpeed = 14.0;
-  double _autoWeight = 0.0;
-  int _idleSinceMs = 0;
-
+  int _lastTickMs = 0;
   bool _gyroEnabled = false;
-  final bool _gyroPending = false;
   bool _gyroSeen = false;
-  double? _gyroRef;
-  double _gyroBase = 0.0;
   int _orientTMs = 0;
 
-  int _canvasW = 1280;
-  int _canvasH = 720;
-  int _count = 0;
-  double _frameDeg = 1.0;
-  double _degPerFrame = 1.0;
-
-  int _lastTickMs = 0;
-  int _lastPointerTMs = 0;
-  double? _lastPointerX;
-  double? _lastPointerY;
-
   OrbitRenderController({OrbitConfig? config}) {
-    if (config != null) {
-      _config = config;
-      _applyConfig();
-    }
-    _touchActivity();
+    final initial = config ?? const OrbitConfig();
+    _engine = OrbitEngine(
+      EngineBundle(
+        canvasWidth: 0,
+        canvasHeight: 0,
+        initialAngle: 0,
+        videos: const [],
+        sceneConfig: const {},
+      ),
+      userConfig: _toCoreConfig(initial),
+    );
+    _engine.unload();
+    _syncConfig();
   }
 
   bool get isReady => _ready;
   bool get isLoading => _loading;
   String? get error => _error;
   double get progress => _progress;
-  double get angle => _normAngle(_angle);
-  double get target => _normAngle(_target);
-  String get axis => _axis;
-  int get frameCount => _count;
-  int get frameIndex => _computeFrameIndex();
-  double get frameDeg => _frameDeg;
+  double get angle => _engine.angle;
+  double get target => _engine.targetAngle;
+  String get axis => _engine.config.orbit.axis;
+  int get frameCount => _engine.frameCount;
+  int get frameIndex => _engine.getFrameIndex();
+  double get frameDeg => _engine.getSnapshot()['frameDeg'] as double;
   String get title => _config.title.isNotEmpty ? _config.title : '环绕视角';
-  String get fit => _fit;
-  bool get dragging => _dragging;
-  bool get invert => _invert;
-  bool get inertia => _inertia;
-  AutoState get auto => AutoState(
-        state: _autoState,
-        enabled: _autoState != 'off',
-        direction: _autoState == 'off' ? _config.autoDir : _autoState,
-        speed: _autoSpeed,
-        weight: _autoWeight,
-      );
+  String get fit => _config.fit;
+  bool get dragging => _engine.getSnapshot()['dragging'] as bool;
+  bool get invert => _config.dragInvert;
+  bool get inertia => _config.dragInertia;
+  OrbitConfig get config => _config;
+  OrbBundle? get bundle => _bundle;
+  List<VideoLayer> get layers => _layers;
+  int get canvasWidth => _bundle?.meta.canvasWidth ?? 1280;
+  int get canvasHeight => _bundle?.meta.canvasHeight ?? 720;
+
+  AutoState get auto {
+    final auto = _engine.getSnapshot()['auto'] as Map<String, dynamic>;
+    return AutoState(
+      state: auto['state'] as String,
+      enabled: auto['enabled'] as bool,
+      direction: auto['direction'] as String,
+      speed: (auto['speed'] as num).toDouble(),
+      weight: (auto['weight'] as num).toDouble(),
+    );
+  }
+
   GyroState get gyro => GyroState(
         enabled: _gyroEnabled,
-        pending: _gyroPending,
+        pending: false,
         seen: _gyroSeen,
         gain: _config.gyroGain,
         invert: _config.gyroInvert,
         smooth: _config.gyroSmooth,
       );
-  OrbitConfig get config => _config;
-  OrbBundle? get bundle => _bundle;
-  List<VideoLayer> get layers => _layers;
-  int get canvasWidth => _canvasW;
-  int get canvasHeight => _canvasH;
 
   OrbitState get state => OrbitState(
         ready: _ready,
@@ -329,245 +368,141 @@ class OrbitRenderController extends ChangeNotifier {
         title: title,
         angle: angle,
         target: target,
-        axis: _axis,
-        minAngle: _minAngle,
-        maxAngle: _maxAngle,
-        limited: _limited,
-        velocity: _vel,
+        axis: axis,
+        minAngle: _config.minAngle,
+        maxAngle: _config.maxAngle,
+        limited: _engine.getSnapshot()['limited'] as bool,
+        velocity: (_engine.getSnapshot()['velocity'] as num).toDouble(),
         frameIndex: frameIndex,
-        frameCount: _count,
-        frameDeg: _frameDeg,
-        dragging: _dragging,
-        invert: _invert,
-        inertia: _inertia,
-        fit: _fit,
+        frameCount: frameCount,
+        frameDeg: frameDeg,
+        dragging: dragging,
+        invert: invert,
+        inertia: inertia,
+        fit: fit,
         auto: auto,
         gyro: gyro,
         mouseFollow: _config.mouseFollowEnabled,
         config: _config,
       );
 
-  void _touchActivity() {
-    _idleSinceMs = DateTime.now().millisecondsSinceEpoch;
+  void _syncConfig() {
+    _config = _fromCoreConfig(_engine.config);
   }
 
-  void _applyConfig() {
-    _invert = _config.dragInvert;
-    _axis = _config.axis == 'y' ? 'y' : 'x';
-    var lo = clampNum(_config.minAngle, -180, 180);
-    var hi = clampNum(_config.maxAngle, -180, 180);
-    if (lo > hi) {
-      final tmp = lo;
-      lo = hi;
-      hi = tmp;
-    }
-    _minAngle = lo;
-    _maxAngle = hi;
-    _limited = lo > -180 || hi < 180;
-    if (_limited) {
-      _target = clampNum(_target, lo, hi);
-      _angle = clampNum(_angle, lo, hi);
-    }
-    _inertia = _config.dragInertia;
-    _fit = _config.fit == 'cover' ? 'cover' : 'contain';
-
-    _autoState = _config.autoEnabled
-        ? (_config.autoDir == 'ccw' ? 'ccw' : 'cw')
-        : 'off';
-    _autoDir = _autoState == 'ccw' ? -1.0 : 1.0;
-    _autoSpeed = _config.autoDegPerSec;
-
-    _recalcFrames();
-  }
-
-  void _recalcFrames() {
-    _degPerFrame = _frameSpan() / math.max(1, _count);
-    _frameDeg = _degPerFrame;
-  }
-
-  double _frameSpan() {
-    final span = _config.spanDeg;
-    if (span <= 0) return 360.0;
-    return math.min(360.0, span);
-  }
-
-  double _normAngle(double value) {
-    if (_limited) {
-      return clampNum(value, _minAngle, _maxAngle);
-    }
-    return wrapSigned(value);
-  }
-
-  double _angleDelta(double from, double to) {
-    return _limited ? (to - from) : shortDelta(from, to);
-  }
-
-  int _computeFrameIndex() {
-    if (_count == 0) return 0;
-    final dirSign = _config.direction == 'ccw' ? -1.0 : 1.0;
-    final ang = wrapSigned(_angle * dirSign);
-    final span = _frameSpan();
-    if (span >= 360.0) {
-      return modInt((mod(ang, 360.0) / _degPerFrame).round(), _count);
-    }
-    final t = (ang + span / 2.0) / span;
-    return math.min(_count - 1, math.max(0, (t * (_count - 1)).round()));
-  }
-
-  ui.Image? currentFrameForLayer(int layerIndex) {
-    if (layerIndex < 0 || layerIndex >= _layers.length) return null;
-    final layer = _layers[layerIndex];
-    if (layer.count == 0 || layer.frames.isEmpty) return null;
-    final idx = frameIndex;
-    final i = layer.count == _count
-        ? idx
-        : modInt(((idx * layer.count) / _count).floor(), layer.count);
-    if (i < 0 || i >= layer.frames.length) return null;
-    return layer.frames[i];
+  void _applyConfig(Map<String, dynamic> partial) {
+    _engine.setConfig(partial);
+    _syncConfig();
+    notifyListeners();
   }
 
   void setConfig(OrbitConfig next) {
-    _config = next;
-    _applyConfig();
+    _engine.setConfig(_toCoreConfig(next));
+    _syncConfig();
     notifyListeners();
   }
 
-  void setFit(String nextFit) {
-    _config = _config.copyWith(fit: nextFit);
-    _fit = nextFit == 'cover' ? 'cover' : 'contain';
-    notifyListeners();
-  }
+  void setFit(String nextFit) => _applyConfig({
+        'video': {'fit': nextFit == 'cover' ? 'cover' : 'contain'},
+      });
 
-  void setInvert(bool val) {
-    _config = _config.copyWith(dragInvert: val);
-    _invert = val;
-    notifyListeners();
-  }
+  void setInvert(bool value) => _applyConfig({
+        'drag': {'invert': value},
+      });
 
-  void setInertia(bool val) {
-    _config = _config.copyWith(dragInertia: val);
-    _inertia = val;
-    notifyListeners();
-  }
+  void setInertia(bool value) => _applyConfig({
+        'drag': {'inertia': value},
+      });
 
-  void setMouseFollow(bool val) {
-    _config = _config.copyWith(mouseFollowEnabled: val);
-    notifyListeners();
-  }
+  void setMouseFollow(bool value) => _applyConfig({
+        'mouseFollow': {'enabled': value},
+      });
 
-  void setGyroGain(double gain) {
-    _config = _config.copyWith(gyroGain: gain);
-    notifyListeners();
-  }
+  void setGyroGain(double gain) => _applyConfig({
+        'gyro': {'gain': gain},
+      });
 
-  void setGyroSmooth(bool smooth) {
-    _config = _config.copyWith(gyroSmooth: smooth);
-    notifyListeners();
-  }
+  void setGyroSmooth(bool smooth) => _applyConfig({
+        'gyro': {'smooth': smooth},
+      });
 
   void setAutoRotate(dynamic value, [String? direction]) {
-    if (value is bool) {
-      _config = _config.copyWith(
-        autoEnabled: value,
-        autoDir: direction ?? _config.autoDir,
-      );
-    } else if (value is String) {
+    bool enabled = value == true;
+    String? dir = direction;
+    if (value is String) {
       if (value == 'off') {
-        _config = _config.copyWith(autoEnabled: false);
-      } else if (value == 'cw' || value == 'ccw') {
-        _config = _config.copyWith(autoEnabled: true, autoDir: value);
+        enabled = false;
       } else if (value == 'on') {
-        _config = _config.copyWith(autoEnabled: true);
+        enabled = true;
+      } else if (value == 'cw' || value == 'ccw') {
+        enabled = true;
+        dir = value;
       }
     }
-    _applyConfig();
-    _touchActivity();
-    notifyListeners();
+    _applyConfig({
+      'auto': {'enabled': enabled, if (dir != null) 'dir': dir},
+    });
   }
 
   String cycleAuto() {
-    String next;
-    if (_autoState == 'off') {
-      next = 'cw';
-    } else if (_autoState == 'cw') {
-      next = 'ccw';
-    } else {
-      next = 'off';
-    }
+    final state = auto.state;
+    final next = state == 'off'
+        ? 'cw'
+        : state == 'cw'
+            ? 'ccw'
+            : 'off';
     setAutoRotate(next);
     return next;
   }
 
-  void setAutoSpeed(double speed) {
-    _config = _config.copyWith(autoDegPerSec: speed);
-    _autoSpeed = speed;
-    notifyListeners();
-  }
+  void setAutoSpeed(double speed) => _applyConfig({
+        'auto': {'degPerSec': speed},
+      });
 
   void rotateBy(double deg) {
-    _target = _normAngle(_target + deg);
-    _touchActivity();
+    _engine.rotateBy(deg);
     notifyListeners();
   }
 
   void setAngle(double deg, {bool immediate = false}) {
-    _target = _normAngle(deg);
-    _vel = 0;
-    if (immediate) {
-      _angle = _target;
-    }
-    _touchActivity();
+    _engine.setAngle(deg, immediate: immediate);
     notifyListeners();
   }
 
-  void reset({double angle = 0, bool immediate = false}) {
-    _target = _normAngle(angle);
-    _vel = 0;
-    if (_gyroEnabled) {
-      _gyroRef = null;
-      _gyroBase = 0;
-    }
-    if (immediate) {
-      _angle = _target;
-    }
-    _touchActivity();
+  void reset({double angle = 0, bool immediate = true}) {
+    _engine.reset(angle, immediate: immediate);
     notifyListeners();
   }
 
   void calibrateGyro() {
-    _gyroRef = null;
-    _gyroBase = _target;
+    _engine.calibrateGyro();
     notifyListeners();
   }
 
   void enableGyro() {
     _gyroEnabled = true;
     _gyroSeen = false;
-    _gyroRef = null;
+    _engine.enableGyro();
+    _engine.calibrateGyro();
     notifyListeners();
   }
 
   void disableGyro() {
     _gyroEnabled = false;
     _gyroSeen = false;
-    _gyroRef = null;
+    _engine.disableGyro();
     notifyListeners();
   }
 
-  /// 直接处理高采样率陀螺仪角速度（rad/s），并根据设备当前横竖屏角度（screenRotationDeg）做坐标投影转换。
-  /// screenRotationDeg: 0 (竖屏), 90 (横屏左旋), 180 (倒立), 270 (横屏右旋)
   void handleGyroscopeDelta({
-    required double gx, // 绕设备 x 轴（水平向右）
-    required double gy, // 绕设备 y 轴（竖直向上）
-    required double gz, // 绕设备 z 轴（垂直屏幕朝外）
-    required double dt, // 秒
+    required double gx,
+    required double gy,
+    required double gz,
+    required double dt,
     int screenRotationDeg = 0,
   }) {
-    if (!_gyroEnabled || _dragging) return;
+    if (!_gyroEnabled || dragging) return;
     _gyroSeen = true;
-
-    // 根据横竖屏角度转换到屏幕坐标系 (sx, sy, sz)
-    // 屏幕坐标系下：sy 始终是屏幕上方，sx 始终是屏幕右方
     double sx;
     double sy;
     switch (screenRotationDeg) {
@@ -583,33 +518,22 @@ class OrbitRenderController extends ChangeNotifier {
         sx = -gy;
         sy = gx;
         break;
-      case 0:
       default:
         sx = gx;
         sy = gy;
         break;
     }
-
     final gain = _config.gyroGain *
         (_config.gyroInvert ? -1.0 : 1.0) *
-        (_invert ? -1.0 : 1.0);
-
-    // X 轴场景（环视）：人握持手机旋转，主要绕屏幕 Y 轴或 Z 轴旋转
-    // Y 轴场景（俯仰）：人前后倾斜手机，主要绕屏幕 X 轴旋转
-    final rad = _axis == 'y' ? (sx * dt) : (-sy * dt - gz * 0.4 * dt);
-    final degDelta = rad * (180.0 / math.pi) * gain;
-    if (_config.gyroSmooth) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final dtMs = math.min(math.max(now - _orientTMs, 1), 120);
-      _orientTMs = now;
-      final tau = _config.gyroSmoothMs;
-      final factor = 1 - math.exp(-dtMs / tau);
-      _target = _normAngle(_target + degDelta * factor);
-    } else {
-      _target = _normAngle(_target + degDelta);
-    }
-
-    _touchActivity();
+        (_config.dragInvert ? -1.0 : 1.0);
+    final radians = axis == 'y' ? sx * dt : -sy * dt - gz * 0.4 * dt;
+    final delta = radians * (180.0 / math.pi) * gain;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final dtMs = math.min(math.max(now - _orientTMs, 1), 120);
+    _orientTMs = now;
+    final factor =
+        _config.gyroSmooth ? 1 - math.exp(-dtMs / _config.gyroSmoothMs) : 1.0;
+    _engine.rotateBy(delta * factor);
     notifyListeners();
   }
 
@@ -618,116 +542,68 @@ class OrbitRenderController extends ChangeNotifier {
     required double beta,
     required double gamma,
     double? compassHeading,
+    int screenRotationDeg = 0,
   }) {
-    if (!_gyroEnabled || _dragging) return;
+    if (!_gyroEnabled || dragging) return;
     _gyroSeen = true;
-
-    double? heading;
-    if (_axis == 'y') {
-      heading = mod(beta, 360);
+    double heading;
+    if (axis == 'y') {
+      heading = beta % 360;
+    } else if (compassHeading != null && compassHeading >= 0) {
+      heading = compassHeading;
+    } else if (beta.isNaN || gamma.isNaN) {
+      heading = (360 - alpha) % 360;
     } else {
-      if (compassHeading != null && compassHeading >= 0) {
-        heading = compassHeading;
+      final a = alpha * (math.pi / 180.0);
+      final b = beta * (math.pi / 180.0);
+      final g = gamma * (math.pi / 180.0);
+      final vx =
+          math.sin(g) * math.cos(a) + math.cos(g) * math.sin(b) * math.sin(a);
+      final vy =
+          math.sin(g) * math.sin(a) - math.cos(g) * math.sin(b) * math.cos(a);
+      if (math.sqrt(vx * vx + vy * vy) < 0.25) {
+        heading = screenRotationDeg == 90 || screenRotationDeg == 270
+            ? alpha % 360
+            : (360 - alpha) % 360;
       } else {
-        final a = alpha * (math.pi / 180.0);
-        final b = beta * (math.pi / 180.0);
-        final g = gamma * (math.pi / 180.0);
-        final vx = math.sin(g) * math.cos(a) +
-            math.cos(g) * math.sin(b) * math.sin(a);
-        final vy = math.sin(g) * math.sin(a) -
-            math.cos(g) * math.sin(b) * math.cos(a);
-        final horizontal = math.sqrt(vx * vx + vy * vy);
-        if (horizontal < 0.25) {
-          heading = mod(360 - alpha, 360);
-        } else {
-          heading = mod(math.atan2(-vx, -vy) * (180.0 / math.pi), 360);
-        }
+        heading = (math.atan2(-vx, -vy) * (180.0 / math.pi)) % 360;
       }
     }
-
-    if (_gyroRef == null) {
-      _gyroRef = heading;
-      _gyroBase = _target;
-      return;
-    }
-
-    final gain = _config.gyroGain *
-        (_config.gyroInvert ? -1.0 : 1.0) *
-        (_invert ? -1.0 : 1.0);
-    final delta = shortDelta(_gyroRef!, heading) * gain;
-    final raw = _normAngle(_gyroBase - delta);
-
-    if (_config.gyroSmooth) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final dt = math.min(math.max(now - _orientTMs, 1), 120);
-      _orientTMs = now;
-      final tau = _config.gyroSmoothMs;
-      _target = _normAngle(
-        _target + _angleDelta(_target, raw) * (1 - math.exp(-dt / tau)),
-      );
-    } else {
-      _target = raw;
-    }
-
-    _touchActivity();
+    _engine.gyro(heading, DateTime.now().millisecondsSinceEpoch.toDouble());
     notifyListeners();
   }
 
-  void onPointerDown(Offset pos) {
-    _dragging = true;
-    _vel = 0;
-    _lastPointerX = pos.dx;
-    _lastPointerY = pos.dy;
-    _lastPointerTMs = DateTime.now().millisecondsSinceEpoch;
-    _touchActivity();
+  void onPointerDown(ui.Offset pos) {
+    _engine.pointerDown(
+      pos.dx,
+      pos.dy,
+      DateTime.now().millisecondsSinceEpoch.toDouble(),
+    );
     notifyListeners();
   }
 
-  void onPointerMove(Offset pos) {
-    if (!_dragging) return;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final dx = pos.dx - (_lastPointerX ?? pos.dx);
-    final dy = pos.dy - (_lastPointerY ?? pos.dy);
-    final dt = math.max(now - _lastPointerTMs, 1);
-    final px = _axis == 'y' ? dy : dx;
-    final deg = px * _config.dragDegPerPx * (_invert ? -1.0 : 1.0);
-    _target = _normAngle(_target + deg);
-    if (_gyroEnabled) {
-      _gyroBase = _normAngle(_gyroBase + deg);
-    }
-    final inst = dt > 90 ? 0.0 : deg / dt;
-    _vel = 0.6 * inst + 0.4 * _vel;
-    _lastPointerX = pos.dx;
-    _lastPointerY = pos.dy;
-    _lastPointerTMs = now;
-    _touchActivity();
+  void onPointerMove(ui.Offset pos) {
+    if (!dragging) return;
+    _engine.pointerMove(
+      pos.dx,
+      pos.dy,
+      DateTime.now().millisecondsSinceEpoch.toDouble(),
+    );
     notifyListeners();
   }
 
   void onPointerUp() {
-    if (!_dragging) return;
-    _dragging = false;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastPointerTMs > 90) {
-      _vel = 0.0;
-    }
-    _vel = clampNum(_vel, -0.55, 0.55);
-    _touchActivity();
+    _engine.pointerUp(DateTime.now().millisecondsSinceEpoch.toDouble());
     notifyListeners();
   }
 
-  void onPointerHover(Offset delta) {
-    if (_dragging || !_config.mouseFollowEnabled) return;
-    final px = _axis == 'y' ? delta.dy : delta.dx;
-    if (px != 0) {
-      final d = px * _config.mouseFollowDegPerPx * (_invert ? -1.0 : 1.0);
-      _target = _normAngle(_target + d);
-      if (_gyroEnabled) {
-        _gyroBase = _normAngle(_gyroBase + d);
-      }
-      _touchActivity();
-      notifyListeners();
-    }
+  void onPointerHover(ui.Offset delta) {
+    if (dragging || !_config.mouseFollowEnabled) return;
+    final px = axis == 'y' ? delta.dy : delta.dx;
+    if (px == 0) return;
+    _engine.rotateBy(
+        px * _config.mouseFollowDegPerPx * (_config.dragInvert ? -1 : 1));
+    notifyListeners();
   }
 
   void tick(int nowMs) {
@@ -737,57 +613,21 @@ class OrbitRenderController extends ChangeNotifier {
     }
     final dt = math.min(nowMs - _lastTickMs, 64);
     _lastTickMs = nowMs;
-
-    if (!_dragging) {
-      if (_inertia && !_gyroEnabled && _vel.abs() > 0.0005) {
-        final next = _normAngle(_target + _vel * dt);
-        if (_limited && next == _target) {
-          _vel = 0;
-        }
-        _target = next;
-        _vel *= math.exp(-dt / _config.dragInertiaMs);
-        _touchActivity();
-      } else {
-        _vel = 0;
-      }
-    }
-
-    _updateAuto(dt, nowMs);
-
-    final delta = _angleDelta(_angle, _target);
-    final tau = _config.motionSmoothMs;
-    final next = _angle + delta * (1 - math.exp(-dt / tau));
-    _angle = _limited
-        ? clampNum(next, _minAngle, _maxAngle)
-        : mod(next, 360.0);
-    if (_angleDelta(_angle, _target).abs() < 0.0005) {
-      _angle = _target;
-    }
-
+    _engine.advance(dt.toDouble());
     notifyListeners();
   }
 
-  void _updateAuto(int dt, int nowMs) {
-    final idle = nowMs - _idleSinceMs;
-    final want = (_autoState != 'off' &&
-            !_gyroEnabled &&
-            !_dragging &&
-            idle > _config.autoIdleDelayMs)
-        ? 1.0
-        : 0.0;
-    final tau = want > 0
-        ? _config.autoRampInMs
-        : (_dragging ? 120.0 : _config.autoRampOutMs);
-
-    _autoWeight += (want - _autoWeight) * (1 - math.exp(-dt / tau));
-    if (want == 0 && _autoWeight < 0.004) {
-      _autoWeight = 0;
-      return;
-    }
-    if (_autoWeight <= 0) return;
-    _target = _normAngle(
-      _target + (_autoDir * _autoSpeed * _autoWeight * dt) / 1000.0,
-    );
+  ui.Image? currentFrameForLayer(int layerIndex) {
+    if (layerIndex < 0 || layerIndex >= _layers.length) return null;
+    final layer = _layers[layerIndex];
+    if (layer.count == 0 || layer.frames.isEmpty) return null;
+    final snapshot = _engine.getSnapshot();
+    final layers = snapshot['layers'] as List;
+    final index = layers.length > layerIndex
+        ? (layers[layerIndex] as Map<String, dynamic>)['frameIndex'] as int
+        : 0;
+    if (index < 0 || index >= layer.frames.length) return null;
+    return layer.frames[index];
   }
 
   Future<void> loadOrbBytes(Uint8List bytes, {String? defaultTitle}) async {
@@ -796,84 +636,63 @@ class OrbitRenderController extends ChangeNotifier {
     _error = null;
     _progress = 0.1;
     notifyListeners();
-
     try {
       final bundle = OrbBundle.parse(bytes);
       final meta = bundle.meta;
-
-      final sceneAuto = meta.raw['defaults']?['auto'] as Map<String, dynamic>?;
-      final autoEnabled = sceneAuto?['enabled'] as bool? ?? false;
-      final autoDir = sceneAuto?['dir'] as String? ?? 'cw';
-
-      _config = _config.copyWith(
-        title: defaultTitle ?? (meta.title.isNotEmpty ? meta.title : '环绕视角'),
-        axis: meta.orbit.axis,
-        spanDeg: meta.orbit.spanDeg,
-        direction: meta.orbit.direction,
-        minAngle: meta.orbit.minAngle,
-        maxAngle: meta.orbit.maxAngle,
-        autoEnabled: autoEnabled,
-        autoDir: autoDir,
-      );
-
-      _canvasW = meta.canvasWidth;
-      _canvasH = meta.canvasHeight;
-      _count = meta.videos
-          .map((v) => v.frames.count)
-          .fold(0, (max, c) => c > max ? c : max);
-
-      final layers = <VideoLayer>[];
-      int totalJobs = 0;
-      for (final v in meta.videos) {
-        totalJobs += v.frames.count;
-      }
-      totalFrames = totalJobs;
+      totalFrames =
+          meta.videos.fold<int>(0, (sum, video) => sum + video.frames.count);
       loadedFrames = 0;
-
-      for (int vi = 0; vi < meta.videos.length; vi++) {
-        final v = meta.videos[vi];
-        final framesList = List<ui.Image?>.filled(v.frames.count, null);
+      final layers = <VideoLayer>[];
+      for (var vi = 0; vi < meta.videos.length; vi++) {
+        final video = meta.videos[vi];
+        final frames = List<ui.Image?>.filled(video.frames.count, null);
         layers.add(VideoLayer(
-          rect: v.rect,
-          count: v.frames.count,
-          frames: framesList,
-        ));
-      }
-
-      int processed = 0;
-      for (int vi = 0; vi < meta.videos.length; vi++) {
-        final v = meta.videos[vi];
-        final layer = layers[vi];
-        for (int fi = 0; fi < v.frames.count; fi++) {
-          final frameData = bundle.frameBytes(vi, fi);
+            rect: video.rect, count: video.frames.count, frames: frames));
+        for (var fi = 0; fi < video.frames.count; fi++) {
           try {
-            final codec = await ui.instantiateImageCodec(frameData);
-            final frameInfo = await codec.getNextFrame();
-            layer.frames[fi] = frameInfo.image;
-          } catch (e) {
-            // failed frame
+            final codec =
+                await ui.instantiateImageCodec(bundle.frameBytes(vi, fi));
+            final frame = await codec.getNextFrame();
+            frames[fi] = frame.image;
+          } catch (_) {
+            frames[fi] = null;
           }
-          processed++;
-          loadedFrames = processed;
-          _progress = 0.1 + 0.9 * (processed / totalJobs);
-          if (processed % 10 == 0 || processed == totalJobs) {
+          loadedFrames++;
+          _progress = 0.1 + 0.9 * (loadedFrames / math.max(1, totalFrames));
+          if (loadedFrames % 10 == 0 || loadedFrames == totalFrames) {
             notifyListeners();
           }
         }
       }
-
       _bundle = bundle;
       _layers = layers;
-      _applyConfig();
-      _angle = _target = _normAngle(meta.initialAngle);
+      _engine.load(EngineBundle(
+        canvasWidth: meta.canvasWidth.toDouble(),
+        canvasHeight: meta.canvasHeight.toDouble(),
+        initialAngle: meta.initialAngle,
+        videos: bundle.layers
+            .map((layer) => EngineLayerInput(
+                  rect: {
+                    'x': layer.rect.x,
+                    'y': layer.rect.y,
+                    'width': layer.rect.width,
+                    'height': layer.rect.height,
+                  },
+                  frameCount: layer.frameCount,
+                ))
+            .toList(),
+        sceneConfig: bundle.sceneConfig,
+      ));
+      if (defaultTitle != null) _engine.setConfig({'title': defaultTitle});
+      _syncConfig();
       _ready = true;
       _loading = false;
-      _progress = 1.0;
+      _progress = 1;
       notifyListeners();
-    } catch (e) {
+    } catch (error) {
       _loading = false;
       _ready = false;
-      _error = e.toString();
+      _error = error.toString();
       notifyListeners();
       rethrow;
     }
@@ -885,25 +704,25 @@ class OrbitRenderController extends ChangeNotifier {
     _error = null;
     _progress = 0.05;
     notifyListeners();
-
     try {
-      final uri = Uri.parse(url);
-      final resp = await http.get(uri);
-      if (resp.statusCode != 200) {
-        throw Exception('HTTP ${resp.statusCode}: 无法加载 $url');
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}: 无法加载 $url');
       }
-      await loadOrbBytes(resp.bodyBytes, defaultTitle: defaultTitle);
-    } catch (e) {
+      await loadOrbBytes(response.bodyBytes, defaultTitle: defaultTitle);
+    } catch (error) {
       _loading = false;
       _ready = false;
-      _error = e.toString();
+      _error = error.toString();
       notifyListeners();
       rethrow;
     }
   }
 
   Future<void> loadFile(File file, {String? defaultTitle}) async {
-    final bytes = await file.readAsBytes();
-    await loadOrbBytes(bytes, defaultTitle: defaultTitle ?? file.uri.pathSegments.last);
+    await loadOrbBytes(
+      await file.readAsBytes(),
+      defaultTitle: defaultTitle ?? file.uri.pathSegments.last,
+    );
   }
 }

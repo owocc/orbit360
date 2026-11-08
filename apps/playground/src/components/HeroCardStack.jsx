@@ -19,11 +19,11 @@ export function HeroCardStack() {
   }, []);
 
   const cards = [
-    { id: "c1", materialId: "maid", aspect: "3/4", speed: 10 },
-    { id: "c2", materialId: "orbit", aspect: "3/4", speed: 14 },
-    { id: "c3", materialId: "maid", aspect: "3/4", speed: -8 },
-    { id: "c4", materialId: "orbit", aspect: "3/4", speed: 12 },
-    { id: "c5", materialId: "maid", aspect: "3/4", speed: -15 },
+    { id: "c1", materialId: "maid", aspect: "3/4" },
+    { id: "c2", materialId: "orbit", aspect: "3/4" },
+    { id: "c3", materialId: "maid", aspect: "3/4" },
+    { id: "c4", materialId: "orbit", aspect: "3/4" },
+    { id: "c5", materialId: "maid", aspect: "3/4" },
   ];
 
   // 轮播切换下一张 / 上一张
@@ -141,7 +141,6 @@ export function HeroCardStack() {
                     ref={(el) => (cardRefs.current[card.id] = el)}
                     materialId={card.materialId}
                     aspectRatio={card.aspect}
-                    speed={card.speed}
                     autoSpin={offset === 0}
                     className="w-full h-full !shadow-none"
                     onClick={() => {

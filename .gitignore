@@ -30,6 +30,7 @@ npm-debug.log*
 # 构建产物
 /dist/
 apps/playground/dist/
+/sdk/core/dist/
 .wrangler/
 **/.wrangler/
 .tanstack/

@@ -401,7 +401,6 @@ export default function GalleryPage() {
                       .join(" · ")}
                     badge={m.gallery_uploaded_badge()}
                     aspectRatio={uploadAspect(item)}
-                    speed={12}
                     onFocusRequest={(cardHandle) =>
                       openFocus(
                         item.id,
@@ -464,7 +463,6 @@ export default function GalleryPage() {
                       poster={draft.coverUrl}
                       aspectRatio={draft.aspectRatio}
                       autoSpin
-                      speed={12}
                       className="w-full"
                     />
                     <div className="mt-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 space-y-2 text-[11px] font-mono text-neutral-600 dark:text-neutral-400">
@@ -570,7 +568,6 @@ export default function GalleryPage() {
               <div className="w-full max-w-[560px] rounded-3xl bg-white dark:bg-neutral-900 p-6 shadow-2xl">
                 <UploadDropzone
                   instant
-                  speed={100}
                   extensions={["orb"]}
                   maxBytes={MAX_ORB_BYTES}
                   style={{ width: "100%", maxWidth: "100%" }}

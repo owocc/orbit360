@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "vp run build:sdk && vp run --filter @orbit360/playground dev",
     "build": "vp run build:sdk && vp run --filter @orbit360/playground build",
-    "build:sdk": "vp run --filter @orbit360/javascript build && vp run --filter @orbit360/expo-render build && vp run --filter @orbit360/wechat-miniprogram build && vp run --filter @orbit360/douyin-miniprogram build",
+    "build:sdk": "vp run --filter @orbit360/core build && vp run --filter @orbit360/javascript build && vp run --filter @orbit360/expo-render build && vp run --filter @orbit360/wechat-miniprogram build && vp run --filter @orbit360/douyin-miniprogram build",
     "preview": "vp run --filter @orbit360/playground preview",
     "check": "vp run --filter @orbit360/playground i18n:compile && vp check",
-    "test": "vp run --filter @orbit360/javascript test",
-    "prepare": "vp config"
+    "test": "vp test",
+    "prepare": "vp config",
+    "test:go": "cd sdk/go && go test ./...",
+    "test:flutter": "cd sdk/flutter && flutter test"
   },
   "devDependencies": {
     "vite-plus": "catalog:"

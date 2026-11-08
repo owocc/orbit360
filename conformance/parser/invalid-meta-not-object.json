@@ -1,0 +1,9 @@
+{
+  "name": "invalid-meta-not-object",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/meta-not-object.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_META"
+  }
+}

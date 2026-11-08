@@ -129,7 +129,6 @@ export function HeroSection() {
                 title="首屏实时模型: 沙发少女"
                 aspectRatio="16/10"
                 autoSpin={true}
-                speed={14}
                 className="w-full min-h-[340px] sm:min-h-[420px]"
               />
               <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-neutral-500 px-2">

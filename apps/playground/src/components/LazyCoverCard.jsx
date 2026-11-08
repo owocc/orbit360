@@ -2,6 +2,7 @@ import React, { useState, useRef, useImperativeHandle, forwardRef } from "react"
 import { Pure3DCard } from "./Pure3DCard";
 import { resolveMaterial } from "../lib/materials";
 import { beginPress, isSingleClick } from "../lib/card-interaction.js";
+import { AUTO_SPIN_DEG_PER_SEC } from "../lib/rotation";
 
 export const LazyCoverCard = forwardRef(function LazyCoverCard(
   {
@@ -12,7 +13,7 @@ export const LazyCoverCard = forwardRef(function LazyCoverCard(
     subtitle,
     badge,
     aspectRatio = "3/4",
-    speed = 12,
+    speed = AUTO_SPIN_DEG_PER_SEC,
     className = "",
     style = {},
     onFocusRequest,

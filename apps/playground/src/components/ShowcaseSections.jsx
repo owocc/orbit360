@@ -86,7 +86,6 @@ export function ShowcaseSections() {
               materialId="maid"
               aspectRatio="4/5"
               autoSpin={false}
-              speed={0}
               onAngleChange={handleCardAngleChange}
               className="w-full h-full shadow-[0_20px_50px_rgba(0,0,0,0.18)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.6)]"
             />

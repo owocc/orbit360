@@ -1,0 +1,9 @@
+{
+  "name": "invalid-total-frames",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/total-frames.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_FRAME_COUNT_MISMATCH"
+  }
+}

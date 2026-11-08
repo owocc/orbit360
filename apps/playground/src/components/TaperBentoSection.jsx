@@ -117,7 +117,6 @@ export function TaperBentoSection() {
                       aspectRatio="1/1"
                       accentColor={col.isDark ? "#ffffff" : "#000000"}
                       bgExpand="none"
-                      speed={14}
                       showControls={false}
                       className="w-full"
                     />

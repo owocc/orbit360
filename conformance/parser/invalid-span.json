@@ -1,0 +1,9 @@
+{
+  "name": "invalid-span",
+  "kind": "parser",
+  "file": "fixtures/orb/invalid/span.orb",
+  "expect": {
+    "success": false,
+    "errorCode": "ORB_INVALID_SPAN"
+  }
+}

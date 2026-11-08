@@ -173,7 +173,6 @@ export const TicketStub = forwardRef(function TicketStub(
                     materialId={materialId}
                     aspectRatio="16/9.5"
                     autoSpin={true}
-                    speed={15}
                     className="w-full h-full rounded-none"
                   />
                 </div>
@@ -292,7 +291,6 @@ export const TicketStub = forwardRef(function TicketStub(
                     materialId={materialId}
                     aspectRatio="16/9.5"
                     autoSpin={true}
-                    speed={15}
                     className="w-full h-full rounded-none"
                   />
                 </div>

@@ -1,109 +1,83 @@
 # SDK
 
-ORB3（`.orb`）的解析器与浏览器渲染层在同一个包里：
+ORB3/v1 的统一解析器、确定性 `OrbitEngine` 和各平台渲染适配器。
 
+```text
+spec/ + fixtures/ + conformance/   ← 唯一事实来源
+        ↓
+sdk/core/        TypeScript 解析器 + 引擎 + 布局（Web / 小程序 / Expo 共用）
+sdk/js/          @orbit360/javascript（浏览器 + Node）
+sdk/wechat-miniprogram/  微信小程序 Canvas 2D
+sdk/douyin-miniprogram/  抖音小程序 Canvas 2D
+sdk/expo/        Expo / React Native
+sdk/flutter/     Flutter（Dart 独立实现）
+sdk/go/          Go（独立实现）
 ```
+
+## 目录
+
+```text
 sdk/
+  core/                        @orbit360/core（workspace，私有）
+    src/orb.ts                 ORB3/v1 解析与全部校验
+    src/engine.ts              纯状态机，调用方传入 dtMs
+    src/layout.ts              contain / cover / portraitScale / displayScale
+    src/errors.ts              稳定错误码
+    test/suite.ts              共享 conformance runner
   js/
-    package.json      npm 包 @orbit360/javascript
-    src/orb.ts        ORB3 解析器（TypeScript，零依赖）
-    src/client.ts     Canvas 渲染核心（TypeScript，不含 UI）
-    src/index.ts      解析器入口
-    src/web-client.ts web client 入口
-    vite.config.ts    Vite+ pack 配置（ESM / CJS / IIFE + dts）
-    dist/             构建产物
-    README.md         包说明与完整 API
-  wechat-miniprogram/
-    package.json      npm 包 @orbit360/wechat-miniprogram
-    src/orb.ts        小程序版解析器（ArrayBuffer / base64）
-    src/client.ts     微信小程序 Canvas 2D 渲染核心
-    src/index.ts      入口
-    vite.config.ts    ESM / CJS / 单文件 CJS
-    dist/             构建产物
-    README.md         小程序 API 与平台差异
+    src/index.ts               解析器 + engine + layout 入口
+    src/web-client.ts          Canvas 2D 适配器
+  miniprogram/                 微信 / 抖音共用的 Canvas 2D 客户端
+  wechat-miniprogram/          wx 平台适配器
+  douyin-miniprogram/          tt 平台适配器
+  expo/                        React Native 适配器
+  flutter/                     Dart 解析器、引擎、布局、CustomPainter
+  go/                          Go 解析器、引擎、布局
 ```
 
-## 安装
+## 使用
 
 ```bash
-npm install @orbit360/javascript
+vp install
+vp run build:sdk
+vp test                 # Web / WeChat / Douyin / Expo 的 TypeScript conformance
+vp run test:go          # Go conformance
+vp run test:flutter     # Flutter conformance
 ```
 
-解析 `.orb`：
-
-```js
-const OrbBundle = require("@orbit360/javascript");
-const orb = await OrbBundle.fromBlob(file);
-```
-
-渲染（不包含 UI，所有控制项通过 API）：
+Web:
 
 ```js
 import { Orbit360Client } from "@orbit360/javascript/web-client";
-
 const client = new Orbit360Client(canvas, { container: stage, input: stage });
 await client.load("assets/maid/scene.orb");
 client.setAutoRotate("cw");
-client.setFit("cover");
-console.log(client.getAngle(), client.getState());
 ```
 
-浏览器全局版（IIFE 暴露 `window.Orbit360`）：
+小程序使用 `createClient({ selector, component, config })`，触摸事件由页面转发给
+`touchStart / touchMove / touchEnd`；陀螺仪由 `wx` / `tt` 的 device motion API 驱动。
+API 与平台差异见各包 README。
 
-```html
-<script src="sdk/js/dist/orbit360-client.js"></script>
-<script>
-  const client = new Orbit360.Client(canvas, { container: stage, input: stage });
-</script>
-```
+## 规范
 
-## 微信小程序
+- 格式：`spec/orb3-format.md`
+- 校验与错误码：`spec/orb3-validation.md`、`spec/errors.md`
+- 引擎语义：`spec/orbit-api.md`
+- 快照与布局：`spec/render-snapshot.md`
+- 版本策略：`spec/compatibility.md`
 
-安装 `@orbit360/wechat-miniprogram`，或者直接把 `dist/orbit360-miniprogram.js` 复制进小程序。
+所有平台只接受 Header `0x00010002`、`meta.version = 1.2`。ZIP、旧版 Meta / Index、
+自动格式探测和失败 fallback 都不是支持范围。
 
-```js
-const { createClient } = require("./sdk/orbit360.js");
+## 新增平台
 
-const client = await createClient({
-  selector: "#orbit-canvas",
-  component: this, // 组件内需要；页面可省略
-  config: { auto: { enabled: true, dir: "cw" } },
-});
-
-await client.load("/assets/maid/scene.orb");
-client.setAutoRotate("cw");
-client.setFit("cover");
-```
-
-小程序没有 DOM，触摸事件需要在 WXML 上绑定后调用 `client.touchStart / touchMove / touchEnd`；
-陀螺仪使用 `wx.startDeviceMotionListening`。完整示例见
-[`examples/wechat-miniprogram/`](../examples/wechat-miniprogram/)，API 与平台差异见
-[wechat-miniprogram/README.md](wechat-miniprogram/README.md)。
-
-完整 API、配置和事件见 [js/README.md](js/README.md)，文件格式见仓库根 README。
+1. 实现 `parse(bytes)`、`frameEntry(videoIndex, frameIndex)`、`frameBytes(videoIndex, frameIndex)`。
+2. 实现与 `spec/orbit-api.md` 完全一致的 `advance(dtMs)` 与事件操作。
+3. 从 `fixtures/` 和 `conformance/` 读取用例，不得维护私有 expected values。
+4. 在 CI 中执行 parser / engine / layout / lifecycle 四组 conformance。
 
 ## 发布
 
 包在根 `pnpm-workspace.yaml` 的 workspace 里，依赖与安装由 `vp` 管理，发布由
-`.github/workflows/npm-publish.yml` 负责：
-
-- PR / 手动运行：安装依赖、构建 SDK 与页面、校验包、`vp pm pack --dry-run`
-- GitHub Release：执行
-  `vp pm publish`（在 `sdk/js` 下）
-
-发布前在仓库 `Settings → Secrets and variables → Actions` 添加 `NPM_TOKEN`，
-并按需更新 `sdk/js/package.json` 的 `version`（npm 不允许覆盖已发布版本）。
-
-## 新增其他语言
-
-建议每个语言一个目录（如 `sdk/go/`、`sdk/rust/`、`sdk/python/`），至少提供：
-
-1. 读取 32B Header，并校验 magic / version（1.0 裸整数 1、1.1 = `0x00010001`、1.2 = `0x00010002`）/ prefixLen / indexLen；
-2. 解析 Meta JSON 与 16B 索引项（`<IIQ>`）；
-3. 按 `offset/length` 取帧，支持只读文件前缀（HTTP Range）；
-4. 校验 `videos[].frames.indexStart`、`totalFrames` 与索引连续性；
-5. 校验 `orbit.axis` 为 `x` / `y`（缺省 `x`），且每条视频与场景一致（一个场景只用一个轴）；
-6. 校验 `orbit.minAngle` / `maxAngle` 在 `-180..180` 且 `min < max`（缺省 `-180 / 180`），
-   角度语义为向右为正、向左为负，每条视频的限制与场景一致。
-
-解析逻辑应以 `sdk/js/src/orb.ts` 为参考，但不要依赖浏览器 API；核心校验规则保持一致。
+`.github/workflows/npm-publish.yml` 负责。发布前在仓库 Secrets 添加 `NPM_TOKEN`，
+并更新对应包的 `version`。
