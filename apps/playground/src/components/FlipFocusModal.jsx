@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { useFullscreen } from "../hooks/useFullscreen";
+import { beginPress, isSingleClick } from "../lib/card-interaction.js";
 import * as m from "../paraglide/messages.js";
 
 const FlipFocusContext = createContext(null);
@@ -40,6 +41,7 @@ export function FlipFocusProvider({ children }) {
   const [activeItem, setActiveItem] = useState(null);
   const [gyroState, setGyroState] = useState(null);
   const [autoState, setAutoState] = useState(null);
+  const [uiHidden, setUiHidden] = useState(false);
   const activeCardElRef = useRef(null);
   const stageElRef = useRef(null);
   const placeholderElRef = useRef(null);
@@ -109,6 +111,7 @@ export function FlipFocusProvider({ children }) {
     if (isAnimatingRef.current || activeCardElRef.current || !cardElement) return;
     isAnimatingRef.current = true;
     isClosingRef.current = false;
+    setUiHidden(false);
     activeCardElRef.current = cardElement;
 
     // 1. 获取卡片当前在视口中的绝对几何信息
@@ -203,6 +206,36 @@ export function FlipFocusProvider({ children }) {
     });
   };
 
+  useEffect(() => {
+    if (!activeItem || !uiHidden) return undefined;
+    const stage = stageElRef.current;
+    if (!stage) return undefined;
+
+    let press = null;
+    const onPointerDown = (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      press = beginPress(event);
+    };
+    const onPointerUp = (event) => {
+      const current = press;
+      press = null;
+      // 只有轻点才恢复 UI；拖动/长按沿用现有判定，不触发。
+      if (isSingleClick(current, event)) setUiHidden(false);
+    };
+    const onPointerCancel = () => {
+      press = null;
+    };
+
+    stage.addEventListener("pointerdown", onPointerDown, true);
+    stage.addEventListener("pointerup", onPointerUp, true);
+    stage.addEventListener("pointercancel", onPointerCancel, true);
+    return () => {
+      stage.removeEventListener("pointerdown", onPointerDown, true);
+      stage.removeEventListener("pointerup", onPointerUp, true);
+      stage.removeEventListener("pointercancel", onPointerCancel, true);
+    };
+  }, [activeItem, uiHidden]);
+
   const closeFocus = (e) => {
     if (e) {
       e.preventDefault();
@@ -264,6 +297,7 @@ export function FlipFocusProvider({ children }) {
         focusedRectRef.current = null;
         setActiveItem(null);
         setGyroState(null);
+        setUiHidden(false);
         isAnimatingRef.current = false;
         isClosingRef.current = false;
 
@@ -293,7 +327,13 @@ export function FlipFocusProvider({ children }) {
         duration: 0.25,
         ease: "power2.out",
         onUpdate: resizeActive,
-        onComplete: resizeActive,
+        onComplete: () => {
+          // 100dvh 跟随移动端浏览器地址栏/状态栏收起后的真实视口，
+          // 配合 viewport-fit=cover 可铺满刘海/状态栏下方的安全区域。
+          stage.style.width = "100vw";
+          stage.style.height = "100dvh";
+          resizeActive();
+        },
       });
       return;
     }
@@ -325,14 +365,16 @@ export function FlipFocusProvider({ children }) {
     const onResize = () => {
       const stage = stageElRef.current;
       if (!stage) return;
-      gsap.set(stage, { width: window.innerWidth, height: window.innerHeight });
+      gsap.set(stage, { width: "100vw", height: "100dvh" });
       resizeActive();
     };
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
     };
   }, [fullscreen.active, resizeActive]);
 
@@ -346,6 +388,12 @@ export function FlipFocusProvider({ children }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   });
+
+  const handleHideUi = (e) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setUiHidden(true);
+  };
 
   const handleToggleAuto = (e) => {
     e?.preventDefault();
@@ -387,7 +435,7 @@ export function FlipFocusProvider({ children }) {
       {children}
 
       {/* 背景暗化遮罩 */}
-      {activeItem && (
+      {activeItem && !uiHidden && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9990] pointer-events-auto">
           <div
             onPointerDown={(e) => closeFocus(e)}
@@ -397,7 +445,7 @@ export function FlipFocusProvider({ children }) {
       )}
 
       {/* 卡片与控件处于同一全屏容器内，原生全屏时按钮仍然可见 */}
-      {activeItem && stage
+      {activeItem && stage && !uiHidden
         ? createPortal(
             <div className="absolute inset-0 z-50 pointer-events-none">
               <div
@@ -486,6 +534,29 @@ export function FlipFocusProvider({ children }) {
                     </svg>
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={handleHideUi}
+                  aria-label={m.gallery_hide_ui()}
+                  title={m.gallery_hide_ui()}
+                  className={toolbarIconButtonClass(false)}
+                >
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                    <line x1="2" y1="2" x2="22" y2="22" />
+                  </svg>
+                </button>
 
                 <button
                   type="button"

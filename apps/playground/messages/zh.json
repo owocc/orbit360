@@ -98,6 +98,7 @@
   "gallery_upload_now": "立即上传",
   "gallery_cancel": "取消",
   "gallery_close": "关闭",
+  "gallery_hide_ui": "隐藏界面",
   "gallery_meta": "场景信息",
   "gallery_cover": "首帧封面",
   "gallery_invalid_cover": "封面生成失败",
