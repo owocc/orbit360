@@ -39,6 +39,9 @@ const DEFAULTS = {
   },
   drag: {
     degPerPx: 0.42,
+    // 触摸屏的指针位移远小于鼠标（卡片宽度通常只有 160-260px），
+    // 同一 degPerPx 在手机上会明显偏慢；仅对非鼠标指针放大灵敏度。
+    touchScale: 2.5,
     invert: false,
     inertia: true,
     inertiaMs: 110,
@@ -1313,7 +1316,9 @@ export class Orbit360Client {
     const dy = e.clientY - this._lastPointerY;
     const dt = Math.max(e.timeStamp - this._lastPointerT, 1);
     const px = this._axis === "y" ? dy : dx;
-    const deg = px * (this._config.drag.degPerPx ?? 0.42) * (this._invert ? -1 : 1);
+    const touchScale =
+      e.pointerType && e.pointerType !== "mouse" ? (this._config.drag.touchScale ?? 2.5) : 1;
+    const deg = px * (this._config.drag.degPerPx ?? 0.42) * touchScale * (this._invert ? -1 : 1);
     this._target = this._normAngle(this._target + deg);
     if (this._gyro) this._gyroBase = this._normAngle(this._gyroBase + deg);
     const inst = dt > 90 ? 0 : deg / dt;

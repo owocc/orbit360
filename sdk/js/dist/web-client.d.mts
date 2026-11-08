@@ -18,6 +18,7 @@ declare const DEFAULTS: {
   };
   drag: {
     degPerPx: number;
+    touchScale: number;
     invert: boolean;
     inertia: boolean;
     inertiaMs: number;

@@ -36,15 +36,18 @@ export function HeroCardStack() {
   }, [cards.length]);
 
   // 移动端手势左右滑动切换
-  const touchStartRef = useRef({ x: 0, y: 0 });
+  const touchStartRef = useRef({ x: 0, y: 0, target: null });
   const handleTouchStart = (e) => {
     touchStartRef.current = {
       x: e.touches[0].clientX,
       y: e.touches[0].clientY,
+      target: e.target,
     };
   };
 
   const handleTouchEnd = (e) => {
+    // 中间卡片上的横向拖动用于旋转 3D 实体，不触发轮播切换；轮播可用两侧卡片/圆点。
+    if (touchStartRef.current.target?.closest?.("[data-hero-active]")) return;
     const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
     const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
     // 水平滑动距离大于 40px 且水平位移大于垂直位移，触发左右轮播切换
@@ -115,6 +118,8 @@ export function HeroCardStack() {
               return (
                 <div
                   key={card.id}
+                  data-hero-id={card.id}
+                  data-hero-active={offset === 0 ? "" : undefined}
                   style={{
                     transform: `translateX(${translateX}px) translateY(${translateY}px) rotate(${rotateDeg}deg) scale(${scale})`,
                     zIndex,

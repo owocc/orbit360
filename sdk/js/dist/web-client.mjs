@@ -301,6 +301,7 @@ const DEFAULTS = {
 	},
 	drag: {
 		degPerPx: .42,
+		touchScale: 2.5,
 		invert: false,
 		inertia: true,
 		inertiaMs: 110
@@ -1376,7 +1377,7 @@ var Orbit360Client = class {
 		this._emitState();
 	}
 	_handlePointerMove(e) {
-		var _this$_config$drag$de;
+		var _this$_config$drag$to, _this$_config$drag$de;
 		if (this._pressStart && Math.hypot(e.clientX - this._pressStart.x, e.clientY - this._pressStart.y) > 8) {
 			clearTimeout(this._pressTimer);
 			this._pressTimer = null;
@@ -1408,7 +1409,9 @@ var Orbit360Client = class {
 		const dx = e.clientX - this._lastPointerX;
 		const dy = e.clientY - this._lastPointerY;
 		const dt = Math.max(e.timeStamp - this._lastPointerT, 1);
-		const deg = (this._axis === "y" ? dy : dx) * ((_this$_config$drag$de = this._config.drag.degPerPx) !== null && _this$_config$drag$de !== void 0 ? _this$_config$drag$de : .42) * (this._invert ? -1 : 1);
+		const px = this._axis === "y" ? dy : dx;
+		const touchScale = e.pointerType && e.pointerType !== "mouse" ? (_this$_config$drag$to = this._config.drag.touchScale) !== null && _this$_config$drag$to !== void 0 ? _this$_config$drag$to : 2.5 : 1;
+		const deg = px * ((_this$_config$drag$de = this._config.drag.degPerPx) !== null && _this$_config$drag$de !== void 0 ? _this$_config$drag$de : .42) * touchScale * (this._invert ? -1 : 1);
 		this._target = this._normAngle(this._target + deg);
 		if (this._gyro) this._gyroBase = this._normAngle(this._gyroBase + deg);
 		const inst = dt > 90 ? 0 : deg / dt;

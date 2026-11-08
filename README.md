@@ -505,7 +505,8 @@ python3 scripts/bundle.py build assets/myid/scene.orb my-video.mp4 \
 | `orbit.direction`                   | `cw` / `ccw`，帧序列方向（`--orbit-dir`）                                   | `cw`           |
 | `orbit.minAngle` / `orbit.maxAngle` | 允许的最小/最大角度，`-180..180`，分别限制（`--min-angle` / `--max-angle`） | `-180` / `180` |
 | `videos[].frames.count`             | 帧数；每帧角度 = `orbit.spanDeg / count`                                    | 自动           |
-| `drag.degPerPx`                     | 拖拽灵敏度（度/像素）                                                       | `0.42`         |
+| `drag.degPerPx`                     | 拖拽灵敏度（度/像素，鼠标基准）                                             | `0.42`         |
+| `drag.touchScale`                   | 触摸/触控笔灵敏度倍率，解决移动端卡片行程短、旋转偏慢                       | `2.5`          |
 | `video.fit`                         | `contain` 自适应 / `cover` 铺满                                             | `contain`      |
 | `drag.inertia`                      | 松手是否继续滑行                                                            | `true`         |
 | `drag.inertiaMs`                    | 松手惯性时间常数                                                            | `110`          |

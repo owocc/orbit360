@@ -106,7 +106,7 @@ export function OrbitViewer({
   return (
     <div
       ref={containerRef}
-      className={`relative overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/90 select-none group ${className}`}
+      className={`relative overflow-hidden rounded-lg border border-neutral-800 bg-neutral-100 select-none touch-pan-y group ${className}`}
       style={{ aspectRatio }}
     >
       <canvas ref={canvasRef} className="h-full w-full block cursor-grab active:cursor-grabbing" />
