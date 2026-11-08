@@ -98,6 +98,7 @@
   "gallery_upload_now": "Upload now",
   "gallery_cancel": "Cancel",
   "gallery_close": "Close",
+  "gallery_hide_ui": "Hide UI",
   "gallery_meta": "Scene info",
   "gallery_cover": "First-frame cover",
   "gallery_invalid_cover": "Could not generate cover",
