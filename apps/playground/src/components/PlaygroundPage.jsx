@@ -366,7 +366,7 @@ export default function PlaygroundPage() {
         {/* 左侧画板区 */}
         <div className="lg:col-span-8 flex flex-col items-center w-full min-h-[500px] justify-center">
           <div
-            className={`w-full ${fullscreen.active ? "max-w-none w-screen h-screen" : currentRatioObj.maxW} flex items-center justify-center transition-all duration-300 ease-out`}
+            className={`w-full ${fullscreen.active ? "max-w-none w-screen h-dvh" : currentRatioObj.maxW} flex items-center justify-center transition-all duration-300 ease-out`}
           >
             <div
               ref={orbit.stageRef}

@@ -327,7 +327,13 @@ export function FlipFocusProvider({ children }) {
         duration: 0.25,
         ease: "power2.out",
         onUpdate: resizeActive,
-        onComplete: resizeActive,
+        onComplete: () => {
+          // 100dvh 跟随移动端浏览器地址栏/状态栏收起后的真实视口，
+          // 配合 viewport-fit=cover 可铺满刘海/状态栏下方的安全区域。
+          stage.style.width = "100vw";
+          stage.style.height = "100dvh";
+          resizeActive();
+        },
       });
       return;
     }
@@ -359,14 +365,16 @@ export function FlipFocusProvider({ children }) {
     const onResize = () => {
       const stage = stageElRef.current;
       if (!stage) return;
-      gsap.set(stage, { width: window.innerWidth, height: window.innerHeight });
+      gsap.set(stage, { width: "100vw", height: "100dvh" });
       resizeActive();
     };
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
     };
   }, [fullscreen.active, resizeActive]);
 

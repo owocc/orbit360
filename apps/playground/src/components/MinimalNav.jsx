@@ -8,7 +8,7 @@ export function MinimalNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <nav className="w-full pt-6 sm:pt-8 pb-4 px-4 sm:px-8 md:px-12 flex flex-col relative z-40">
+    <nav className="w-full pt-[max(1.5rem,env(safe-area-inset-top))] sm:pt-[max(2rem,env(safe-area-inset-top))] pb-4 px-4 sm:px-8 md:px-12 flex flex-col relative z-40">
       <div className="w-full flex items-center justify-between">
         {/* 品牌标识 */}
         <div className="flex items-center gap-3">
