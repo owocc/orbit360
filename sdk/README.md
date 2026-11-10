@@ -12,6 +12,7 @@ sdk/douyin-miniprogram/  抖音小程序 Canvas 2D
 sdk/expo/        Expo / React Native
 sdk/flutter/     Flutter（Dart 独立实现）
 sdk/go/          Go（独立实现）
+sdk/mygo/        MyGo 原生窗口渲染适配器（复用 sdk/go）
 ```
 
 ## 目录
@@ -33,6 +34,7 @@ sdk/
   expo/                        React Native 适配器
   flutter/                     Dart 解析器、引擎、布局、CustomPainter
   go/                          Go 解析器、引擎、布局
+  mygo/                        MyGo 原生窗口渲染（复用 sdk/go）
 ```
 
 ## 使用
@@ -42,8 +44,11 @@ vp install
 vp run build:sdk
 vp test                 # Web / WeChat / Douyin / Expo 的 TypeScript conformance
 vp run test:go          # Go conformance
+vp run test:mygo        # MyGo 适配层（回放 parser conformance）
 vp run test:flutter     # Flutter conformance
 ```
+
+MyGo 适配层直接回放 `conformance/parser`，引擎与布局复用 `sdk/go` 的 conformance。
 
 Web:
 
@@ -57,6 +62,23 @@ client.setAutoRotate("cw");
 小程序使用 `createClient({ selector, component, config })`，触摸事件由页面转发给
 `touchStart / touchMove / touchEnd`；陀螺仪由 `wx` / `tt` 的 device motion API 驱动。
 API 与平台差异见各包 README。
+
+MyGo 桌面：
+
+```go
+preview := orbit360.NewClient(orbit360.Options{Fit: orbit360.FitContain})
+if err := preview.LoadFile("assets/orbit/scene.orb"); err != nil {
+	log.Fatal(err)
+}
+defer preview.Close()
+
+ui.Column(c).Fill().Children(func() {
+	preview.View(c).Grow(1) // 拖拽 / 自动环绕 / 帧缓存
+})
+```
+
+`View` 每帧推进 `OrbitEngine` 并按 `RenderPlan` 绘制，不启动浏览器、不依赖 WebView。
+解码走 MyGo 的 WebP / JPEG / PNG，AVIF 不支持。详见 [mygo/README.md](mygo/README.md)。
 
 ## 规范
 

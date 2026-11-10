@@ -78,6 +78,10 @@ HEADER = struct.Struct("<4sIIIIIII")
 INDEX = struct.Struct("<IIQ")          # video, length, offset
 FORMAT = "orbit360.bundle"
 
+# 允许通过环境变量指定 ffmpeg / ffprobe；GUI 用它绕开 PATH 里损坏的 scoop shim。
+FFMPEG = os.environ.get("ORBIT360_FFMPEG") or "ffmpeg"
+FFPROBE = os.environ.get("ORBIT360_FFPROBE") or "ffprobe"
+
 CODECS = {
     "jpeg": ("image/jpeg", "jpg", "mjpeg"),
     "webp": ("image/webp", "webp", "libwebp"),
@@ -104,15 +108,17 @@ def wrap_signed(deg):
 
 
 def have(binary):
+    if os.path.isabs(binary):
+        return os.path.isfile(binary)
     return shutil.which(binary) is not None
 
 
 def probe(path):
     """用 ffprobe 读源视频的尺寸 / 帧率 / 时长 / 编码。"""
-    if not have("ffprobe"):
-        die("找不到 ffprobe，请先安装 ffmpeg")
+    if not have(FFPROBE):
+        die(f"找不到 ffprobe（{FFPROBE}），请先安装 ffmpeg，或设置 ORBIT360_FFPROBE")
     out = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_format", "-show_streams", "-of", "json", path],
+        [FFPROBE, "-v", "error", "-show_format", "-show_streams", "-of", "json", path],
         capture_output=True, text=True, check=True,
     ).stdout
     data = json.loads(out)
@@ -176,8 +182,14 @@ def _avif_crf(quality):
 
 def check_encoder(codec):
     encoder = CODECS[codec][2]
-    out = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"],
-                         capture_output=True, text=True)
+    if not have(FFMPEG):
+        die(f"找不到 ffmpeg（{FFMPEG}），请先安装 ffmpeg，或设置 ORBIT360_FFMPEG")
+    try:
+        out = subprocess.run([FFMPEG, "-hide_banner", "-encoders"],
+                             capture_output=True, text=True)
+    except OSError as e:
+        die(f"无法运行 ffmpeg（{FFMPEG}）：{e}；Windows 上 PATH 里的 scoop shim 可能是损坏的脚本，"
+            "请改用真实的 ffmpeg.exe，或设置 ORBIT360_FFMPEG")
     if encoder not in out.stdout:
         die(f"当前 ffmpeg 没有 {encoder} 编码器，换 --codec jpeg 或换带该编码器的 ffmpeg")
 
@@ -190,7 +202,7 @@ def extract_frames(src, out_dir, width, height, fps, count, codec, quality):
         if name.endswith("." + ext):
             os.remove(os.path.join(out_dir, name))
     vf = f"fps={fps},scale={width}:{height}:flags=lanczos"
-    cmd = ["ffmpeg", "-v", "error", "-y", "-i", src, "-an", "-vf", vf,
+    cmd = [FFMPEG, "-v", "error", "-y", "-i", src, "-an", "-vf", vf,
            "-f", "image2", "-start_number", "1", "-pix_fmt", "yuv420p"]
     if codec == "jpeg":
         cmd += ["-c:v", "mjpeg", "-q:v", str(_jpeg_q(quality))]

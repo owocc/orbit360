@@ -12,6 +12,7 @@
     "test": "vp test",
     "prepare": "vp config",
     "test:go": "cd sdk/go && go test ./...",
+    "test:mygo": "cd sdk/mygo && go test ./...",
     "test:flutter": "cd sdk/flutter && flutter test"
   },
   "devDependencies": {

@@ -24,6 +24,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	orbit360 "github.com/owocc/orbit360/sdk/mygo"
 )
 
 var (
@@ -74,7 +75,20 @@ type app struct {
 	logScroll ui.ScrollState
 
 	serveCmd *exec.Cmd
+
+	// 预览（MyGo 内嵌渲染，不需要浏览器）
+	tab         int // 0 = 生成，1 = 预览
+	preview     *orbit360.Client
+	previewPath string
+	previewErr  string
 }
+
+var (
+	previewAutoModes = []string{orbit360.AutoOff, orbit360.AutoCW, orbit360.AutoCCW}
+	previewAutoNames = []string{"关", "顺时针", "逆时针"}
+	previewFitModes  = []string{orbit360.FitContain, orbit360.FitCover}
+	previewFitNames  = []string{"自适应", "铺满"}
+)
 
 func main() {
 	shot := flag.String("shot", "", "将界面渲染为 PNG 后退出（不开窗口，用来检查布局）")
@@ -91,7 +105,7 @@ func main() {
 		a.appendLog("场景包: assets/gen/scene.orb  752x416  webp  120 帧  1.6 MB")
 		a.appendLog("  头部: 1252 B（Header 32 + Meta 1044 + Index 1920）")
 		a.appendLog("  v1: 120 帧 752x416 @12fps 放在 (0,0) 752x416  1.6 MB")
-		a.setStatus("完成，点「打开预览」看看", false)
+		a.setStatus("完成，已切到桌面预览", false)
 		a.lastOut, a.lastID = filepath.Join(a.root, "assets", "gen"), "gen"
 		img := ui.Render(a.view, 900, 760, 2)
 		f, err := os.Create(*shot)
@@ -121,6 +135,9 @@ func main() {
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
+	if a.preview != nil {
+		a.preview.Close()
+	}
 	a.saveSettings()
 }
 
@@ -131,6 +148,10 @@ func (a *app) view(c *ui.Context) {
 	ui.Column(c).Fill().Padding(16).Gap(10).Children(func() {
 		a.header(c, t)
 		ui.Divider(c)
+		if a.tab == 1 {
+			a.previewView(c, t)
+			return
+		}
 		ui.Form(c, func() {
 			a.sources(c, t)
 			a.params(c, t)
@@ -151,6 +172,7 @@ func (a *app) header(c *ui.Context, t *ui.Theme) {
 		if a.busy {
 			ui.Spinner(c)
 		}
+		ui.Segmented(c, &a.tab, "生成", "预览").Label("页面")
 	})
 }
 
@@ -263,7 +285,8 @@ func (a *app) actions(c *ui.Context, t *ui.Theme) {
 		} else {
 			ui.PrimaryButton(c, "开始生成").Disabled(a.validate() != nil).OnClick(a.startBuild)
 		}
-		ui.Button(c, "打开预览").Disabled(a.lastOut == "").OnClick(a.openPreview)
+		ui.Button(c, "桌面预览").Disabled(a.lastOut == "").OnClick(a.openPreview)
+		ui.Button(c, "浏览器").Disabled(a.lastOut == "").OnClick(a.openPreviewBrowser)
 		ui.Button(c, "打开输出目录").Disabled(a.lastOut == "").OnClick(func() {
 			mygo.Shell.OpenPath(a.lastOut)
 		})
@@ -284,7 +307,74 @@ func (a *app) actions(c *ui.Context, t *ui.Theme) {
 	}
 }
 
+// previewView 是内嵌的桌面预览页：MyGo 自己渲染 .orb，不启动浏览器。
+func (a *app) previewView(c *ui.Context, t *ui.Theme) {
+	ui.Column(c).Grow(1).Gap(10).Children(func() {
+		title, angle := "桌面预览", 0.0
+		if a.preview != nil {
+			if meta, ok := a.preview.Meta(); ok {
+				title = meta.Title
+				if title == "" {
+					title = "未命名场景"
+				}
+			}
+			angle = a.preview.Angle()
+		}
+		ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, title).FontSize(16).Bold()
+			ui.Text(c, fmt.Sprintf("%.0f°", angle)).FontSize(12).TextColor(t.TextMuted)
+			ui.Spacer(c).Grow(1)
+			if a.preview != nil {
+				auto := previewModeIndex(previewAutoModes, a.preview.Auto())
+				if ui.Segmented(c.Key("preview-auto"), &auto, previewAutoNames...).Label("自动环绕").Changed() {
+					a.preview.SetAuto(previewAutoModes[auto])
+				}
+				fit := previewModeIndex(previewFitModes, a.preview.Fit())
+				if ui.Segmented(c.Key("preview-fit"), &fit, previewFitNames...).Label("画面适应").Changed() {
+					a.preview.SetFit(previewFitModes[fit])
+				}
+				ui.Button(c, "重置").OnClick(a.preview.Reset)
+			}
+			ui.Button(c, "打开 .orb…").OnClick(a.pickOrb)
+		})
+
+		ui.Column(c).Grow(1).Clip().Radius(10).Border(1, t.Border).Children(func() {
+			if a.preview != nil {
+				a.preview.View(c).Grow(1)
+				return
+			}
+			ui.Column(c).Grow(1).Gap(10).Children(func() {
+				ui.Spacer(c).Grow(1)
+				ui.Text(c, "选择一个 .orb，或先在「生成」页生成场景包。").FontSize(13).TextColor(t.TextMuted)
+				if a.previewErr != "" {
+					ui.Text(c, a.previewErr).FontSize(12).TextColor(t.Danger)
+				}
+				ui.Row(c).Gap(8).Children(func() {
+					ui.PrimaryButton(c, "打开 .orb…").OnClick(a.pickOrb)
+					if a.lastOut != "" {
+						ui.Button(c, "预览上次产物").OnClick(a.openPreview)
+					}
+				})
+				ui.Spacer(c).Grow(1)
+			})
+		})
+
+		ui.Text(c, "左右拖拽转视角；自动环绕会先等空闲，再按场景的初始角度继续转。预览直接用 Go 解码帧，默认缓存 24 帧，超大包首次切帧会稍慢。").
+			FontSize(11).TextColor(t.TextMuted)
+	})
+}
+
+func previewModeIndex(modes []string, value string) int {
+	for index, mode := range modes {
+		if mode == value {
+			return index
+		}
+	}
+	return 0
+}
+
 func (a *app) logView(c *ui.Context, t *ui.Theme) {
+
 	ui.Column(c).Grow(1).Border(1, t.Border).Radius(8).Padding(10).Children(func() {
 		if len(a.logs) == 0 {
 			ui.Text(c, "构建日志会显示在这里。\n选好源视频和示例 id，点「开始生成」。").FontSize(12).TextColor(t.TextMuted)
@@ -310,7 +400,7 @@ func (a *app) logView(c *ui.Context, t *ui.Theme) {
 
 func (a *app) footer(c *ui.Context, t *ui.Theme) {
 	ui.Row(c).Gap(10).Children(func() {
-		ui.Text(c, "生成后用「打开预览」启动本地服务并在浏览器里看；手机陀螺仪需要 HTTPS（python3 scripts/serve_tls.py 8443）。").
+		ui.Text(c, "生成后会自动打开桌面预览：左右拖拽直接转视角，不需要浏览器；预览页也能打开任意 .orb。手机陀螺仪仍用 HTTPS 浏览器（python3 scripts/serve_tls.py 8443）。").
 			FontSize(11).TextColor(t.TextMuted).Grow(1)
 		if err := a.validate(); err != nil && !a.busy {
 			ui.Text(c, err.Error()).FontSize(11).TextColor(t.TextMuted)
@@ -365,8 +455,11 @@ func (a *app) validate() error {
 	if a.ffmpeg == "" || !fileExists(a.ffmpeg) {
 		return errors.New("找不到 ffmpeg")
 	}
-	if !fileExists(ffprobeFor(a.ffmpeg)) {
-		return errors.New("缺少 ffprobe（scripts/bundle.py 读源信息要用）")
+	if !executableOK(a.ffmpeg) {
+		return errors.New("ffmpeg 不是可执行文件（Windows 上常见于 scoop shim 被脚本覆盖）：重新装 ffmpeg，或选择 scoop 的 apps\\ffmpeg\\current\\bin\\ffmpeg.exe")
+	}
+	if !executableOK(ffprobeFor(a.ffmpeg)) {
+		return errors.New("缺少可用的 ffprobe（scripts/bundle.py 读源信息要用）")
 	}
 	return nil
 }
@@ -377,8 +470,10 @@ func (a *app) envHint() string {
 		return "没找到 python3：装一个 Python 3，或手动指定解释器路径。"
 	case a.ffmpeg == "" || !fileExists(a.ffmpeg):
 		return "没找到 ffmpeg：点「下载」自动装一份，或用系统包管理器 / Homebrew 装好再点「检测」。"
-	case !fileExists(ffprobeFor(a.ffmpeg)):
-		return "缺少 ffprobe（要和 ffmpeg 放在同一目录）：点「下载」会把两个一起装好。"
+	case !executableOK(a.ffmpeg):
+		return "这个 ffmpeg 不是可执行文件（PowerShell 脚本 / scoop shim 被覆盖会报 WinError 216）：点「检测」自动找真实路径，或选择 apps\\ffmpeg\\current\\bin\\ffmpeg.exe。"
+	case !executableOK(ffprobeFor(a.ffmpeg)):
+		return "缺少可用的 ffprobe（要和 ffmpeg 放在同一目录）：点「下载」会把两个一起装好。"
 	}
 	return ""
 }
@@ -440,7 +535,10 @@ func (a *app) pickFFmpeg() {
 		if err != nil || len(paths) == 0 {
 			return
 		}
-		a.win.Update(func() { a.ffmpeg = paths[0] })
+		a.win.Update(func() {
+			a.ffmpeg = paths[0]
+			a.detectEnvSync()
+		})
 	}()
 }
 
@@ -507,6 +605,7 @@ func (a *app) outPath() string {
 }
 
 func (a *app) startBuild() {
+	a.detectEnvSync()
 	if err := a.validate(); err != nil {
 		a.setStatus(err.Error(), true)
 		return
@@ -518,7 +617,10 @@ func (a *app) startBuild() {
 
 	cmd := exec.Command(a.python, args...)
 	cmd.Dir = a.root
-	cmd.Env = withPath(os.Environ(), filepath.Dir(a.ffmpeg))
+	cmd.Env = append(withPath(os.Environ(), filepath.Dir(a.ffmpeg)),
+		"ORBIT360_FFMPEG="+a.ffmpeg,
+		"ORBIT360_FFPROBE="+ffprobeFor(a.ffmpeg),
+	)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -580,7 +682,10 @@ func (a *app) startBuild() {
 			}
 			a.lastOut = filepath.Dir(out)
 			a.appendLog("完成：" + out)
-			a.setStatus("完成，点「打开预览」看看", false)
+			a.openPreviewFile(out)
+			if a.previewErr == "" {
+				a.setStatus("完成，已切到桌面预览", false)
+			}
 		})
 	}()
 }
@@ -607,6 +712,57 @@ func (a *app) openPreview() {
 	if a.lastOut == "" {
 		return
 	}
+	a.openPreviewFile(filepath.Join(a.lastOut, "scene.orb"))
+}
+
+// openPreviewFile 在内嵌预览页打开 .orb，直接切到「预览」。
+func (a *app) openPreviewFile(path string) {
+	if path == "" {
+		return
+	}
+	if a.preview != nil && a.previewPath == path {
+		a.tab = 1
+		return
+	}
+	client := orbit360.NewClient()
+	if err := client.LoadFile(path); err != nil {
+		if a.preview != nil {
+			a.preview.Close()
+			a.preview = nil
+		}
+		a.previewErr = err.Error()
+		a.tab = 1
+		a.setStatus("预览失败："+err.Error(), true)
+		return
+	}
+	if a.preview != nil {
+		a.preview.Close()
+	}
+	a.preview = client
+	a.previewPath = path
+	a.previewErr = ""
+	a.tab = 1
+	a.setStatus("桌面预览："+filepath.Base(path), false)
+}
+
+func (a *app) pickOrb() {
+	go func() {
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
+			Parent: a.win,
+			Title:  "打开 .orb 场景包预览",
+			Filters: []mygo.FileFilter{{
+				Name:       "Orbit360 场景包",
+				Extensions: []string{"orb"},
+			}},
+		})
+		if err != nil || len(paths) == 0 {
+			return
+		}
+		a.win.Update(func() { a.openPreviewFile(paths[0]) })
+	}()
+}
+
+func (a *app) openPreviewBrowser() {
 	a.ensureServe()
 	url := fmt.Sprintf("http://127.0.0.1:%s/?e=%s", previewPort, a.lastID)
 	if err := mygo.Shell.OpenExternal(url); err != nil {

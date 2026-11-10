@@ -78,6 +78,7 @@ apps/playground/       Vite + React 示例页面（独立 workspace）
     lib/              catalog 选择、localStorage、角度格式化
     styles/           base / header / panel / overlays
 sdk/js/               @orbit360/javascript（解析器 + Canvas 渲染，IIFE 仍为 window.Orbit360）
+sdk/mygo/             Go + MyGo 原生窗口渲染（复用 sdk/go）
 scripts/bundle.py     视频 → .orb
 apps/playground/dist/   vp run build 产物目录
 ```
@@ -85,7 +86,8 @@ apps/playground/dist/   vp run build 产物目录
 ## GUI（原生窗口）
 
 不想敲命令行就用 `apps/gui/`：一个 [MyGo](https://github.com/egoist/mygo) 的原生窗口，
-Go 自己画界面，没有 webview、没有前端构建；里面只是给 `scripts/bundle.py` 套了一层表单。
+Go 自己画界面，没有 webview、没有前端构建；生成流程给 `scripts/bundle.py` 套了一层表单，
+预览则由 `sdk/mygo/` 在窗口里直接渲染 `.orb`。
 
 ```bash
 cd apps/gui
@@ -99,6 +101,11 @@ go tool mygo build    # 打包成 Orbit360.app / .exe / .deb
 [evermeet.cx](https://evermeet.cx/ffmpeg/) 取 ffmpeg + ffprobe 静态构建，Windows 取
 gyan.dev 的 essentials 包，解到配置目录的 `bin/`）；Linux 走包管理器，窗口只给提示。
 
+Windows 上如果 `PATH` 里的 scoop shim 被脚本覆盖，启动 `ffmpeg` 会报
+`WinError 216`。窗口会自动读取 scoop 的 `.shim` 找到真实可执行文件；也可以手动选择
+`...\scoop\apps\ffmpeg\current\bin\ffmpeg.exe`。`scripts/bundle.py` 也支持
+`ORBIT360_FFMPEG` / `ORBIT360_FFPROBE` 环境变量，GUI 会自动设置。
+
 | 位置                       | 作用                                                                                          |
 | -------------------------- | --------------------------------------------------------------------------------------------- |
 | 源视频                     | `选择…` 后自动用 ffprobe 读尺寸，并把「每帧长边」收窄到源的长边（上限 1280）                  |
@@ -110,7 +117,8 @@ gyan.dev 的 essentials 包，解到配置目录的 `bin/`）；Linux 走包管�
 | 最小/最大角度              | `--min-angle` / `--max-angle`，`-180..180`，分别限制；默认 `-180` / `180` 整圈                |
 | 更新 catalog               | `--catalog`，扫描 `assets/<id>/scene.orb` 重写清单                                            |
 | 开始生成                   | 起 `python3 scripts/bundle.py build assets/<id>/scene.orb …`，日志实时贴在下半屏，可中途停止  |
-| 打开预览                   | 先 `vp run build`，没在跑就起 `scripts/serve.py 8787`，再打开 `http://127.0.0.1:8787/?e=<id>` |
+| 桌面预览                   | 生成完成后自动切到「预览」页，用 Go 直接解码帧、在窗口里拖拽转动；不用浏览器       |
+| 浏览器                     | 需要手机陀螺仪时仍可起 `scripts/serve.py 8787`，打开 `http://127.0.0.1:8787/?e=<id>` |
 | 打开输出目录               | 在 Finder / 资源管理器里定位 `assets/<id>`                                                    |
 
 设置（上一次的视频、路径、参数）存在 `~/Library/Application Support/orbit360-gui/settings.json`
@@ -123,7 +131,8 @@ go run . -shot shot.png
 ```
 
 GUI 和命令行是同一个脚本的两个入口，参数一一对应，产物只有 `assets/<id>/scene.orb`；
-没有第二套 zip 产物链。生成后重新 `vp run build` 即可在页面里看到新示例。
+没有第二套 zip 产物链。生成后窗口会直接进入桌面预览；重新 `vp run build` 后网页里也能看到新示例。
+「预览」页的「打开 .orb…」可以预览任意场景包，不必先生成。
 
 ## 场景包（`.orb`，多视频）
 
@@ -360,6 +369,34 @@ onTouchEnd(e) {
 完整示例在 [`examples/wechat-miniprogram/`](examples/wechat-miniprogram/)，用微信开发者工具导入即可运行；
 API、加载方式和小程序平台差异见 [sdk/wechat-miniprogram/README.md](sdk/wechat-miniprogram/README.md)。
 
+### 桌面程序里怎么用（MyGo）
+
+`sdk/mygo/` 提供 `github.com/owocc/orbit360/sdk/mygo`：解析、引擎和布局复用
+[`sdk/go/`](sdk/go/)，帧用 MyGo 的 `ui.Bitmap` 解码，直接画进原生窗口（不需要浏览器 / WebView）。
+`apps/gui/` 的「预览」页就是这套：
+
+```go
+preview := orbit360.NewClient(orbit360.Options{Fit: orbit360.FitContain})
+if err := preview.LoadFile("assets/orbit/scene.orb"); err != nil {
+	log.Fatal(err)
+}
+defer preview.Close()
+
+// 放进任意 MyGo 布局
+ui.Column(c).Fill().Children(func() {
+	preview.View(c).Grow(1) // 拖拽转动 + 自动环绕 + 帧缓存
+})
+```
+
+```bash
+cd sdk/go && go test ./...
+cd sdk/mygo && go test ./...
+cd apps/gui && go run .    # 生成完成后自动切到桌面预览
+```
+
+支持 WebP / JPEG / PNG（AVIF 不支持，会提示改用 `--codec webp`），角度限制、`x`/`y` 轴、
+多视频 `rect` 叠放与 Web 客户端一致。完整 API 见 [sdk/mygo/README.md](sdk/mygo/README.md)。
+
 修改 SDK（`sdk/js/src/client.ts`）或页面（`apps/playground/src/`）后重新构建：
 
 ```bash
@@ -561,6 +598,7 @@ sdk/                   多语言 SDK
   expo/                Expo / React Native 适配器
   flutter/             Flutter / Dart 独立解析器与引擎
   go/                  Go 独立解析器与引擎
+  mygo/                MyGo 原生窗口渲染适配器（复用 sdk/go）
 examples/
   wechat-miniprogram/ 可直接导入微信开发者工具的完整示例
   expo/               Expo / React Native 示例
@@ -568,7 +606,7 @@ examples/
 apps/
   playground/       Vite + React 示例页面
   gui/              原生窗口 GUI（MyGo native UI，Go + scripts/bundle.py）
-    main.go           界面与构建流程
+    main.go           界面、构建流程与内嵌预览
     env.go            路径检测、ffmpeg 下载、设置持久化
 scripts/
   bundle.py         视频 → 单文件 .orb（唯一资产构建脚本，GUI 也调它）
@@ -585,11 +623,12 @@ scripts/
 
 ORB3/v1 的格式、校验、错误码、引擎语义和快照结构写在 `spec/`；`fixtures/` 和
 `conformance/` 是所有平台共用的测试集。Web TypeScript、Flutter、Go、微信和抖音
-分别实现，但对同一输入必须得到相同结果。
+分别实现，但对同一输入必须得到相同结果；MyGo 桌面适配器复用 Go 实现。
 
 ```bash
 vp test                 # TypeScript: core / js / wechat / douyin / expo
 vp run test:go          # Go
+vp run test:mygo        # MyGo 桌面适配层
 vp run test:flutter     # Flutter
 ```
 
