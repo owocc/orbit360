@@ -168,15 +168,17 @@ func detectPython(root, current string) string {
 }
 
 func detectFFmpeg(current string) string {
-	if fileExists(current) {
-		return current
+	if bin := resolveExecutable(current); bin != "" {
+		return bin
 	}
 	name := "ffmpeg"
 	if runtime.GOOS == "windows" {
 		name = "ffmpeg.exe"
 	}
 	if p, err := exec.LookPath(name); err == nil {
-		return p
+		if bin := resolveExecutable(p); bin != "" {
+			return bin
+		}
 	}
 	candidates := []string{
 		filepath.Join(configDir(), "bin", name),
@@ -185,13 +187,88 @@ func detectFFmpeg(current string) string {
 		"/usr/bin/" + name,
 		"/snap/bin/" + name,
 	}
+	if runtime.GOOS == "windows" {
+		// 用户 PATH 里的 scoop shim 可能被脚本覆盖（WinError 216），
+		// 直接找 scoop 实际安装目录兜底。
+		home, _ := os.UserHomeDir()
+		candidates = append([]string{
+			filepath.Join(home, "scoop", "apps", "ffmpeg", "current", "bin", name),
+			filepath.Join(os.Getenv("ProgramFiles"), "ffmpeg", "bin", name),
+		}, candidates...)
+	}
 	for _, p := range candidates {
-		if fileExists(p) {
-			return p
+		if bin := resolveExecutable(p); bin != "" {
+			return bin
 		}
 	}
 	return ""
 }
+
+// resolveExecutable 解析 scoop 的 .shim 包装，并确认它是当前系统能运行的二进制。
+// Windows 上只认 PE（MZ）；被 python/shebang 脚本覆盖的 scoop shim 会让
+// CreateProcess 报 WinError 216，这里会改用它 .shim 文件里指向的真实程序。
+func resolveExecutable(path string) string {
+	path = strings.Trim(strings.TrimSpace(path), `"`)
+	if path == "" {
+		return ""
+	}
+	if !isRunnableExecutable(path) {
+		if target := scoopShimTarget(path); target != "" && isRunnableExecutable(target) {
+			return target
+		}
+		return ""
+	}
+	return path
+}
+
+// scoopShimTarget 读取 scoop 的 <name>.shim：path = "C:\\...\\real.exe"。
+func scoopShimTarget(path string) string {
+	base := strings.TrimSuffix(path, filepath.Ext(path))
+	data, err := os.ReadFile(base + ".shim")
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		lower := strings.ToLower(line)
+		if !strings.HasPrefix(lower, "path") {
+			continue
+		}
+		rest := strings.TrimSpace(line[len("path"):])
+		if !strings.HasPrefix(rest, "=") {
+			continue
+		}
+		target := strings.Trim(strings.TrimSpace(rest[1:]), `"'`)
+		if fileExists(target) {
+			return target
+		}
+	}
+	return ""
+}
+
+// isRunnableExecutable 判断能否直接 CreateProcess。Windows 检查 PE 头（MZ），
+// 其他平台检查可执行位。
+func isRunnableExecutable(path string) bool {
+	st, err := os.Stat(path)
+	if err != nil || st.IsDir() {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		f, err := os.Open(path)
+		if err != nil {
+			return false
+		}
+		defer f.Close()
+		var head [2]byte
+		if _, err := io.ReadFull(f, head[:]); err != nil {
+			return false
+		}
+		return head[0] == 'M' && head[1] == 'Z'
+	}
+	return st.Mode().Perm()&0o111 != 0
+}
+
+func executableOK(path string) bool { return resolveExecutable(path) != "" }
 
 // ffprobeFor 从 ffmpeg 的路径推出同目录的 ffprobe（scripts/bundle.py 两个都要）。
 func ffprobeFor(ffmpeg string) string {
@@ -477,9 +554,9 @@ func parseProbe(data []byte) (probeInfo, bool) {
 // probeAsync 用 ffprobe 读源视频尺寸，并把每帧长边收窄到源的长边（除非用户自己改过）。
 func (a *app) probeAsync(path string) {
 	ffprobe := ffprobeFor(a.ffmpeg)
-	if !fileExists(ffprobe) {
+	if !executableOK(ffprobe) {
 		if p, err := exec.LookPath("ffprobe"); err == nil {
-			ffprobe = p
+			ffprobe = resolveExecutable(p)
 		}
 	}
 	if ffprobe == "" || path == "" {
@@ -541,8 +618,13 @@ func withPath(env []string, dir string) []string {
 	out := make([]string, 0, len(env)+1)
 	found := false
 	for _, kv := range env {
-		if strings.HasPrefix(kv, key) {
-			out = append(out, key+dir+sep+strings.TrimPrefix(kv, key))
+		isPath := strings.HasPrefix(kv, key)
+		if !isPath && runtime.GOOS == "windows" && len(kv) >= len(key) {
+			// Windows 环境变量名大小写不敏感，常见的是 "Path="。
+			isPath = strings.EqualFold(kv[:len(key)], key)
+		}
+		if isPath {
+			out = append(out, key+dir+sep+kv[len(key):])
 			found = true
 			continue
 		}
